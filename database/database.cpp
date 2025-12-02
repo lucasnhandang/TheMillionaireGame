@@ -207,6 +207,23 @@ bool Database::changePassword(const string& username, const string& old_password
     return true;
 }
 
+bool Database::updateLastLogin(const string& username) {
+    if (!isConnected()) return false;
+    
+    string query = "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = " + escapeString(username);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        LOG_ERROR("Update last_login failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return false;
+    }
+    
+    PQclear(res);
+    return true;
+}
+
 bool Database::banUser(const string& username, const string& reason) {
     if (!isConnected()) return false;
     
@@ -502,7 +519,7 @@ bool Database::addGameAnswer(int game_id, int question_order, int selected_optio
                    "is_correct, response_time_second) VALUES (" +
                    to_string(game_id) + ", " + to_string(question_order) + ", " +
                    to_string(selected_option) + ", " + (is_correct ? "TRUE" : "FALSE") + ", " +
-                   to_string(response_time_second) + ") ON CONFLICT DO UPDATE SET "
+                   to_string(response_time_second) + ") ON CONFLICT (game_id, question_order) DO UPDATE SET "
                    "selected_option = EXCLUDED.selected_option, "
                    "is_correct = EXCLUDED.is_correct, "
                    "response_time_second = EXCLUDED.response_time_second";
@@ -996,6 +1013,44 @@ Question Database::getQuestion(int question_id) {
                    "EXTRACT(EPOCH FROM created_at)::bigint, "
                    "EXTRACT(EPOCH FROM updated_at)::bigint, updated_by "
                    "FROM questions WHERE id = " + to_string(question_id);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return question;
+    }
+    
+    question.id = atoi(PQgetvalue(res, 0, 0));
+    question.question_text = PQgetvalue(res, 0, 1);
+    question.option_a = PQgetvalue(res, 0, 2);
+    question.option_b = PQgetvalue(res, 0, 3);
+    question.option_c = PQgetvalue(res, 0, 4);
+    question.option_d = PQgetvalue(res, 0, 5);
+    question.correct_answer = atoi(PQgetvalue(res, 0, 6));
+    question.level = atoi(PQgetvalue(res, 0, 7));
+    question.is_active = (PQgetvalue(res, 0, 8)[0] == 't');
+    question.created_at = atol(PQgetvalue(res, 0, 9));
+    if (PQgetvalue(res, 0, 10)) question.updated_at = atol(PQgetvalue(res, 0, 10));
+    if (PQgetvalue(res, 0, 11)) question.updated_by = atoi(PQgetvalue(res, 0, 11));
+    
+    PQclear(res);
+    return question;
+}
+
+Question Database::getGameQuestion(int game_id, int question_order) {
+    Question question;
+    if (!isConnected()) return question;
+    
+    // Get question_id from game_questions table, then get full question details
+    string query = "SELECT q.id, q.question_text, q.option_a, q.option_b, q.option_c, q.option_d, "
+                   "q.correct_answer, q.level, q.is_active, "
+                   "EXTRACT(EPOCH FROM q.created_at)::bigint, "
+                   "EXTRACT(EPOCH FROM q.updated_at)::bigint, q.updated_by "
+                   "FROM game_questions gq "
+                   "JOIN questions q ON gq.question_id = q.id "
+                   "WHERE gq.game_id = " + to_string(game_id) + 
+                   " AND gq.question_order = " + to_string(question_order);
     
     PGresult* res = PQexec(conn_, query.c_str());
     

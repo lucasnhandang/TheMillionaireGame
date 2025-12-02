@@ -34,6 +34,10 @@ REQUEST_ROUTER_SRC = request_router.cpp
 CLIENT_HANDLER_SRC = client_handler.cpp
 JSON_UTILS_SRC = json_utils.cpp
 GAME_STATE_MANAGER_SRC = game_state_manager.cpp
+QUESTION_MANAGER_SRC = question_manager.cpp
+SCORING_SYSTEM_SRC = scoring_system.cpp
+LIFELINE_MANAGER_SRC = lifeline_manager.cpp
+GAME_TIMER_SRC = game_timer.cpp
 AUTH_HANDLERS_SRC = request_handlers/auth_handlers.cpp
 GAME_HANDLERS_SRC = request_handlers/game_handlers.cpp
 SOCIAL_HANDLERS_SRC = request_handlers/social_handlers.cpp
@@ -56,6 +60,10 @@ REQUEST_ROUTER_OBJ = $(OBJ_DIR)/request_router.o
 CLIENT_HANDLER_OBJ = $(OBJ_DIR)/client_handler.o
 JSON_UTILS_OBJ = $(OBJ_DIR)/json_utils.o
 GAME_STATE_MANAGER_OBJ = $(OBJ_DIR)/game_state_manager.o
+QUESTION_MANAGER_OBJ = $(OBJ_DIR)/question_manager.o
+SCORING_SYSTEM_OBJ = $(OBJ_DIR)/scoring_system.o
+LIFELINE_MANAGER_OBJ = $(OBJ_DIR)/lifeline_manager.o
+GAME_TIMER_OBJ = $(OBJ_DIR)/game_timer.o
 AUTH_HANDLERS_OBJ = $(OBJ_DIR)/auth_handlers.o
 GAME_HANDLERS_OBJ = $(OBJ_DIR)/game_handlers.o
 SOCIAL_HANDLERS_OBJ = $(OBJ_DIR)/social_handlers.o
@@ -81,6 +89,7 @@ directories:
 # Build main server
 $(SERVER_EXE): $(SERVER_OBJ) $(SERVER_CORE_OBJ) $(SESSION_MANAGER_OBJ) $(AUTH_MANAGER_OBJ) \
 	$(REQUEST_ROUTER_OBJ) $(CLIENT_HANDLER_OBJ) $(JSON_UTILS_OBJ) $(GAME_STATE_MANAGER_OBJ) \
+	$(QUESTION_MANAGER_OBJ) $(SCORING_SYSTEM_OBJ) $(LIFELINE_MANAGER_OBJ) $(GAME_TIMER_OBJ) \
 	$(AUTH_HANDLERS_OBJ) $(GAME_HANDLERS_OBJ) $(SOCIAL_HANDLERS_OBJ) $(USER_HANDLERS_OBJ) \
 	$(ADMIN_HANDLERS_OBJ) $(CONNECTION_HANDLERS_OBJ) $(DATABASE_OBJ) $(STREAM_HANDLER_OBJ) $(LOGGER_OBJ) $(CONFIG_OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)

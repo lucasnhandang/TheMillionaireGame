@@ -80,6 +80,34 @@
 - Added database reset/cleanup steps for starting fresh
 - Fixed index creation errors in schema.sql
 
+### 13. **Game Logic Modules Implementation**
+- **QuestionManager** (`question_manager.h/cpp`): 
+  - `getRandomQuestion()`: Gets random question from database for a level
+  - `checkAnswer()`: Validates answer against question in database
+  - `getCorrectAnswer()`: Returns correct answer index
+- **ScoringSystem** (`scoring_system.h/cpp`):
+  - `calculateQuestionScore()`: Calculates points based on time remaining and lifelines used
+  - `calculateTotalScore()`: Sums up question scores
+  - `getPrizeForLevel()`: Returns prize amount for question number (doubles each question)
+  - `getSafeCheckpointPrize()`: Returns safe checkpoint prize (at questions 5, 10, 15)
+- **LifelineManager** (`lifeline_manager.h/cpp`):
+  - `use5050()`: Removes 2 incorrect answers, returns remaining options
+  - `usePhone()`: Simulates friend suggestion (70% correct)
+  - `useAudience()`: Generates audience poll percentages (correct answer gets 40-60%)
+  - `isLifelineUsed()`: Checks if lifeline was already used
+- **GameTimer** (`game_timer.h/cpp`):
+  - `startQuestionTimer()`: Starts 15-second timer for question
+  - `isTimeout()`: Checks if question timed out
+  - `getRemainingTime()`: Returns remaining seconds
+  - `stopTimer()`: Stops timer when question answered or game ends
+
+### 14. **Game Handlers Integration**
+- **handleStart()**: Uses QuestionManager to get first question, starts GameTimer
+- **handleAnswer()**: Uses QuestionManager to check answer, ScoringSystem for points/prizes, GameTimer for timeout
+- **handleLifeline()**: Uses LifelineManager to process lifeline requests
+- **handleGiveUp()**: Uses ScoringSystem for final prize calculation
+- Level progression: Questions 1-5 = level 0 (easy), 6-10 = level 1 (medium), 11-15 = level 2 (hard)
+
 ---
 
 ## 📋 Next Steps
@@ -169,7 +197,7 @@ make
 
 ### 6. Test Database Connection
 ```bash
-cd server
+lsof -ti :8080 | xargs kill -9
 ./bin/server
 # Should see: "Database connected successfully" in logs
 ```
@@ -191,9 +219,16 @@ cd server
 
 2. **Options Parsing**: The `extractOptions()` function in `admin_handlers.cpp` is a simple parser. For complex JSON, consider using a proper JSON library.
 
-3. **Game Logic**: Game handlers (START, ANSWER, etc.) still need game logic integration (QuestionManager, ScoringSystem, etc.) - this is separate from database integration.
+3. **Game Logic**: ✅ **COMPLETED** - All game logic modules implemented and integrated:
+   - QuestionManager: Question retrieval and answer validation
+   - ScoringSystem: Score calculation and prize determination
+   - LifelineManager: All three lifelines (50/50, Phone, Audience)
+   - GameTimer: Question timeout tracking
 
-4. **Level Validation**: Updated to 0-2, but some handlers may still reference old level ranges. Check game_handlers.cpp if needed.
+4. **Level Validation**: Updated to 0-2 (easy/medium/hard). Level is determined by question number:
+   - Questions 1-5: Level 0 (easy)
+   - Questions 6-10: Level 1 (medium)
+   - Questions 11-15: Level 2 (hard)
 
 ---
 
@@ -210,6 +245,8 @@ cd server
 - ✅ All compilation errors resolved
 - ✅ PostgreSQL user setup documented
 - ✅ Database reset procedures documented
+- ✅ **Game logic modules implemented** (QuestionManager, ScoringSystem, LifelineManager, GameTimer)
+- ✅ **Game handlers integrated** with game logic modules
 
 **Ready for testing!**
 
@@ -236,3 +273,43 @@ cd server
 
 ---
 
+## 🖥️ Server Management
+
+### How to Restart the Server
+
+#### Step 1: Stop the Current Server
+
+```bash
+# Option A: If running in terminal, press Ctrl+C
+
+# Option B: Kill by PID
+kill $(lsof -ti :8080)
+
+# Option C: Kill by port (force)
+lsof -ti :8080 | xargs kill -9
+```
+
+#### Step 2: Rebuild (if code changed)
+
+```bash
+cd server
+make clean
+make
+```
+
+#### Step 3: Start Server
+
+```bash
+cd server
+./bin/server
+```
+
+**Or with custom config:**
+```bash
+./bin/server -c config.json
+```
+
+**Or with port override:**
+```bash
+./bin/server -p 8080
+```

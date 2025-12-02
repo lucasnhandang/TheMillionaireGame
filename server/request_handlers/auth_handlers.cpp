@@ -34,6 +34,9 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
         return StreamUtils::createErrorResponse(403, "Account is banned");
     }
     
+    // Update last_login timestamp
+    Database::getInstance().updateLastLogin(username);
+    
     // Get user role
     string user_role = Database::getInstance().getUserRole(username);
     if (user_role.empty()) {

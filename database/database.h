@@ -106,6 +106,7 @@ public:
     bool userExists(const std::string& username);
     User getUser(const std::string& username);
     bool isUserBanned(const std::string& username);
+    bool updateLastLogin(const std::string& username);
     
     // Game operations
     int createGameSession(const std::string& username);
@@ -142,6 +143,7 @@ public:
     bool updateQuestion(int question_id, const Question& question);
     bool deleteQuestion(int question_id);  // Soft delete (sets is_active = false)
     Question getQuestion(int question_id);
+    Question getGameQuestion(int game_id, int question_order);  // Get question assigned to game
     std::vector<Question> getQuestions(int level, int page, int limit);
     bool questionExists(int question_id);
     Question getRandomQuestion(int level);  // Get random active question for level

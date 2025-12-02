@@ -84,16 +84,31 @@ size_t SessionManager::getClientCount() {
 
 void SessionManager::waitForClientsToFinish() {
     LOG_INFO("Waiting for all clients to disconnect...");
-    while (true) {
+    const int MAX_WAIT_SECONDS = 10;  // Maximum wait time
+    int waited_seconds = 0;
+    
+    while (waited_seconds < MAX_WAIT_SECONDS) {
         {
             lock_guard<mutex> lock(clients_mutex_);
             if (active_clients_.empty()) {
-                break;
+                LOG_INFO("All clients disconnected");
+                return;
             }
         }
         this_thread::sleep_for(chrono::seconds(1));
+        waited_seconds++;
     }
-    LOG_INFO("All clients disconnected");
+    
+    // Timeout reached, force close remaining clients
+    {
+        lock_guard<mutex> lock(clients_mutex_);
+        size_t remaining = active_clients_.size();
+        if (remaining > 0) {
+            LOG_WARNING("Timeout reached. Force closing " + to_string(remaining) + " remaining client(s)");
+            active_clients_.clear();  // Force clear all sessions
+        }
+    }
+    LOG_INFO("Shutdown complete");
 }
 
 } // namespace MillionaireGame

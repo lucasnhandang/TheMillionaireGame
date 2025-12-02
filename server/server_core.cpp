@@ -160,8 +160,9 @@ void ServerCore::stop() {
     LOG_INFO("Server stopped");
 }
 
-void ServerCore::signalHandler(int sig) {
+void ServerCore::signalHandler(int /* sig */) {
     if (instance_) {
+        instance_->running_ = false;  // Break out of main loop
         instance_->stopAccepting();
     }
 }
