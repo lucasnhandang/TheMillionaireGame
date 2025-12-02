@@ -1,7 +1,9 @@
 #include "social_handlers.h"
 #include "../session_manager.h"
 #include "../json_utils.h"
+#include "../../database/database.h"
 #include <vector>
+#include <sstream>
 
 using namespace std;
 
@@ -22,19 +24,45 @@ string handleLeaderboard(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Page and limit must be positive");
     }
 
-    // TODO: Replace with database call
-    string data = "{\"rankings\":[],\"total\":0,\"page\":" + to_string(page) + 
-                 ",\"limit\":" + to_string(limit) + "}";
-    return StreamUtils::createSuccessResponse(200, data);
+    // Get leaderboard from database
+    vector<LeaderboardEntry> entries = Database::getInstance().getLeaderboard(
+        type, page, limit, session.username);
+    
+    stringstream ss;
+    ss << "{\"rankings\":[";
+    for (size_t i = 0; i < entries.size(); i++) {
+        if (i > 0) ss << ",";
+        ss << "{\"username\":\"" << entries[i].username << "\""
+           << ",\"finalQuestionNumber\":" << entries[i].final_question_number
+           << ",\"totalScore\":" << entries[i].total_score
+           << ",\"rank\":" << entries[i].rank
+           << ",\"isWinner\":" << (entries[i].is_winner ? "true" : "false") << "}";
+    }
+    ss << "],\"total\":" << entries.size()
+       << ",\"page\":" << page
+       << ",\"limit\":" << limit << "}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 string handleFriendStatus(const string& request, ClientSession& session) {
-    // TODO: Get friends list from database
-    vector<string> friend_list;  // Placeholder
+    // Get friends list from database
+    vector<string> friend_list = Database::getInstance().getFriendsList(session.username);
     
-    // TODO: Check online status for each friend
-    string data = "{\"friends\":[]}";
-    return StreamUtils::createSuccessResponse(200, data);
+    stringstream ss;
+    ss << "{\"friends\":[";
+    for (size_t i = 0; i < friend_list.size(); i++) {
+        if (i > 0) ss << ",";
+        string status = "offline";
+        if (SessionManager::getInstance().isUserOnline(friend_list[i])) {
+            // Check if friend is in game
+            status = "online";  // Simplified - could check game status
+        }
+        ss << "{\"username\":\"" << friend_list[i] << "\",\"status\":\"" << status << "\"}";
+    }
+    ss << "]}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 string handleAddFriend(const string& request, ClientSession& session) {
@@ -48,23 +76,21 @@ string handleAddFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Cannot add yourself as friend");
     }
 
-    // TODO: Replace with database call
-    // bool user_exists = Database::getInstance().userExists(friend_username);
-    // if (!user_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Friend not found");
-    // }
-    // 
-    // bool already_friends = Database::getInstance().areFriends(session.username, friend_username);
-    // if (already_friends) {
-    //     return StreamUtils::createErrorResponse(409, "Friend already exists");
-    // }
-    // 
-    // bool request_exists = Database::getInstance().friendRequestExists(session.username, friend_username);
-    // if (request_exists) {
-    //     return StreamUtils::createErrorResponse(409, "Friend request already sent");
-    // }
-    // 
-    // bool success = Database::getInstance().addFriendRequest(session.username, friend_username);
+    // Check if user exists
+    if (!Database::getInstance().userExists(friend_username)) {
+        return StreamUtils::createErrorResponse(404, "Friend not found");
+    }
+    
+    // Check if already friends
+    if (Database::getInstance().friendshipExists(session.username, friend_username)) {
+        return StreamUtils::createErrorResponse(409, "Friend already exists");
+    }
+    
+    // Add friend request
+    bool success = Database::getInstance().addFriendRequest(session.username, friend_username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(409, "Friend request already sent or failed");
+    }
 
     string data = "{\"message\":\"Friend request sent successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
@@ -77,18 +103,11 @@ string handleAcceptFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool request_exists = Database::getInstance().friendRequestExists(friend_username, session.username);
-    // if (!request_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Friend request not found");
-    // }
-    // 
-    // bool already_friends = Database::getInstance().areFriends(session.username, friend_username);
-    // if (already_friends) {
-    //     return StreamUtils::createErrorResponse(409, "Friend already exists");
-    // }
-    // 
-    // bool success = Database::getInstance().acceptFriendRequest(friend_username, session.username);
+    // Accept friend request
+    bool success = Database::getInstance().acceptFriendRequest(friend_username, session.username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(404, "Friend request not found");
+    }
 
     string data = "{\"message\":\"Friend request accepted successfully\",\"friendUsername\":\"" + 
                  friend_username + "\"}";
@@ -102,22 +121,29 @@ string handleDeclineFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool request_exists = Database::getInstance().friendRequestExists(friend_username, session.username);
-    // if (!request_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Friend request not found");
-    // }
-    // 
-    // bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
+    // Decline friend request
+    bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(404, "Friend request not found");
+    }
 
     string data = "{\"message\":\"Friend request declined successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
 string handleFriendReqList(const string& request, ClientSession& session) {
-    // TODO: Replace with database call
-    string data = "{\"friendRequests\":[]}";
-    return StreamUtils::createSuccessResponse(200, data);
+    vector<FriendRequest> requests = Database::getInstance().getFriendRequests(session.username);
+    
+    stringstream ss;
+    ss << "{\"friendRequests\":[";
+    for (size_t i = 0; i < requests.size(); i++) {
+        if (i > 0) ss << ",";
+        ss << "{\"username\":\"" << requests[i].username 
+           << "\",\"sentAt\":" << requests[i].sent_at << "}";
+    }
+    ss << "]}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 string handleDelFriend(const string& request, ClientSession& session) {
@@ -127,13 +153,16 @@ string handleDelFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool are_friends = Database::getInstance().areFriends(session.username, friend_username);
-    // if (!are_friends) {
-    //     return StreamUtils::createErrorResponse(404, "Friend not found");
-    // }
-    // 
-    // bool success = Database::getInstance().deleteFriend(session.username, friend_username);
+    // Check if friends
+    if (!Database::getInstance().friendshipExists(session.username, friend_username)) {
+        return StreamUtils::createErrorResponse(404, "Friend not found");
+    }
+    
+    // Delete friend
+    bool success = Database::getInstance().deleteFriend(session.username, friend_username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to remove friend");
+    }
 
     string data = "{\"message\":\"Friend removed successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
@@ -151,14 +180,16 @@ string handleChat(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Invalid message format or empty message");
     }
 
-    // TODO: Replace with database call
-    // bool user_exists = Database::getInstance().userExists(recipient);
-    // if (!user_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Recipient user not found");
-    // }
-    // 
-    // // Send message to recipient if online, or store for later
-    // sendChatMessage(recipient, session.username, message);
+    // Check if recipient exists
+    if (!Database::getInstance().userExists(recipient)) {
+        return StreamUtils::createErrorResponse(404, "Recipient user not found");
+    }
+    
+    // Send message (stored in database, delivered if online)
+    bool success = Database::getInstance().sendMessage(session.username, recipient, message);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to send message");
+    }
 
     string data = "{\"message\":\"Message sent successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);

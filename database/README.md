@@ -31,7 +31,7 @@ database/
 
 ## Integration Steps
 
-1. **Review Server Integration Guide**: See `../server/INTEGRATION.md` for detailed integration instructions
+1. **Review Server Integration Guide**: See `../server/docs/INTEGRATION.md` for detailed integration instructions
 
 2. **Create Database Schema**: 
    - Design tables: users, questions, game_sessions, saved_games, friendships, friend_requests, leaderboard
@@ -39,7 +39,7 @@ database/
 
 3. **Implement Database Module**:
    - Create `database.h/cpp` with singleton pattern
-   - Implement all methods referenced in `server/INTEGRATION.md`
+   - Implement all methods referenced in `../server/docs/INTEGRATION.md`
    - Use `libpq` for PostgreSQL connection
 
 4. **Implement Game Logic Modules**:

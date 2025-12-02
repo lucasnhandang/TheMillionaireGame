@@ -1,11 +1,57 @@
 #include "admin_handlers.h"
 #include "../json_utils.h"
+#include "../../database/database.h"
+#include <sstream>
+#include <algorithm>
 
 using namespace std;
 
 namespace MillionaireGame {
 
 namespace AdminHandlers {
+
+// Helper function to extract options array from JSON
+vector<string> extractOptions(const string& json) {
+    vector<string> options(4, "");
+    size_t pos = json.find("\"options\"");
+    if (pos == string::npos) return options;
+    
+    pos = json.find('[', pos);
+    if (pos == string::npos) return options;
+    pos++;
+    
+    // Extract 4 options
+    for (int i = 0; i < 4; i++) {
+        size_t label_pos = json.find("\"label\"", pos);
+        if (label_pos == string::npos) break;
+        
+        size_t label_start = json.find('"', json.find(':', label_pos) + 1) + 1;
+        size_t label_end = json.find('"', label_start);
+        string label = json.substr(label_start, label_end - label_start);
+        
+        size_t text_pos = json.find("\"text\"", label_end);
+        if (text_pos == string::npos) break;
+        
+        size_t text_start = json.find('"', json.find(':', text_pos) + 1) + 1;
+        size_t text_end = json.find('"', text_start);
+        string text = json.substr(text_start, text_end - text_start);
+        
+        // Map label to index: A=0, B=1, C=2, D=3
+        int idx = label[0] - 'A';
+        if (idx >= 0 && idx < 4) {
+            options[idx] = text;
+        }
+        
+        pos = text_end + 1;
+        if (i < 3) {
+            pos = json.find(',', pos);
+            if (pos == string::npos) break;
+            pos++;
+        }
+    }
+    
+    return options;
+}
 
 string handleAddQues(const string& request, ClientSession& session) {
     if (session.role != "admin") {
@@ -24,28 +70,35 @@ string handleAddQues(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Invalid correctAnswer: must be 0-3");
     }
 
-    if (level < 1 || level > 15) {
-        return StreamUtils::createErrorResponse(422, "Invalid level: must be 1-15");
+    if (level < 0 || level > 2) {
+        return StreamUtils::createErrorResponse(422, "Invalid level: must be 0-2 (0=easy, 1=medium, 2=hard)");
     }
 
-    // TODO: Validate options array (must have exactly 4 options with label and text)
-    // Extract and validate options array from request
-    // if (options.size() != 4) {
-    //     return StreamUtils::createErrorResponse(422, "Invalid options array: must have 4 options");
-    // }
-    // for (const auto& opt : options) {
-    //     if (opt.label.empty() || opt.text.empty()) {
-    //         return StreamUtils::createErrorResponse(422, "Invalid option: label and text required");
-    //     }
-    // }
+    // Extract and validate options array
+    vector<string> options = extractOptions(request);
+    if (options[0].empty() || options[1].empty() || options[2].empty() || options[3].empty()) {
+        return StreamUtils::createErrorResponse(422, "Invalid options array: must have 4 options with label and text");
+    }
 
-    // TODO: Replace with database call
-    // int question_id = Database::getInstance().addQuestion(question_data);
-    // if (question_id == -1) {
-    //     return StreamUtils::createErrorResponse(409, "Question ID conflict");
-    // }
+    // Create Question object
+    Question q;
+    q.question_text = question;
+    q.option_a = options[0];
+    q.option_b = options[1];
+    q.option_c = options[2];
+    q.option_d = options[3];
+    q.correct_answer = correct_answer;
+    q.level = level;
+    q.is_active = true;
+    q.updated_by = 0;  // Could get from session if needed
 
-    string data = "{\"questionId\":0,\"message\":\"Question added successfully\"}";
+    // Add question to database
+    int question_id = Database::getInstance().addQuestion(q);
+    if (question_id == 0) {
+        return StreamUtils::createErrorResponse(500, "Failed to add question");
+    }
+
+    string data = "{\"questionId\":" + to_string(question_id) + ",\"message\":\"Question added successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -60,27 +113,44 @@ string handleChangeQues(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing questionId");
     }
 
-    // TODO: Validate options array if provided (must have exactly 4 options)
-    // string options_str = JsonUtils::extractString(request, "options");
-    // if (!options_str.empty()) {
-    //     // Parse and validate options array
-    //     if (options.size() != 4) {
-    //         return StreamUtils::createErrorResponse(422, "Invalid options array: must have 4 options");
-    //     }
-    // }
+    // Check if question exists
+    if (!Database::getInstance().questionExists(question_id)) {
+        return StreamUtils::createErrorResponse(404, "Question not found");
+    }
 
-    // TODO: Replace with database call
-    // bool exists = Database::getInstance().questionExists(question_id);
-    // if (!exists) {
-    //     return StreamUtils::createErrorResponse(404, "Question not found");
-    // }
-    // 
-    // int correct_answer = JsonUtils::extractInt(request, "correctAnswer", -1);
-    // if (correct_answer != -1 && (correct_answer < 0 || correct_answer > 3)) {
-    //     return StreamUtils::createErrorResponse(422, "Invalid correctAnswer: must be 0-3");
-    // }
-    // 
-    // Database::getInstance().updateQuestion(question_id, question_data);
+    // Get existing question
+    Question q = Database::getInstance().getQuestion(question_id);
+    if (q.id == 0) {
+        return StreamUtils::createErrorResponse(404, "Question not found");
+    }
+
+    // Update fields if provided
+    string new_question = JsonUtils::extractString(request, "question");
+    if (!new_question.empty()) {
+        q.question_text = new_question;
+    }
+
+    vector<string> options = extractOptions(request);
+    if (!options[0].empty()) {
+        q.option_a = options[0];
+        q.option_b = options[1];
+        q.option_c = options[2];
+        q.option_d = options[3];
+    }
+
+    int correct_answer = JsonUtils::extractInt(request, "correctAnswer", -1);
+    if (correct_answer != -1) {
+        if (correct_answer < 0 || correct_answer > 3) {
+            return StreamUtils::createErrorResponse(422, "Invalid correctAnswer: must be 0-3");
+        }
+        q.correct_answer = correct_answer;
+    }
+
+    // Update question in database
+    bool success = Database::getInstance().updateQuestion(question_id, q);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to update question");
+    }
 
     string data = "{\"message\":\"Question updated successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
@@ -99,13 +169,25 @@ string handleViewQues(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Page and limit must be positive");
     }
 
-    if (level != -1 && (level < 1 || level > 15)) {
-        return StreamUtils::createErrorResponse(422, "Invalid level: must be 1-15");
+    if (level != -1 && (level < 0 || level > 2)) {
+        return StreamUtils::createErrorResponse(422, "Invalid level: must be 0-2");
     }
 
-    // TODO: Replace with database call
-    string data = "{\"questions\":[],\"total\":0,\"page\":" + to_string(page) + "}";
-    return StreamUtils::createSuccessResponse(200, data);
+    // Get questions from database
+    vector<Question> questions = Database::getInstance().getQuestions(level == -1 ? 0 : level, page, limit);
+    
+    stringstream ss;
+    ss << "{\"questions\":[";
+    for (size_t i = 0; i < questions.size(); i++) {
+        if (i > 0) ss << ",";
+        ss << "{\"questionId\":" << questions[i].id
+           << ",\"question\":\"" << questions[i].question_text << "\""
+           << ",\"level\":" << questions[i].level << "}";
+    }
+    ss << "],\"total\":" << questions.size()
+       << ",\"page\":" << page << "}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 string handleDelQues(const string& request, ClientSession& session) {
@@ -119,13 +201,16 @@ string handleDelQues(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing questionId");
     }
 
-    // TODO: Replace with database call
-    // bool exists = Database::getInstance().questionExists(question_id);
-    // if (!exists) {
-    //     return StreamUtils::createErrorResponse(404, "Question not found");
-    // }
-    // 
-    // Database::getInstance().deleteQuestion(question_id);
+    // Check if question exists
+    if (!Database::getInstance().questionExists(question_id)) {
+        return StreamUtils::createErrorResponse(404, "Question not found");
+    }
+    
+    // Delete question (soft delete)
+    bool success = Database::getInstance().deleteQuestion(question_id);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to delete question");
+    }
 
     string data = "{\"message\":\"Question deleted successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
@@ -151,13 +236,16 @@ string handleBanUser(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(422, "Cannot ban yourself");
     }
 
-    // TODO: Replace with database call
-    // bool user_exists = Database::getInstance().userExists(target_username);
-    // if (!user_exists) {
-    //     return StreamUtils::createErrorResponse(404, "User not found");
-    // }
-    // 
-    // Database::getInstance().banUser(target_username, reason);
+    // Check if user exists
+    if (!Database::getInstance().userExists(target_username)) {
+        return StreamUtils::createErrorResponse(404, "User not found");
+    }
+    
+    // Ban user
+    bool success = Database::getInstance().banUser(target_username, reason);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to ban user");
+    }
 
     string data = "{\"message\":\"User banned successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);

@@ -2,6 +2,7 @@
 #include "../session_manager.h"
 #include "../auth_manager.h"
 #include "../logger.h"
+#include "../../database/database.h"
 #include <ctime>
 
 using namespace std;
@@ -22,30 +23,21 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
         return StreamUtils::createErrorResponse(400, "Missing username or password");
     }
 
-    // TODO: Replace with database call when database is integrated
-    // bool login_success = Database::getInstance().authenticateUser(username, password);
-    // if (!login_success) {
-    //     return StreamUtils::createErrorResponse(401, "Invalid credentials");
-    // }
-    // 
-    // // Check if user is banned
-    // User user = Database::getInstance().getUser(username);
-    // if (user.is_banned) {
-    //     return StreamUtils::createErrorResponse(403, "Account is banned");
-    // }
-    // 
-    // string user_role = Database::getInstance().getUserRole(username);
-    
-    // Placeholder authentication
-    bool login_success = true;  // Will be replaced with database call
+    // Authenticate user with database
+    bool login_success = Database::getInstance().authenticateUser(username, password);
     if (!login_success) {
         return StreamUtils::createErrorResponse(401, "Invalid credentials");
     }
-
-    // Get user role (placeholder - will be replaced with database call)
-    string user_role = "user";
-    if (AuthManager::getInstance().isAdmin(username)) {
-        user_role = "admin";
+    
+    // Check if user is banned
+    if (Database::getInstance().isUserBanned(username)) {
+        return StreamUtils::createErrorResponse(403, "Account is banned");
+    }
+    
+    // Get user role
+    string user_role = Database::getInstance().getUserRole(username);
+    if (user_role.empty()) {
+        user_role = "user";  // Default to user if role not found
     }
 
     string token = AuthManager::getInstance().generateToken();
@@ -80,16 +72,15 @@ string handleRegister(const string& request, ClientSession& session, int client_
             "Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, and one digit");
     }
 
-    // TODO: Replace with database call when database is integrated
-    // bool registered = Database::getInstance().registerUser(username, password);
-    // if (!registered) {
-    //     return StreamUtils::createErrorResponse(409, "Username already exists");
-    // }
-    
-    // Placeholder registration check
-    bool registered = true;  // Will be replaced with database call
-    if (!registered) {
+    // Check if username already exists
+    if (Database::getInstance().userExists(username)) {
         return StreamUtils::createErrorResponse(409, "Username already exists");
+    }
+    
+    // Register user in database
+    bool registered = Database::getInstance().registerUser(username, password);
+    if (!registered) {
+        return StreamUtils::createErrorResponse(500, "Registration failed");
     }
 
     // According to PROTOCOL.md, REGISTER returns 201 without authToken

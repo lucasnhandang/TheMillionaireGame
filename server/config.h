@@ -14,10 +14,19 @@ struct ServerConfig {
     int ping_timeout_seconds;
     int connection_timeout_seconds;
     
+    // Database configuration
+    std::string db_host;
+    int db_port;
+    std::string db_name;
+    std::string db_user;
+    std::string db_password;
+    
     ServerConfig() 
         : port(8080), log_file(""), log_level("INFO"), 
           max_clients(100), ping_timeout_seconds(60), 
-          connection_timeout_seconds(300) {}
+          connection_timeout_seconds(300),
+          db_host("localhost"), db_port(5432), db_name("millionaire_game"),
+          db_user("postgres"), db_password("") {}
 };
 
 class ConfigLoader {

@@ -18,25 +18,35 @@ void printUsage(const char* program_name) {
 int main(int argc, char* argv[]) {
     string config_file = "config.json";
     ServerConfig config;
+    int port_override = 0;
+    string log_file_override;
     
+    // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         if (string(argv[i]) == "-c" && i + 1 < argc) {
             config_file = argv[++i];
         } else if (string(argv[i]) == "-p" && i + 1 < argc) {
-            config.port = stoi(argv[++i]);
+            port_override = stoi(argv[++i]);
         } else if (string(argv[i]) == "-l" && i + 1 < argc) {
-            config.log_file = argv[++i];
+            log_file_override = argv[++i];
         } else if (string(argv[i]) == "-h") {
             printUsage(argv[0]);
             return 0;
         }
     }
 
-    if (config.port == 0) {
-        if (!ConfigLoader::loadFromFile(config_file, config)) {
-            cerr << "Warning: Failed to load config file: " << config_file << endl;
-            cerr << "Using default configuration" << endl;
-        }
+    // Load config file
+    if (!ConfigLoader::loadFromFile(config_file, config)) {
+        cerr << "Warning: Failed to load config file: " << config_file << endl;
+        cerr << "Using default configuration" << endl;
+    }
+    
+    // Apply command line overrides (they take precedence)
+    if (port_override > 0) {
+        config.port = port_override;
+    }
+    if (!log_file_override.empty()) {
+        config.log_file = log_file_override;
     }
 
     ServerCore server(config);

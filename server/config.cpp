@@ -88,6 +88,13 @@ bool ConfigLoader::loadFromString(const string& json_content, ServerConfig& conf
     config.ping_timeout_seconds = extractIntValue(json, "ping_timeout_seconds", 60);
     config.connection_timeout_seconds = extractIntValue(json, "connection_timeout_seconds", 300);
     
+    // Database configuration
+    config.db_host = extractStringValue(json, "db_host", "localhost");
+    config.db_port = extractIntValue(json, "db_port", 5432);
+    config.db_name = extractStringValue(json, "db_name", "millionaire_game");
+    config.db_user = extractStringValue(json, "db_user", "postgres");
+    config.db_password = extractStringValue(json, "db_password", "");
+    
     return true;
 }
 

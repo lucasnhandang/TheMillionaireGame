@@ -55,7 +55,7 @@ struct StreamBuffer {
 // StreamHandler Implementation
 
 StreamHandler::StreamHandler(int socket_fd, size_t buffer_size)
-    : socket_fd_(socket_fd), buffer_(make_unique<StreamBuffer>(buffer_size)), connected_(true) {
+    : socket_fd_(socket_fd), buffer_(unique_ptr<StreamBuffer>(new StreamBuffer(buffer_size))), connected_(true) {
     if (socket_fd_ < 0) {
         throw invalid_argument("Invalid socket file descriptor");
     }

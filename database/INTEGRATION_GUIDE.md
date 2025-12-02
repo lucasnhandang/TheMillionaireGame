@@ -19,7 +19,7 @@
 
 3. **Implement Database Module**:
    - Copy template from `database.h.template` (if exists)
-   - Implement all methods as specified in `server/INTEGRATION.md`
+   - Implement all methods as specified in `server/docs/INTEGRATION.md`
    - Test connection independently
 
 4. **Update Server**:

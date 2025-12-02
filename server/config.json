@@ -1,0 +1,14 @@
+{
+  "port": 8081,
+  "log_file": "server.log",
+  "log_level": "INFO",
+  "max_clients": 100,
+  "ping_timeout_seconds": 60,
+  "connection_timeout_seconds": 300,
+  "db_host": "localhost",
+  "db_port": 5432,
+  "db_name": "millionaire_game",
+  "db_user": "postgres",
+  "db_password": "password"
+}
+

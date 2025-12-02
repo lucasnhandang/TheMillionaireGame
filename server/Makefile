@@ -2,8 +2,20 @@
 # Network Programming Capstone Project
 
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g
-LDFLAGS = -pthread
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)  # MacOS
+    # PostgreSQL headers are in versioned directory (e.g., postgresql@14)
+    POSTGRES_INCLUDE = -I/opt/homebrew/include -I/opt/homebrew/include/postgresql@14
+    # PostgreSQL libraries are also in versioned directory
+    POSTGRES_LIB = -L/opt/homebrew/lib/postgresql@14 -L/opt/homebrew/lib
+else  # Linux
+    POSTGRES_INCLUDE = -I/usr/include/postgresql
+    POSTGRES_LIB =
+endif
+
+CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g $(POSTGRES_INCLUDE) -I../database
+LDFLAGS = -pthread $(POSTGRES_LIB) -lpq
 
 # Directories
 SRC_DIR = .
@@ -28,6 +40,7 @@ SOCIAL_HANDLERS_SRC = request_handlers/social_handlers.cpp
 USER_HANDLERS_SRC = request_handlers/user_handlers.cpp
 ADMIN_HANDLERS_SRC = request_handlers/admin_handlers.cpp
 CONNECTION_HANDLERS_SRC = request_handlers/connection_handlers.cpp
+DATABASE_SRC = ../database/database.cpp
 EXAMPLE_SRC = stream_handler_example.cpp
 TEST_SRC = stream_handler_test.cpp
 
@@ -49,6 +62,7 @@ SOCIAL_HANDLERS_OBJ = $(OBJ_DIR)/social_handlers.o
 USER_HANDLERS_OBJ = $(OBJ_DIR)/user_handlers.o
 ADMIN_HANDLERS_OBJ = $(OBJ_DIR)/admin_handlers.o
 CONNECTION_HANDLERS_OBJ = $(OBJ_DIR)/connection_handlers.o
+DATABASE_OBJ = $(OBJ_DIR)/database.o
 EXAMPLE_OBJ = $(OBJ_DIR)/stream_handler_example.o
 TEST_OBJ = $(OBJ_DIR)/stream_handler_test.o
 
@@ -57,8 +71,8 @@ SERVER_EXE = $(BIN_DIR)/server
 EXAMPLE_EXE = $(BIN_DIR)/stream_handler_example
 TEST_EXE = $(BIN_DIR)/stream_handler_test
 
-# Default target
-all: directories $(SERVER_EXE) $(EXAMPLE_EXE) $(TEST_EXE)
+# Default target - build server (examples/tests are optional)
+all: directories $(SERVER_EXE)
 
 # Create necessary directories
 directories:
@@ -68,7 +82,7 @@ directories:
 $(SERVER_EXE): $(SERVER_OBJ) $(SERVER_CORE_OBJ) $(SESSION_MANAGER_OBJ) $(AUTH_MANAGER_OBJ) \
 	$(REQUEST_ROUTER_OBJ) $(CLIENT_HANDLER_OBJ) $(JSON_UTILS_OBJ) $(GAME_STATE_MANAGER_OBJ) \
 	$(AUTH_HANDLERS_OBJ) $(GAME_HANDLERS_OBJ) $(SOCIAL_HANDLERS_OBJ) $(USER_HANDLERS_OBJ) \
-	$(ADMIN_HANDLERS_OBJ) $(CONNECTION_HANDLERS_OBJ) $(STREAM_HANDLER_OBJ) $(LOGGER_OBJ) $(CONFIG_OBJ)
+	$(ADMIN_HANDLERS_OBJ) $(CONNECTION_HANDLERS_OBJ) $(DATABASE_OBJ) $(STREAM_HANDLER_OBJ) $(LOGGER_OBJ) $(CONFIG_OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Build example server
@@ -81,6 +95,29 @@ $(TEST_EXE): $(TEST_OBJ) $(STREAM_HANDLER_OBJ) $(LOGGER_OBJ)
 
 # Compile object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile object files from request_handlers subdirectory
+$(OBJ_DIR)/auth_handlers.o: request_handlers/auth_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/game_handlers.o: request_handlers/game_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/social_handlers.o: request_handlers/social_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/user_handlers.o: request_handlers/user_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/admin_handlers.o: request_handlers/admin_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/connection_handlers.o: request_handlers/connection_handlers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile database object file (from parent directory)
+$(OBJ_DIR)/database.o: ../database/database.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Clean build artifacts

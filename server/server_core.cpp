@@ -1,6 +1,7 @@
 #include "server_core.h"
 #include "logger.h"
 #include "session_manager.h"
+#include "../database/database.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -8,6 +9,8 @@
 #include <csignal>
 #include <cerrno>
 #include <cstring>
+#include <thread>
+#include <chrono>
 
 using namespace std;
 using namespace MillionaireGame;
@@ -63,6 +66,21 @@ bool ServerCore::start() {
         close(server_fd_);
         return false;
     }
+
+    // Initialize database connection
+    string conn_string = "host=" + config_.db_host + 
+                       " port=" + to_string(config_.db_port) +
+                       " dbname=" + config_.db_name +
+                       " user=" + config_.db_user +
+                       " password=" + config_.db_password;
+    
+    if (!Database::getInstance().connect(conn_string)) {
+        LOG_ERROR("Failed to connect to database: " + Database::getInstance().getLastError());
+        close(server_fd_);
+        return false;
+    }
+    
+    LOG_INFO("Database connected successfully");
 
     running_ = true;
     accepting_ = true;
@@ -134,6 +152,9 @@ void ServerCore::stop() {
     }
 
     running_ = false;
+
+    // Disconnect database
+    Database::getInstance().disconnect();
 
     Logger::getInstance().close();
     LOG_INFO("Server stopped");

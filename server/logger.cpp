@@ -20,7 +20,7 @@ void Logger::initialize(const string& log_file, LogLevel min_level) {
     min_level_ = min_level;
     
     if (!log_file.empty()) {
-        log_file_ = make_unique<ofstream>(log_file, ios::app);
+        log_file_ = unique_ptr<ofstream>(new ofstream(log_file, ios::app));
         if (!log_file_->is_open()) {
             cerr << "Warning: Failed to open log file: " << log_file << endl;
             log_file_.reset();

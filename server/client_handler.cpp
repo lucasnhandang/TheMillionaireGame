@@ -9,13 +9,13 @@ using namespace std;
 namespace MillionaireGame {
 
 void ClientHandler::handleClient(int client_fd, const string& client_ip, const ServerConfig& config) {
-    auto handler = make_unique<StreamHandler>(client_fd);
+    auto handler = unique_ptr<StreamHandler>(new StreamHandler(client_fd));
     handler->setReadTimeout(config.connection_timeout_seconds, 0);
     handler->setWriteTimeout(10, 0);
 
     StreamHandler* handler_ptr = handler.get();
 
-    SessionManager::getInstance().createSession(client_fd, move(handler), client_ip);
+    SessionManager::getInstance().createSession(client_fd, std::move(handler), client_ip);
 
     LOG_INFO("Client handler started for " + client_ip);
 

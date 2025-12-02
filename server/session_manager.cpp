@@ -9,7 +9,7 @@ using namespace std;
 namespace MillionaireGame {
 
 ClientSession::ClientSession(unique_ptr<StreamHandler> h, const string& ip)
-    : handler(move(h)), client_ip(ip), connected_time(time(nullptr)),
+    : handler(std::move(h)), client_ip(ip), connected_time(time(nullptr)),
       last_ping_time(time(nullptr)), authenticated(false), 
       in_game(false), game_id(0), current_question_number(0),
       current_level(0), current_prize(0), total_score(0), role("user") {}
@@ -21,7 +21,7 @@ SessionManager& SessionManager::getInstance() {
 
 void SessionManager::createSession(int client_fd, unique_ptr<StreamHandler> handler, const string& client_ip) {
     lock_guard<mutex> lock(clients_mutex_);
-    active_clients_[client_fd] = ClientSession(move(handler), client_ip);
+    active_clients_.emplace(client_fd, ClientSession(std::move(handler), client_ip));
 }
 
 ClientSession* SessionManager::getSession(int client_fd) {
