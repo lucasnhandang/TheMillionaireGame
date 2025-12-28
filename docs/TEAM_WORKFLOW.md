@@ -4,33 +4,70 @@
 
 ```
 TheMillionaireGame/
-├── server/          # Server code (Member: Server Developer)
-│   ├── server_core.h/cpp
-│   ├── request_handlers/
-│   └── ...
-├── database/        # Database + Game Logic (Member A)
+├── server/          # Server code (Server Developer) - ✅ COMPLETED
+│   ├── server_core.h/cpp         # Main entry point
+│   ├── event_loop.h/cpp          # I/O multiplexing với poll()
+│   ├── session_manager.h/cpp     # Session management
+│   ├── auth_manager.h/cpp        # Authentication
+│   ├── request_router.h/cpp      # Request routing
+│   ├── stream_handler.h/cpp      # Stream utilities
+│   ├── json_utils.h/cpp          # JSON parsing
+│   ├── logger.h/cpp              # Logging system
+│   ├── config.h/cpp              # Configuration
+│   ├── notification_utils.h/cpp  # Notification handling
+│   ├── game_state_manager.h/cpp  # Game state tracking
+│   ├── request_handlers/         # Request handlers
+│   │   ├── auth_handlers.h/cpp
+│   │   ├── game_handlers.h/cpp
+│   │   ├── social_handlers.h/cpp
+│   │   ├── user_handlers.h/cpp
+│   │   ├── admin_handlers.h/cpp
+│   │   └── connection_handlers.h/cpp
+│   ├── test/                     # Unit tests
+│   ├── Makefile                  # Build configuration
+│   └── bin/server                # Compiled binary
+│
+├── database/        # Database + Game Logic (Member A) - ⚠️ TODO
 │   ├── schema.sql
 │   ├── database.h/cpp
 │   └── game_logic/
-├── client/          # Client + GUI (Member B)
+│
+├── client/          # Client + GUI (Member B) - ⚠️ TODO
 │   ├── src/
 │   └── gui/
+│
 ├── docs/            # Documentation
 │   ├── PROTOCOL.md
 │   ├── ERROR_CODES.md
+│   ├── NOTIFICATION.md
+│   ├── HANDOFF_GUIDE.md
 │   └── TEAM_WORKFLOW.md
+│
 └── README.md        # Project overview
 ```
 
 ## Member Responsibilities
 
-### Server Developer
-- ✅ **COMPLETED**: Server architecture and protocol handlers
-- ✅ **COMPLETED**: Request routing and session management
-- ✅ **COMPLETED**: Authentication system
-- **TODO**: Integrate database module when ready
-- **TODO**: Integrate game logic modules when ready
-- **TODO**: Testing and debugging
+### Server Developer (✅ Đã Hoàn Thành)
+- ✅ **Server Architecture**: Hybrid I/O multiplexing + worker thread pool
+  - EventLoop với poll() cho concurrent connections
+  - Worker thread pool cho blocking operations
+  - Thread-safe message queuing và task scheduling
+- ✅ **Protocol Handlers**: Tất cả 27 request types
+  - auth_handlers: LOGIN, REGISTER, LOGOUT, CHANGE_PASSWORD
+  - game_handlers: START, ANSWER, LIFELINE, ENDGAME, GETGAME
+  - social_handlers: Friend management và friend leaderboard
+  - user_handlers: User info, history, global leaderboard
+  - admin_handlers: Question CRUD, ban/unban users
+  - connection_handlers: PING, DISCONNECT
+- ✅ **Session Management**: Thread-safe session tracking
+- ✅ **Authentication System**: Token-based auth với AuthManager
+- ✅ **Request Routing**: Automatic auth validation và routing
+- ✅ **Error Handling**: Tất cả error codes từ ERROR_CODES.md
+- ✅ **Logging System**: Comprehensive logging với levels
+- ✅ **Configuration**: JSON-based config system
+- ⚠️ **TODO**: Integrate database module when ready (replace TODO placeholders)
+- ⚠️ **TODO**: Integration testing với client
 
 ### Member A: Database + Game Logic
 - **Database Schema**: Design and implement PostgreSQL schema
@@ -49,137 +86,111 @@ TheMillionaireGame/
 - **GUI**: User interface for all game features
 - **Game Flow**: Implement complete game flow logic
 
+## Server Architecture Details
+
+### Concurrent Server Model (Đã Implement)
+
+**I/O Multiplexing (poll) + Worker Thread Pool**
+
+- **Main Thread (EventLoop)**: Monitor sockets với `poll()`, accept connections, read/write non-blocking
+- **Worker Threads** (4 threads): Process requests, validate auth, route handlers, database ops
+- **Thread-safe**: Mutex cho message queue, task queue, client removal
+
+**Ưu điểm:**
+- ✅ Non-blocking I/O
+- ✅ Scalable (1 thread → nhiều connections)
+- ✅ Thread-safe operations
+- ✅ Cross-platform (Linux & macOS)
+
+### Thread Safety Requirements
+
+**Database Module (Member A)**: PHẢI thread-safe - worker threads call đồng thời
+**Client (Member B)**: Single-threaded OK - server đã handle concurrency
+
 ## Integration Points
 
-### Server ↔ Database
-- Server calls `Database::getInstance().methodName()`
-- Database module provides all methods specified in `server/INTEGRATION.md`
-- Integration points marked with `TODO: Replace with database call`
+### Server ↔ Database (Member A)
+- **Context**: Worker threads call database (KHÔNG trên I/O thread)
+- **Pattern**: `Database::getInstance().methodName()`
+- **Thread Safety**: Database module PHẢI thread-safe
+- **Integration**: Tìm `TODO: Replace with database call` trong request handlers
 
-### Server ↔ Game Logic
-- Server handlers call game logic modules
-- Game logic modules use database for data
-- Integration points in game handlers (START, ANSWER, LIFELINE)
-
-### Client ↔ Server
-- Client sends requests following `PROTOCOL.md`
-- Server responds with format from `PROTOCOL.md`
-- Error codes from `ERROR_CODES.md`
+### Client ↔ Server (Member B)  
+- **Protocol**: TCP socket, port 8888
+- **Format**: JSON newline-delimited
+- **Test**: `telnet localhost 8888` hoặc `nc localhost 8888`
 
 ## Workflow Steps
 
-### Phase 1: Database Integration (Member A)
-1. Create database schema (`database/schema.sql`)
-2. Implement `database.h/cpp` with all methods
-3. Test database operations independently
-4. Update server Makefile to include database module
-5. Replace placeholders in server code
-6. Integration testing with server
-
-### Phase 2: Game Logic Integration (Member A)
-1. Implement game logic modules
-2. Test each module independently
-3. Integrate with server handlers
-4. Test complete game flow
-
-### Phase 3: Client Development (Member B)
-1. Implement client core (socket communication)
-2. Implement protocol handlers
-3. Create GUI framework
-4. Implement game UI
-5. Integration testing with server
-
-### Phase 4: Integration Testing (All Members)
-1. End-to-end testing
-2. Bug fixes
-3. Performance optimization
-4. Documentation
+1. **Phase 1**: Database Integration (Member A) - Setup DB, implement methods, integrate server
+2. **Phase 2**: Game Logic (Member A) - QuestionManager, GameStateManager, etc.
+3. **Phase 3**: Client Dev (Member B) - Socket communication, protocol handler, GUI
+4. **Phase 4**: Integration Testing (All) - E2E testing, bug fixes
 
 ## Communication Protocol
 
-### Request Format (Client → Server)
+**Request Format:**
 ```json
-{
-  "requestType": "LOGIN",
-  "authToken": "token_here",  // Required for authenticated requests
-  "data": {
-    "username": "user",
-    "password": "pass"
-  }
-}
+{"requestType":"LOGIN","authToken":"token","data":{"username":"user","password":"pass"}}
 ```
 
-### Response Format (Server → Client)
+**Response Format:**
 ```json
-{
-  "responseCode": 200,
-  "message": "Success",
-  "data": { ... }
-}
-```
-
-### Error Response
-```json
-{
-  "responseCode": 401,
-  "message": "Invalid credentials",
-  "data": null
-}
+{"responseCode":200,"message":"Success","data":{...}}
 ```
 
 ## Testing Checklist
 
-### Server Testing
-- [x] Server starts and accepts connections
-- [x] All request types are handled
-- [x] Authentication works
-- [ ] Database integration works
-- [ ] Game logic integration works
+### Server (✅ Completed)
+- [x] All 27 request types work
+- [x] Authentication, session management
+- [x] EventLoop + worker threads
+- [ ] Database integration (Member A)
 
-### Database Testing
-- [ ] Database connection works
-- [ ] All CRUD operations work
-- [ ] Thread-safety verified
-- [ ] Performance acceptable
+### Database Testing (Member A)
+- [ ] Connection works
+- [ ] CRUD operations correct
+- [ ] Thread-safe với concurrent access
 
-### Client Testing
-- [ ] Connection to server works
-- [ ] All requests are sent correctly
-- [ ] All responses are parsed correctly
-- [ ] GUI is responsive
-- [ ] Error handling works
+### Client Testing (Member B)
+- [ ] Connect to server
+- [ ] All 27 request types implemented
+- [ ] GUI responsive
+- [ ] Error handling
 
-### Integration Testing
-- [ ] Complete game flow works
-- [ ] Multiple clients can connect
-- [ ] Leaderboard updates correctly
-- [ ] Friend system works
-- [ ] Admin functions work
+### Integration (All)
+- [ ] Full game flow works
+- [ ] Multiple concurrent clients
+- [ ] Leaderboard, friend system
+- [ ] No crashes
 
-## Git Workflow (Recommended)
+**Run server tests**: `cd server/test && make && ./run_all_tests.sh`
 
-1. **Main Branch**: Stable, working code
-2. **Feature Branches**: 
-   - `database-game-logic`
-   - `client`
-1. **Pull Requests**: Review before merging
+## Common Issues & Quick Fixes
 
-## Common Issues & Solutions
+| Issue | Quick Fix |
+|-------|-----------|
+| Database connection fails | `pg_isready` → Check PostgreSQL running |
+| Client can't connect | `lsof -i :8888` → Verify server running |
+| Protocol mismatch | Check JSON format ends with `\n` |
+| Server performance slow | Check no blocking ops in I/O thread |
 
-### Issue: Database connection fails
-- Check PostgreSQL is running
-- Verify connection string in config.json
-- Check firewall settings
+## Debug Commands
 
-### Issue: Client can't connect
-- Verify server is running
-- Check port number
-- Verify network connectivity
+```bash
+# Check server
+ps aux | grep server && lsof -i :8888
 
-### Issue: Protocol mismatch
-- Review PROTOCOL.md
-- Check JSON format
-- Verify error codes
+# Check database  
+pg_isready && psql millionaire_game -c "\dt"
+
+# Test protocol
+telnet localhost 8888
+{"requestType":"PING","data":{}}
+
+# Monitor logs
+tail -f server/debug.log
+```
 
 ## Resources
 
@@ -188,4 +199,3 @@ TheMillionaireGame/
 - **Server Integration**: `server/INTEGRATION.md`
 - **Database Guide**: `database/INTEGRATION_GUIDE.md`
 - **Client Guide**: `client/PROTOCOL_GUIDE.md`
-

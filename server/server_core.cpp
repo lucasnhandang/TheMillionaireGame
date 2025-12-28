@@ -15,7 +15,7 @@ using namespace MillionaireGame;
 ServerCore* ServerCore::instance_ = nullptr;
 
 ServerCore::ServerCore(const ServerConfig& config)
-    : config_(config), running_(false), accepting_(true), server_fd_(-1) {
+    : config_(config), running_(false), server_fd_(-1), event_loop_(nullptr) {
     LogLevel log_level = LogLevel::INFO;
     if (config.log_level == "DEBUG") log_level = LogLevel::DEBUG;
     else if (config.log_level == "WARNING") log_level = LogLevel::WARNING;
@@ -65,7 +65,6 @@ bool ServerCore::start() {
     }
 
     running_ = true;
-    accepting_ = true;
     LOG_INFO("Server started on port " + to_string(config_.port));
 
     signal(SIGINT, signalHandler);
@@ -81,44 +80,10 @@ void ServerCore::run() {
         return;
     }
 
-    while (running_) {
-        if (!accepting_) {
-            this_thread::sleep_for(chrono::milliseconds(100));
-            continue;
-        }
-
-        struct sockaddr_in client_addr;
-        socklen_t client_len = sizeof(client_addr);
-
-        int client_fd = accept(server_fd_, (struct sockaddr*)&client_addr, &client_len);
-
-        if (client_fd < 0) {
-            if (running_ && accepting_) {
-                LOG_ERROR("Failed to accept connection: " + string(strerror(errno)));
-            }
-            continue;
-        }
-
-        if (SessionManager::getInstance().getClientCount() >= static_cast<size_t>(config_.max_clients)) {
-            LOG_WARNING("Max clients reached, rejecting connection");
-            close(client_fd);
-            continue;
-        }
-
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-        LOG_INFO("New client connected from " + string(client_ip) + ":" + to_string(ntohs(client_addr.sin_port)));
-
-        thread client_thread(ClientHandler::handleClient, client_fd, string(client_ip), config_);
-        client_thread.detach();
-    }
-
-    waitForClientsToFinish();
-}
-
-void ServerCore::stopAccepting() {
-    accepting_ = false;
-    LOG_INFO("Stopped accepting new connections. Waiting for existing clients to finish...");
+    LOG_INFO("Running in I/O Multiplexing mode (poll) with " + to_string(config_.worker_threads) + " worker threads");
+    
+    event_loop_ = std::unique_ptr<EventLoop>(new EventLoop(config_));
+    event_loop_->run(server_fd_);
 }
 
 void ServerCore::stop() {
@@ -126,7 +91,12 @@ void ServerCore::stop() {
         return;
     }
 
-    stopAccepting();
+    LOG_INFO("Stopping server...");
+    
+    // Stop event loop
+    if (event_loop_) {
+        event_loop_->stop();
+    }
     
     if (server_fd_ >= 0) {
         close(server_fd_);
@@ -139,13 +109,9 @@ void ServerCore::stop() {
     LOG_INFO("Server stopped");
 }
 
-void ServerCore::signalHandler(int sig) {
+void ServerCore::signalHandler(int /* sig */) {
     if (instance_) {
-        instance_->stopAccepting();
+        instance_->stop();
     }
-}
-
-void ServerCore::waitForClientsToFinish() {
-    SessionManager::getInstance().waitForClientsToFinish();
 }
 

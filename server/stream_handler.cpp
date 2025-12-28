@@ -5,6 +5,7 @@
 #include <sys/select.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -55,7 +56,7 @@ struct StreamBuffer {
 // StreamHandler Implementation
 
 StreamHandler::StreamHandler(int socket_fd, size_t buffer_size)
-    : socket_fd_(socket_fd), buffer_(make_unique<StreamBuffer>(buffer_size)), connected_(true) {
+    : socket_fd_(socket_fd), buffer_(std::unique_ptr<StreamBuffer>(new StreamBuffer(buffer_size))), connected_(true) {
     if (socket_fd_ < 0) {
         throw invalid_argument("Invalid socket file descriptor");
     }
@@ -77,21 +78,31 @@ string StreamHandler::readMessage(int timeout_seconds) {
     }
     
     // No complete message in buffer, read from socket
-    while (connected_) {
+    // Add a safety counter to prevent infinite loops
+    int max_iterations = 1000;  // Safety limit
+    int iteration = 0;
+    
+    while (connected_ && iteration < max_iterations) {
+        iteration++;
         ssize_t bytes_read = readToBuffer(timeout_seconds);
         
         if (bytes_read < 0) {
-            // Error occurred
+            // Real error occurred (not timeout)
             connected_ = false;
             return "";
         } else if (bytes_read == 0) {
-            // EOF or timeout
-            if (timeout_seconds > 0) {
-                // Timeout occurred
+            // Could be: timeout, EAGAIN, or select timeout
+            // If we called hasDataAvailable and it returned false, or recv got EAGAIN,
+            // this is a timeout condition - DON'T disconnect
+            // Only treat as EOF if we're sure connection is closed
+            
+            // If connected_ is still true here, it's just timeout/no data
+            // connected_ would be set to false by readToBuffer if it detected real EOF
+            if (!connected_) {
+                // EOF detected by readToBuffer
                 return "";
             }
-            // EOF - connection closed
-            connected_ = false;
+            // Otherwise it's timeout - return empty but stay connected
             return "";
         }
         
@@ -100,6 +111,11 @@ string StreamHandler::readMessage(int timeout_seconds) {
         if (!message.empty()) {
             return message;
         }
+    }
+    
+    // Safety: if we've iterated too many times, something is wrong
+    if (iteration >= max_iterations) {
+        connected_ = false;
     }
     
     return "";
@@ -119,15 +135,31 @@ bool StreamHandler::writeMessage(const string& message) {
     size_t total_bytes = message_with_newline.length();
     size_t bytes_sent = 0;
     
-    while (bytes_sent < total_bytes) {
+    // Add safety counter to prevent infinite loops
+    int max_iterations = 10000;  // Safety limit for large messages
+    int iteration = 0;
+    int consecutive_blocking = 0;
+    const int max_blocking = 100;  // Max consecutive EAGAIN before giving up
+    
+    while (bytes_sent < total_bytes && iteration < max_iterations) {
+        iteration++;
         ssize_t result = send(socket_fd_, data + bytes_sent, total_bytes - bytes_sent, 0);
         
         if (result < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // Would block, but we should continue
+                // Would block - wait a bit and retry
+                consecutive_blocking++;
+                if (consecutive_blocking > max_blocking) {
+                    // Too many consecutive blocks, give up
+                    connected_ = false;
+                    return false;
+                }
+                // Small delay to avoid busy-waiting
+                usleep(1000);  // 1ms delay
                 continue;
             } else if (errno == EINTR) {
-                // Interrupted, retry
+                // Interrupted, retry immediately
+                consecutive_blocking = 0;
                 continue;
             } else {
                 // Error occurred
@@ -138,9 +170,18 @@ bool StreamHandler::writeMessage(const string& message) {
             // Connection closed
             connected_ = false;
             return false;
+        } else {
+            // Successfully sent some data
+            bytes_sent += result;
+            consecutive_blocking = 0;  // Reset blocking counter
         }
-        
-        bytes_sent += result;
+    }
+    
+    // Check if we completed or hit safety limit
+    if (bytes_sent < total_bytes) {
+        // Didn't complete - something went wrong
+        connected_ = false;
+        return false;
     }
     
     return true;
@@ -189,8 +230,29 @@ void StreamHandler::close() {
 
 void StreamHandler::clearBuffer() {
     if (buffer_) {
+        // Clear the actual data in buffer to prevent old data contamination
+        std::fill(buffer_->data.begin(), buffer_->data.end(), 0);
         buffer_->read_pos = 0;
         buffer_->write_pos = 0;
+    }
+    
+    // Also drain any data sitting in the OS socket buffer
+    // Set socket to non-blocking temporarily
+    if (socket_fd_ >= 0) {
+        int flags = fcntl(socket_fd_, F_GETFL, 0);
+        if (flags >= 0) {
+            // Set non-blocking
+            fcntl(socket_fd_, F_SETFL, flags | O_NONBLOCK);
+            
+            // Drain the socket buffer
+            char drain_buffer[4096];
+            while (recv(socket_fd_, drain_buffer, sizeof(drain_buffer), 0) > 0) {
+                // Keep draining until EAGAIN/EWOULDBLOCK
+            }
+            
+            // Restore original flags
+            fcntl(socket_fd_, F_SETFL, flags);
+        }
     }
 }
 
@@ -217,13 +279,16 @@ ssize_t StreamHandler::readToBuffer(int timeout_seconds) {
         // EOF - connection closed by peer
         connected_ = false;
     } else {
-        // Error
+        // Error: bytes_read < 0
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return 0; // No data available (non-blocking)
+            // Socket timeout or would block - NOT a disconnection
+            // Return 0 to indicate timeout/no data, but keep connected
+            return 0;
         } else if (errno == EINTR) {
             // Interrupted, retry
             return readToBuffer(timeout_seconds);
         } else {
+            // Real error - mark as disconnected
             connected_ = false;
         }
     }
@@ -408,6 +473,11 @@ string createSuccessResponse(int response_code, const string& data) {
 
 string createRequest(const string& request_type, const string& data) {
     return "{\"requestType\":\"" + request_type + 
+           "\",\"data\":" + data + "}";
+}
+
+string createNotification(const string& type, const string& data) {
+    return "{\"type\":\"" + type + 
            "\",\"data\":" + data + "}";
 }
 

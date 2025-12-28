@@ -1,12 +1,11 @@
 #ifndef SESSION_MANAGER_H
 #define SESSION_MANAGER_H
 
-#include "stream_handler.h"
 #include <string>
-#include <memory>
 #include <unordered_map>
 #include <mutex>
 #include <set>
+#include <vector>
 #include <ctime>
 
 namespace MillionaireGame {
@@ -16,7 +15,6 @@ namespace MillionaireGame {
  * Stores all information about a connected client
  */
 struct ClientSession {
-    std::unique_ptr<StreamHandler> handler;
     std::string client_ip;
     time_t connected_time;
     time_t last_ping_time;
@@ -32,12 +30,16 @@ struct ClientSession {
     int total_score;
     std::set<std::string> used_lifelines;  // Track which lifelines have been used
 
-    ClientSession(std::unique_ptr<StreamHandler> h, const std::string& ip);
+    // Constructor
+    explicit ClientSession(const std::string& ip);
+    
+    // Default constructor
+    ClientSession() = default;
 };
 
 /**
  * Session Manager
- * Manages all client sessions
+ * Manages all client sessions for I/O multiplexing mode
  */
 class SessionManager {
 public:
@@ -46,7 +48,7 @@ public:
     /**
      * Create new session for a client
      */
-    void createSession(int client_fd, std::unique_ptr<StreamHandler> handler, const std::string& client_ip);
+    void createSession(int client_fd, const std::string& client_ip);
     
     /**
      * Get session by client file descriptor

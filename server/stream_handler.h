@@ -174,6 +174,15 @@ namespace StreamUtils {
      * @return JSON string
      */
     std::string createRequest(const std::string& request_type, const std::string& data);
+    
+    /**
+     * Create server notification JSON (server push to client)
+     * Notifications have 'type' field but no 'responseCode'
+     * @param type Notification type (e.g., "GAME_START", "QUESTION_INFO")
+     * @param data JSON data object as string
+     * @return JSON string
+     */
+    std::string createNotification(const std::string& type, const std::string& data);
 }
 
 } // namespace MillionaireGame

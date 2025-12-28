@@ -3,13 +3,14 @@
 #include "auth_manager.h"
 #include <unistd.h>
 #include <exception>
+#include <ctime>
 
 using namespace std;
 
 namespace MillionaireGame {
 
 void ClientHandler::handleClient(int client_fd, const string& client_ip, const ServerConfig& config) {
-    auto handler = make_unique<StreamHandler>(client_fd);
+    std::unique_ptr<StreamHandler> handler(new StreamHandler(client_fd));
     handler->setReadTimeout(config.connection_timeout_seconds, 0);
     handler->setWriteTimeout(10, 0);
 
@@ -58,8 +59,8 @@ void ClientHandler::handleClient(int client_fd, const string& client_ip, const S
 }
 
 void ClientHandler::sendConnectionMessage(StreamHandler* handler) {
-    string connection_msg = StreamUtils::createSuccessResponse(200, 
-        "{\"message\":\"Connected to Millionaire Game Server\"}");
+    string connection_msg = StreamUtils::createNotification("CONNECTION", 
+        "{\"serverName\":\"Millionaire Game Server\",\"timestamp\":" + to_string(time(nullptr)) + "}");
     handler->writeMessage(connection_msg);
 }
 

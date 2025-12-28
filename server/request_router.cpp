@@ -33,24 +33,24 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
     }
     
     // All other requests require authentication
-    string username = AuthManager::getInstance().requireAuth(request, *session);
+    string username = AuthManager::getInstance().requireAuth(request, *session, client_fd);
     if (username.empty()) {
         return StreamUtils::createErrorResponse(402, "Not authenticated or invalid authToken");
     }
 
     // Game actions
     if (request_type == "START") {
-        return GameHandlers::handleStart(request, *session);
+        return GameHandlers::handleStart(request, *session, client_fd);
     } else if (request_type == "ANSWER") {
-        return GameHandlers::handleAnswer(request, *session);
+        return GameHandlers::handleAnswer(request, *session, client_fd);
     } else if (request_type == "LIFELINE") {
-        return GameHandlers::handleLifeline(request, *session);
+        return GameHandlers::handleLifeline(request, *session, client_fd);
     } else if (request_type == "GIVE_UP") {
-        return GameHandlers::handleGiveUp(request, *session);
+        return GameHandlers::handleGiveUp(request, *session, client_fd);
     } else if (request_type == "RESUME") {
-        return GameHandlers::handleResume(request, *session);
+        return GameHandlers::handleResume(request, *session, client_fd);
     } else if (request_type == "LEAVE_GAME") {
-        return GameHandlers::handleLeaveGame(request, *session);
+        return GameHandlers::handleLeaveGame(request, *session, client_fd);
     } else if (request_type == "LOGOUT") {
         return AuthHandlers::handleLogout(request, *session, client_fd);
     } else if (request_type == "PING") {
@@ -78,15 +78,15 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
     } else if (request_type == "CHANGE_PASS") {
         return UserHandlers::handleChangePass(request, *session);
     } else if (request_type == "ADD_QUES") {
-        return AdminHandlers::handleAddQues(request, *session);
+        return AdminHandlers::handleAddQues(request, *session, client_fd);
     } else if (request_type == "CHANGE_QUES") {
-        return AdminHandlers::handleChangeQues(request, *session);
+        return AdminHandlers::handleChangeQues(request, *session, client_fd);
     } else if (request_type == "VIEW_QUES") {
-        return AdminHandlers::handleViewQues(request, *session);
+        return AdminHandlers::handleViewQues(request, *session, client_fd);
     } else if (request_type == "DEL_QUES") {
-        return AdminHandlers::handleDelQues(request, *session);
+        return AdminHandlers::handleDelQues(request, *session, client_fd);
     } else if (request_type == "BAN_USER") {
-        return AdminHandlers::handleBanUser(request, *session);
+        return AdminHandlers::handleBanUser(request, *session, client_fd);
     } else {
         return StreamUtils::createErrorResponse(415, "Unknown request type");
     }

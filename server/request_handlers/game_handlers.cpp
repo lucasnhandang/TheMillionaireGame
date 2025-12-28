@@ -1,6 +1,8 @@
 #include "game_handlers.h"
 #include "../game_state_manager.h"
 #include "../json_utils.h"
+#include "../stream_handler.h"
+#include "../notification_utils.h"
 #include <ctime>
 #include <algorithm>
 
@@ -10,7 +12,7 @@ namespace MillionaireGame {
 
 namespace GameHandlers {
 
-string handleStart(const string& request, ClientSession& session) {
+string handleStart(const string& request, ClientSession& session, int client_fd) {
     if (session.in_game) {
         return StreamUtils::createErrorResponse(405, "Already in a game");
     }
@@ -33,12 +35,24 @@ string handleStart(const string& request, ClientSession& session) {
     session.total_score = 0;
     session.used_lifelines.clear();
 
-    string data = "{\"message\":\"Game started\",\"gameId\":" + to_string(game_id) + 
+    string data = "{\"gameId\":" + to_string(game_id) + 
                  ",\"timestamp\":" + to_string(time(nullptr)) + "}";
+    
+    // Send GAME_START notification
+    string game_start_data = "{\"gameId\":" + to_string(game_id) + 
+                            ",\"timestamp\":" + to_string(time(nullptr)) + "}";
+    NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
+    
+    // TODO: Send QUESTION_INFO notification with first question
+    // This requires database integration to load question data
+    // Question q = Database::getInstance().getQuestion(session.current_level);
+    // string question_data = buildQuestionInfoData(q, game_id, session);
+    // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleAnswer(const string& request, ClientSession& session) {
+string handleAnswer(const string& request, ClientSession& session, int client_fd) {
     if (!session.in_game) {
         return StreamUtils::createErrorResponse(406, "Not in a game");
     }
@@ -102,6 +116,17 @@ string handleAnswer(const string& request, ClientSession& session) {
                          ",\"totalScore\":" + to_string(session.total_score) +
                          ",\"currentPrize\":1000000000" +
                          ",\"gameOver\":true,\"isWinner\":true}";
+            
+            // Send GAME_END notification
+            string game_end_data = "{\"gameId\":" + to_string(game_id) +
+                                  ",\"status\":\"won\"" +
+                                  ",\"finalLevel\":15" +
+                                  ",\"finalQuestionNumber\":15" +
+                                  ",\"finalPrize\":1000000000" +
+                                  ",\"totalScore\":" + to_string(session.total_score) +
+                                  ",\"isWinner\":true}";
+            NotificationUtils::sendNotification(client_fd, "GAME_END", game_end_data);
+            
             return StreamUtils::createSuccessResponse(200, data);
         } else {
             session.current_prize *= 2;
@@ -113,6 +138,13 @@ string handleAnswer(const string& request, ClientSession& session) {
                          ",\"totalScore\":" + to_string(session.total_score) +
                          ",\"currentPrize\":" + to_string(session.current_prize) +
                          ",\"gameOver\":false,\"isWinner\":false}";
+            
+            // TODO: Send QUESTION_INFO notification with next question
+            // This requires database integration to load question data
+            // Question next_q = Database::getInstance().getQuestion(session.current_level);
+            // string question_data = buildQuestionInfoData(next_q, game_id, session);
+            // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+            
             return StreamUtils::createSuccessResponse(200, data);
         }
     } else {
@@ -140,11 +172,24 @@ string handleAnswer(const string& request, ClientSession& session) {
                      ",\"totalScore\":" + to_string(safe_checkpoint_score) +
                      ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
                      ",\"gameOver\":true,\"isWinner\":false}";
+        
+        // Send GAME_END notification
+        string game_end_data = "{\"gameId\":" + to_string(game_id) +
+                              ",\"status\":\"lost\"" +
+                              ",\"finalLevel\":" + to_string(session.current_question_number) +
+                              ",\"finalQuestionNumber\":" + to_string(session.current_question_number) +
+                              ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"totalScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"isWinner\":false}";
+        NotificationUtils::sendNotification(client_fd, "GAME_END", game_end_data);
+        
         return StreamUtils::createSuccessResponse(200, data);
     }
 }
 
-string handleLifeline(const string& request, ClientSession& session) {
+string handleLifeline(const string& request, ClientSession& session, int client_fd) {
     if (!session.in_game) {
         return StreamUtils::createErrorResponse(406, "Not in a game");
     }
@@ -176,11 +221,24 @@ string handleLifeline(const string& request, ClientSession& session) {
     }
 
     session.used_lifelines.insert(lifeline_type);
-    string data = "{\"message\":\"Lifeline processed\"}";
+    string data = "{\"lifelineType\":\"" + lifeline_type + "}";
+    
+    // TODO: Implement LIFELINE_INFO notification with delay
+    // Delay times: 5050=5s, PHONE=10s, AUDIENCE=5s
+    // This requires async/threading mechanism to send notification after delay
+    // Example implementation:
+    // int delay_seconds = (lifeline_type == "PHONE") ? 10 : 5;
+    // std::thread([client_fd, lifeline_type, session, delay_seconds]() {
+    //     std::this_thread::sleep_for(std::chrono::seconds(delay_seconds));
+    //     
+    //     string lifeline_data = buildLifelineInfoData(lifeline_type, session);
+    //     NotificationUtils::sendNotification(client_fd, "LIFELINE_INFO", lifeline_data);
+    // }).detach();
+    
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleGiveUp(const string& request, ClientSession& session) {
+string handleGiveUp(const string& request, ClientSession& session, int client_fd) {
     if (!session.in_game) {
         return StreamUtils::createErrorResponse(406, "Not in a game");
     }
@@ -211,12 +269,21 @@ string handleGiveUp(const string& request, ClientSession& session) {
     string data = "{\"finalPrize\":" + to_string(final_prize) + 
                  ",\"finalQuestionNumber\":" + to_string(final_question_number) + 
                  ",\"totalScore\":" + to_string(total_score) +
-                 ",\"gameId\":" + to_string(game_id) +
-                 ",\"message\":\"You gave up and took the prize.\"}";
+                 ",\"gameId\":" + to_string(game_id) + "}";
+    
+    // Send GAME_END notification
+    string game_end_data = "{\"gameId\":" + to_string(game_id) +
+                          ",\"status\":\"gave_up\"" +
+                          ",\"finalLevel\":" + to_string(final_question_number) +
+                          ",\"finalQuestionNumber\":" + to_string(final_question_number) +
+                          ",\"finalPrize\":" + to_string(final_prize) +
+                          ",\"totalScore\":" + to_string(total_score) + "}";
+    NotificationUtils::sendNotification(client_fd, "GAME_END", game_end_data);
+    
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleResume(const string& request, ClientSession& session) {
+string handleResume(const string& request, ClientSession& session, int client_fd) {
     if (session.in_game) {
         return StreamUtils::createErrorResponse(405, "User already in a game");
     }
@@ -234,12 +301,18 @@ string handleResume(const string& request, ClientSession& session) {
     string data = "{\"questionNumber\":" + to_string(progress.level) + 
                  ",\"prize\":" + to_string(progress.prize) + 
                  ",\"gameId\":" + to_string(session.game_id) +
-                 ",\"totalScore\":" + to_string(session.total_score) +
-                 ",\"message\":\"Game resumed successfully\"}";
+                 ",\"totalScore\":" + to_string(session.total_score) + "}";
+    
+    // TODO: Send QUESTION_INFO notification with resumed question
+    // This requires database integration to load question data
+    // Question q = Database::getInstance().getQuestion(session.current_level);
+    // string question_data = buildQuestionInfoData(q, session.game_id, session);
+    // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleLeaveGame(const string& request, ClientSession& session) {
+string handleLeaveGame(const string& request, ClientSession& session, int client_fd) {
     if (!session.in_game) {
         return StreamUtils::createErrorResponse(406, "Not in a game");
     }
@@ -248,7 +321,7 @@ string handleLeaveGame(const string& request, ClientSession& session) {
         session.current_question_number, session.current_prize);
     session.in_game = false;
 
-    string data = "{\"message\":\"Left game successfully. Game state saved. Use RESUME to continue later.\"}";
+    string data = "{}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

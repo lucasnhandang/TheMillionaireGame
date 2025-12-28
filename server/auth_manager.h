@@ -1,6 +1,7 @@
 #ifndef AUTH_MANAGER_H
 #define AUTH_MANAGER_H
 
+#include "session_manager.h"
 #include <string>
 #include <unordered_map>
 #include <mutex>
@@ -10,9 +11,6 @@
 #include <cctype>
 
 namespace MillionaireGame {
-
-// Forward declaration
-struct ClientSession;
 
 /**
  * Authentication and Authorization Manager
@@ -47,7 +45,7 @@ public:
      * Check if request requires authentication and validate it
      * Returns username if valid, empty string otherwise
      */
-    std::string requireAuth(const std::string& request, ClientSession& session);
+    std::string requireAuth(const std::string& request, ClientSession& session, int client_fd);
     
     /**
      * Validate password strength
