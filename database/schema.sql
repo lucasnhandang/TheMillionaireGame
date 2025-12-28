@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'won', 'lost', 'quit')),
     current_question_number INTEGER DEFAULT 1,
-    current_level INTEGER DEFAULT 1,
+    -- current_level INTEGER DEFAULT 1,
     current_prize BIGINT DEFAULT 1000000,
     total_score INTEGER DEFAULT 0,
     final_prize BIGINT,
@@ -77,16 +77,16 @@ CREATE TABLE IF NOT EXISTS game_answers (
 -- ============================================
 -- 6. SAVED_GAMES TABLE
 -- ============================================
-CREATE TABLE IF NOT EXISTS saved_games (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    game_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
-    question_number INTEGER NOT NULL,
-    prize BIGINT NOT NULL,
-    score INTEGER NOT NULL,
-    used_lifelines TEXT, -- JSON array: ["5050", "PHONE", "AUDIENCE"]
-    saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE IF NOT EXISTS saved_games (
+--     id SERIAL PRIMARY KEY,
+--     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+--     game_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+--     question_number INTEGER NOT NULL,
+--     prize BIGINT NOT NULL,
+--     score INTEGER NOT NULL,
+--     used_lifelines TEXT, -- JSON array: ["5050", "PHONE", "AUDIENCE"]
+--     saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
 
 -- ============================================
 -- 7. FRIEND_REQUESTS TABLE
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     from_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     to_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    game_id INTEGER REFERENCES game_sessions(id) ON DELETE SET NULL,
+    -- game_id INTEGER REFERENCES game_sessions(id) ON DELETE SET NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CHECK (from_user_id != to_user_id)
@@ -132,9 +132,9 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS leaderboard (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
-    final_question_number INTEGER CHECK (final_question_number >= 1 AND final_question_number <= 15),
+    -- final_question_number INTEGER CHECK (final_question_number >= 1 AND final_question_number <= 15),
     total_score BIGINT NOT NULL DEFAULT 0,
-    highest_prize BIGINT NOT NULL DEFAULT 0,
+    -- highest_prize BIGINT NOT NULL DEFAULT 0,
     games_played INTEGER DEFAULT 0,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -153,7 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_questions_is_active ON questions(is_active);
 -- Game session queries
 CREATE INDEX IF NOT EXISTS idx_game_sessions_user_id ON game_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_status ON game_sessions(status);
-
+ 
 -- Game questions/answers
 CREATE INDEX IF NOT EXISTS idx_game_questions_game_id ON game_questions(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_answers_game_id ON game_answers(game_id);
