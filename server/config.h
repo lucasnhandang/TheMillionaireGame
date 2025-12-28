@@ -15,11 +15,20 @@ struct ServerConfig {
     int connection_timeout_seconds;
     int worker_threads;  // Number of worker threads for I/O multiplexing
     
+    // Database configuration
+    std::string db_host;
+    int db_port;
+    std::string db_name;
+    std::string db_user;
+    std::string db_password;
+    
     ServerConfig() 
         : port(8080), log_file(""), log_level("INFO"), 
           max_clients(100), ping_timeout_seconds(60), 
           connection_timeout_seconds(300),
-          worker_threads(4) {}
+          worker_threads(4),
+          db_host("localhost"), db_port(5432), db_name("millionaire_game"),
+          db_user("postgres"), db_password("") {}
 };
 
 class ConfigLoader {

@@ -15,6 +15,7 @@ This folder contains database schema, migrations, and integration code for the M
 ```
 database/
 ├── schema.sql              # Database schema definition
+├── mock_data.sql           # Sample data for testing
 ├── migrations/             # Database migration scripts
 │   └── 001_initial_schema.sql
 ├── database.h              # Database class interface
@@ -26,12 +27,15 @@ database/
 │   ├── lifeline_manager.h/cpp
 │   └── game_timer.h/cpp
 ├── README.md               # This file
-└── INTEGRATION_GUIDE.md    # Detailed integration steps
+├── INTEGRATION_GUIDE.md    # Detailed integration steps
+├── INTEGRATION_COMPLETE.md # Complete integration status and fixes
+├── TEST_GUIDE.md           # Comprehensive testing guide with test cases
+└── QUICK_TEST_REFERENCE.md # Quick reference for common test commands
 ```
 
 ## Integration Steps
 
-1. **Review Server Integration Guide**: See `../server/INTEGRATION.md` for detailed integration instructions
+1. **Review Server Integration Guide**: See `../server/docs/INTEGRATION.md` for detailed integration instructions
 
 2. **Create Database Schema**: 
    - Design tables: users, questions, game_sessions, saved_games, friendships, friend_requests, leaderboard
@@ -39,7 +43,7 @@ database/
 
 3. **Implement Database Module**:
    - Create `database.h/cpp` with singleton pattern
-   - Implement all methods referenced in `server/INTEGRATION.md`
+   - Implement all methods referenced in `../server/docs/INTEGRATION.md`
    - Use `libpq` for PostgreSQL connection
 
 4. **Implement Game Logic Modules**:
@@ -72,6 +76,14 @@ Add database connection settings to `server/config.json`:
 - Test database connection independently
 - Test each game logic module separately
 - Integration test with server handlers
+
+### Testing Documentation
+
+- **`TEST_GUIDE.md`**: Comprehensive testing guide with detailed test cases for all features (authentication, game flow, scoring, lifelines, leaderboard, friends, admin operations). Includes step-by-step instructions, expected responses, and database verification queries.
+
+- **`QUICK_TEST_REFERENCE.md`**: Quick reference guide for common test commands and database verification queries. Useful for rapid testing during development.
+
+- **`INTEGRATION_COMPLETE.md`**: Complete integration status document detailing all fixes, known issues, build requirements, and server management instructions. Includes bug fixes, compilation issues resolved, and next steps.
 
 ## Notes
 

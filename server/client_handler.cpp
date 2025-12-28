@@ -16,7 +16,7 @@ void ClientHandler::handleClient(int client_fd, const string& client_ip, const S
 
     StreamHandler* handler_ptr = handler.get();
 
-    SessionManager::getInstance().createSession(client_fd, move(handler), client_ip);
+    SessionManager::getInstance().createSession(client_fd, std::move(handler), client_ip);
 
     LOG_INFO("Client handler started for " + client_ip);
 

@@ -1,6 +1,8 @@
 #include "auth_manager.h"
+#include "session_manager.h"
 #include "json_utils.h"
 #include "stream_handler.h"
+#include "../database/database.h"
 #include <iomanip>
 
 using namespace std;
@@ -86,9 +88,7 @@ bool AuthManager::validatePasswordStrength(const string& password) {
 }
 
 bool AuthManager::isAdmin(const string& username) {
-    // TODO: Replace with database call
-    // return Database::getInstance().getUserRole(username) == "admin";
-    return false;
+    return Database::getInstance().getUserRole(username) == "admin";
 }
 
 string AuthManager::getUsernameFromToken(const string& token) {
