@@ -13,11 +13,13 @@ struct ServerConfig {
     int max_clients;
     int ping_timeout_seconds;
     int connection_timeout_seconds;
+    int worker_threads;  // Number of worker threads for I/O multiplexing
     
     ServerConfig() 
         : port(8080), log_file(""), log_level("INFO"), 
           max_clients(100), ping_timeout_seconds(60), 
-          connection_timeout_seconds(300) {}
+          connection_timeout_seconds(300),
+          worker_threads(4) {}
 };
 
 class ConfigLoader {

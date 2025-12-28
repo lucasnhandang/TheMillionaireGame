@@ -58,7 +58,7 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
     SessionManager::getInstance().addOnlineUser(username);
 
     string data = "{\"authToken\":\"" + token + "\",\"username\":\"" + username + 
-                 "\",\"role\":\"" + user_role + "\",\"message\":\"Login successful\"}";
+                 "\",\"role\":\"" + user_role + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -94,8 +94,7 @@ string handleRegister(const string& request, ClientSession& session, int client_
 
     // According to PROTOCOL.md, REGISTER returns 201 without authToken
     // User must LOGIN to get authToken
-    string data = "{\"username\":\"" + username + 
-                 "\",\"message\":\"Registration successful. Please login to continue.\"}";
+    string data = "{\"username\":\"" + username + "}";
     return StreamUtils::createSuccessResponse(201, data);
 }
 
@@ -109,7 +108,7 @@ string handleLogout(const string& request, ClientSession& session, int client_fd
     SessionManager::getInstance().removeOnlineUser(username);
     SessionManager::getInstance().removeSession(client_fd);
     
-    string data = "{\"message\":\"Logout successful\"}";
+    string data = "{}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

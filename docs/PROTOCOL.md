@@ -17,6 +17,8 @@ This document defines the communication protocol between Client, Server, and Adm
 ```
 
 ### Response Format (Server to Client)
+
+**Success Response:**
 ```json
 {
   "responseCode": 200,
@@ -26,11 +28,52 @@ This document defines the communication protocol between Client, Server, and Adm
 }
 ```
 
-Or for errors:
+**Error Response:**
 ```json
 {
   "responseCode": 401,
   "message": "Error message"
+}
+```
+
+### Notification Format (Server Push to Client)
+
+Server can send unsolicited notifications to clients. Notifications use `type` field instead of `responseCode`:
+
+```json
+{
+  "type": "NOTIFICATION_TYPE",
+  "data": {
+    // Notification data
+  }
+}
+```
+
+**Common Notification Types:**
+- `CONNECTION` - Initial connection established
+- `GAME_START` - Game session started
+- `QUESTION_INFO` - Question details
+- `LIFELINE_INFO` - Lifeline results
+- `GAME_END` - Game ended
+- `FRIEND_REQUEST_RECEIVED` - Friend request notification
+- `CHAT_MESSAGE` - Chat message received
+- `USER_BANNED` - User banned notification (sent to banned user)
+
+**See [NOTIFICATION_TYPES.md](NOTIFICATION_TYPES.md) for complete notification documentation.**
+
+### Message Differentiation
+
+Client can distinguish between responses and notifications:
+
+```javascript
+const msg = JSON.parse(rawMessage);
+
+if ('responseCode' in msg) {
+  // This is a response to a client request
+  handleResponse(msg);
+} else if ('type' in msg) {
+  // This is a server notification
+  handleNotification(msg);
 }
 ```
 
@@ -1015,7 +1058,7 @@ Send the next question and possible answers to the player.
 **Notification:**
 ```json
 {
-  "responseCode": 200,
+  "type": "QUESTION_INFO",
   "data": {
     "questionId": 1,
     "questionNumber": 1,
@@ -1054,7 +1097,7 @@ Send result or data after a lifeline is used.
 **For 5050 (50/50):**
 ```json
 {
-  "responseCode": 200,
+  "type": "LIFELINE_INFO",
   "data": {
     "lifelineType": "5050",
     "questionNumber": 1,
@@ -1070,7 +1113,7 @@ Send result or data after a lifeline is used.
 **For PHONE:**
 ```json
 {
-  "responseCode": 200,
+  "type": "LIFELINE_INFO",
   "data": {
     "lifelineType": "PHONE",
     "questionNumber": 1,
@@ -1086,7 +1129,7 @@ Send result or data after a lifeline is used.
 **For AUDIENCE:**
 ```json
 {
-  "responseCode": 200,
+  "type": "LIFELINE_INFO",
   "data": {
     "lifelineType": "AUDIENCE",
     "questionNumber": 1,
@@ -1119,9 +1162,8 @@ Notify client that the game session has started.
 **Notification:**
 ```json
 {
-  "responseCode": 200,
+  "type": "GAME_START",
   "data": {
-    "message": "Game started",
     "gameId": 12345,
     "timestamp": 1705320000
   }
@@ -1136,7 +1178,7 @@ Notify that the game has ended (win, lose, or quit).
 **Notification:**
 ```json
 {
-  "responseCode": 200,
+  "type": "GAME_END",
   "data": {
     "gameId": 12345,
     "status": "lost",
@@ -1146,7 +1188,7 @@ Notify that the game has ended (win, lose, or quit).
     "safeCheckpointScore": 150,
     "finalPrize": 10000000,
     "totalScore": 150,
-    "message": "Wrong answer! You receive safe checkpoint prize."
+    "isWinner": false
   }
 }
 ```
@@ -1174,7 +1216,7 @@ Send player's current friend list.
 **Notification:**
 ```json
 {
-  "responseCode": 200,
+  "type": "FRIEND_LIST",
   "data": {
     "friends": [
       {"username": "friend1", "status": "online"},

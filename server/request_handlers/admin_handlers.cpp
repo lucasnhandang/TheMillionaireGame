@@ -1,5 +1,8 @@
 #include "admin_handlers.h"
 #include "../json_utils.h"
+#include "../stream_handler.h"
+#include "../notification_utils.h"
+#include <ctime>
 
 using namespace std;
 
@@ -7,7 +10,7 @@ namespace MillionaireGame {
 
 namespace AdminHandlers {
 
-string handleAddQues(const string& request, ClientSession& session) {
+string handleAddQues(const string& request, ClientSession& session, int client_fd) {
     if (session.role != "admin") {
         return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
     }
@@ -45,11 +48,14 @@ string handleAddQues(const string& request, ClientSession& session) {
     //     return StreamUtils::createErrorResponse(409, "Question ID conflict");
     // }
 
-    string data = "{\"questionId\":0,\"message\":\"Question added successfully\"}";
+    // Placeholder question ID
+    int question_id = 0;
+
+    string data = "{\"message\":\"Question added successfully\",\"questionId\":" + to_string(question_id) + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleChangeQues(const string& request, ClientSession& session) {
+string handleChangeQues(const string& request, ClientSession& session, int client_fd) {
     if (session.role != "admin") {
         return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
     }
@@ -82,11 +88,11 @@ string handleChangeQues(const string& request, ClientSession& session) {
     // 
     // Database::getInstance().updateQuestion(question_id, question_data);
 
-    string data = "{\"message\":\"Question updated successfully\"}";
+    string data = "{\"message\":\"Question updated successfully\",\"questionId\":" + to_string(question_id) + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleViewQues(const string& request, ClientSession& session) {
+string handleViewQues(const string& request, ClientSession& session, int client_fd) {
     if (session.role != "admin") {
         return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
     }
@@ -108,7 +114,7 @@ string handleViewQues(const string& request, ClientSession& session) {
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleDelQues(const string& request, ClientSession& session) {
+string handleDelQues(const string& request, ClientSession& session, int client_fd) {
     if (session.role != "admin") {
         return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
     }
@@ -127,11 +133,11 @@ string handleDelQues(const string& request, ClientSession& session) {
     // 
     // Database::getInstance().deleteQuestion(question_id);
 
-    string data = "{\"message\":\"Question deleted successfully\"}";
+    string data = "{\"message\":\"Question deleted successfully\",\"questionId\":" + to_string(question_id) + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
-string handleBanUser(const string& request, ClientSession& session) {
+string handleBanUser(const string& request, ClientSession& session, int client_fd) {
     if (session.role != "admin") {
         return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
     }
@@ -159,7 +165,17 @@ string handleBanUser(const string& request, ClientSession& session) {
     // 
     // Database::getInstance().banUser(target_username, reason);
 
-    string data = "{\"message\":\"User banned successfully\"}";
+    string data = "{\"message\":\"User banned successfully\",\"username\":\"" + target_username + "\"}";
+    
+    // TODO: Send USER_BANNED notification to the banned user (force disconnect)
+    // This requires finding the user's client_fd
+    // int banned_user_fd = findClientFdByUsername(target_username);
+    // if (banned_user_fd != -1) {
+    //     string user_notification_data = "{\"reason\":\"" + reason +
+    //                                    "\",\"timestamp\":" + to_string(time(nullptr)) + "}";
+    //     NotificationUtils::sendNotification(banned_user_fd, "USER_BANNED", user_notification_data);
+    // }
+    
     return StreamUtils::createSuccessResponse(200, data);
 }
 

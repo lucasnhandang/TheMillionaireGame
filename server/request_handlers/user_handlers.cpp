@@ -1,6 +1,7 @@
 #include "user_handlers.h"
 #include "../auth_manager.h"
 #include "../json_utils.h"
+#include "../stream_handler.h"
 
 using namespace std;
 
@@ -52,7 +53,7 @@ string handleChangePass(const string& request, ClientSession& session) {
     //     return StreamUtils::createErrorResponse(401, "Wrong old password");
     // }
 
-    string data = "{\"message\":\"Password changed successfully\"}";
+    string data = "{}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

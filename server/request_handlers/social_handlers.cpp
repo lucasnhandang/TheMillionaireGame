@@ -1,6 +1,7 @@
 #include "social_handlers.h"
 #include "../session_manager.h"
 #include "../json_utils.h"
+#include "../stream_handler.h"
 #include <vector>
 
 using namespace std;
@@ -66,7 +67,7 @@ string handleAddFriend(const string& request, ClientSession& session) {
     // 
     // bool success = Database::getInstance().addFriendRequest(session.username, friend_username);
 
-    string data = "{\"message\":\"Friend request sent successfully\"}";
+    string data = "{\"friendUsername\":\"" + friend_username + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -90,8 +91,7 @@ string handleAcceptFriend(const string& request, ClientSession& session) {
     // 
     // bool success = Database::getInstance().acceptFriendRequest(friend_username, session.username);
 
-    string data = "{\"message\":\"Friend request accepted successfully\",\"friendUsername\":\"" + 
-                 friend_username + "\"}";
+    string data = "{\"friendUsername\":\"" + friend_username + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -110,7 +110,7 @@ string handleDeclineFriend(const string& request, ClientSession& session) {
     // 
     // bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
 
-    string data = "{\"message\":\"Friend request declined successfully\"}";
+    string data = "{\"friendUsername\":\"" + friend_username + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -135,7 +135,7 @@ string handleDelFriend(const string& request, ClientSession& session) {
     // 
     // bool success = Database::getInstance().deleteFriend(session.username, friend_username);
 
-    string data = "{\"message\":\"Friend removed successfully\"}";
+    string data = "{\"friendUsername\":\"" + friend_username + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -160,7 +160,7 @@ string handleChat(const string& request, ClientSession& session) {
     // // Send message to recipient if online, or store for later
     // sendChatMessage(recipient, session.username, message);
 
-    string data = "{\"message\":\"Message sent successfully\"}";
+    string data = "{\"recipient\":\"" + recipient + "}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

@@ -4,6 +4,7 @@
   "log_level": "INFO",
   "max_clients": 100,
   "ping_timeout_seconds": 60,
-  "connection_timeout_seconds": 300
+  "connection_timeout_seconds": 300,
+  "worker_threads": 4
 }
 

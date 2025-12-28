@@ -2,18 +2,20 @@
 #define SERVER_CORE_H
 
 #include "config.h"
-#include "client_handler.h"
 #include "session_manager.h"
+#include "event_loop.h"
 #include <atomic>
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <memory>
 
 namespace MillionaireGame {
 
 /**
  * Server Core
  * Manages server lifecycle: start, stop, accept connections
+ * Uses poll()-based I/O multiplexing with worker threads
  */
 class ServerCore {
 public:
@@ -22,18 +24,18 @@ public:
 
     bool start();
     void run();
-    void stopAccepting();
     void stop();
 
 private:
     ServerConfig config_;
     std::atomic<bool> running_;
-    std::atomic<bool> accepting_;
     int server_fd_;
     static ServerCore* instance_;
+    
+    // Event loop for I/O multiplexing
+    std::unique_ptr<EventLoop> event_loop_;
 
     static void signalHandler(int sig);
-    void waitForClientsToFinish();
 };
 
 } // namespace MillionaireGame

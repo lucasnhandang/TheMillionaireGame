@@ -49,14 +49,14 @@ bool AuthManager::validateToken(const string& token, int client_fd) {
     return false;
 }
 
-string AuthManager::requireAuth(const string& request, ClientSession& session) {
+string AuthManager::requireAuth(const string& request, ClientSession& session, int client_fd) {
     string token_from_request = JsonUtils::extractString(request, "authToken");
     
     if (token_from_request.empty()) {
         return "";
     }
     
-    if (!validateToken(token_from_request, session.handler->getSocketFd())) {
+    if (!validateToken(token_from_request, client_fd)) {
         return "";
     }
     

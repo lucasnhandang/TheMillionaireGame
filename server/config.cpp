@@ -87,6 +87,7 @@ bool ConfigLoader::loadFromString(const string& json_content, ServerConfig& conf
     config.max_clients = extractIntValue(json, "max_clients", 100);
     config.ping_timeout_seconds = extractIntValue(json, "ping_timeout_seconds", 60);
     config.connection_timeout_seconds = extractIntValue(json, "connection_timeout_seconds", 300);
+    config.worker_threads = extractIntValue(json, "worker_threads", 4);
     
     return true;
 }
