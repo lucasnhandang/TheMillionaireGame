@@ -23,15 +23,15 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
         return StreamUtils::createErrorResponse(400, "Missing username or password");
     }
 
+    // Check if user is banned BEFORE authentication
+    if (Database::getInstance().isUserBanned(username)) {
+        return StreamUtils::createErrorResponse(403, "Account is banned");
+    }
+
     // Authenticate user with database
     bool login_success = Database::getInstance().authenticateUser(username, password);
     if (!login_success) {
         return StreamUtils::createErrorResponse(401, "Invalid credentials");
-    }
-    
-    // Check if user is banned
-    if (Database::getInstance().isUserBanned(username)) {
-        return StreamUtils::createErrorResponse(403, "Account is banned");
     }
     
     // Update last_login timestamp

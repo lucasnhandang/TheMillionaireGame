@@ -96,6 +96,13 @@ public:
      */
     void waitForClientsToFinish();
 
+    /**
+     * Find client file descriptor by game_id
+     * @param game_id Game session ID
+     * @return Client file descriptor, or -1 if not found
+     */
+    int getClientFdByGameId(int game_id);
+
 private:
     SessionManager() = default;
     ~SessionManager() = default;

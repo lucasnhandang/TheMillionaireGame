@@ -62,6 +62,13 @@ lsof -i :8080
 # Should show server process
 ```
 
+### Connect to Server
+```bash
+nc localhost 8080
+# or
+telnet localhost 8080
+```
+
 ---
 
 ## Test Case 2: User Authentication Works ✅
@@ -150,7 +157,7 @@ psql -U postgres -d millionaire_game -c "SELECT id, username, last_login FROM us
 **Verification:**
 ```bash
 # Check database
-psql -U postgres -d millionaire_game -c "SELECT id, user_id, status, current_question_number, current_level, current_prize, total_score FROM game_sessions ORDER BY id DESC LIMIT 1;"
+psql -U postgres -d millionaire_game -c "SELECT id, user_id, status, current_question_number, current_prize, total_score FROM game_sessions ORDER BY id DESC LIMIT 1;"
 # Should show:
 # - id: matches gameId from response
 # - user_id: matches testuser1's user_id
@@ -659,7 +666,7 @@ psql -U postgres -d millionaire_game -c "UPDATE users SET role = 'admin' WHERE u
 
 **Request:**
 ```json
-{"requestType":"ADD_QUES","data":{"authToken":"<admin-token>","question":"What is 2+2?","options":[{"label":"A","text":"3"},{"label":"B","text":"4"},{"label":"C","text":"5"},{"label":"D","text":"6"}],"correctAnswer":1,"level":0}}
+{"requestType":"ADD_QUES","data":{"authToken":"<admin-token>","question":"What is 2+2?","options":["3","4","5","6"],"correctAnswer":1,"level":0,"lifeline_5050_info":[1,2],"lifeline_ask_info":{"A":5,"B":70,"C":15,"D":10},"lifeline_call_info":"I'm 90% sure it's B"}}
 ```
 
 **Expected Response:**
@@ -669,9 +676,13 @@ psql -U postgres -d millionaire_game -c "UPDATE users SET role = 'admin' WHERE u
 
 **Verification:**
 ```bash
-# Check question added
-psql -U postgres -d millionaire_game -c "SELECT id, question_text, option_a, option_b, option_c, option_d, correct_answer, level FROM questions WHERE id = <question-id>;"
-# Should show new question with all fields
+# Check question added with lifeline info
+psql -U postgres -d millionaire_game -c "SELECT id, question_text, option_a, option_b, option_c, option_d, correct_answer, level, lifeline_5050_info, lifeline_ask_info, lifeline_call_info FROM questions WHERE id = <question-id>;"
+# Should show new question with all fields including:
+# - option_a: "3", option_b: "4", option_c: "5", option_d: "6"
+# - lifeline_5050_info: [1,2] (indices to keep - options B and C)
+# - lifeline_ask_info: {"A":5,"B":70,"C":15,"D":10} (audience poll percentages)
+# - lifeline_call_info: "I'm 90% sure it's B" (phone friend message)
 ```
 
 ### Test 11.3: View Questions (Admin)

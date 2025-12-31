@@ -2,6 +2,7 @@
 #include "../session_manager.h"
 #include "../json_utils.h"
 #include "../stream_handler.h"
+#include "../../database/database.h"
 #include <vector>
 #include <sstream>
 
@@ -92,7 +93,7 @@ string handleAddFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(409, "Friend request already sent or failed");
     }
 
-    string data = "{\"friendUsername\":\"" + friend_username + "}";
+    string data = "{\"friendUsername\":\"" + friend_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -103,20 +104,32 @@ string handleAcceptFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool request_exists = Database::getInstance().friendRequestExists(friend_username, session.username);
-    // if (!request_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Friend request not found");
-    // }
-    // 
-    // bool already_friends = Database::getInstance().areFriends(session.username, friend_username);
-    // if (already_friends) {
-    //     return StreamUtils::createErrorResponse(409, "Friend already exists");
-    // }
-    // 
-    // bool success = Database::getInstance().acceptFriendRequest(friend_username, session.username);
+    // Check if friend request exists (from friend_username to session.username)
+    vector<FriendRequest> requests = Database::getInstance().getFriendRequests(session.username);
+    bool request_exists = false;
+    for (const auto& req : requests) {
+        if (req.username == friend_username) {
+            request_exists = true;
+            break;
+        }
+    }
+    
+    if (!request_exists) {
+        return StreamUtils::createErrorResponse(404, "Friend request not found");
+    }
+    
+    // Check if already friends
+    if (Database::getInstance().friendshipExists(session.username, friend_username)) {
+        return StreamUtils::createErrorResponse(409, "Friend already exists");
+    }
+    
+    // Accept friend request (from friend_username to session.username)
+    bool success = Database::getInstance().acceptFriendRequest(friend_username, session.username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to accept friend request");
+    }
 
-    string data = "{\"friendUsername\":\"" + friend_username + "}";
+    string data = "{\"friendUsername\":\"" + friend_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -135,7 +148,7 @@ string handleDeclineFriend(const string& request, ClientSession& session) {
     // 
     // bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
 
-    string data = "{\"friendUsername\":\"" + friend_username + "}";
+    string data = "{\"friendUsername\":\"" + friend_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
@@ -161,15 +174,18 @@ string handleDelFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool are_friends = Database::getInstance().areFriends(session.username, friend_username);
-    // if (!are_friends) {
-    //     return StreamUtils::createErrorResponse(404, "Friend not found");
-    // }
-    // 
-    // bool success = Database::getInstance().deleteFriend(session.username, friend_username);
+    // Check if friendship exists
+    if (!Database::getInstance().friendshipExists(session.username, friend_username)) {
+        return StreamUtils::createErrorResponse(404, "Friend not found");
+    }
+    
+    // Delete friendship
+    bool success = Database::getInstance().deleteFriend(session.username, friend_username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to delete friend");
+    }
 
-    string data = "{\"friendUsername\":\"" + friend_username + "}";
+    string data = "{\"message\":\"Friend removed successfully\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

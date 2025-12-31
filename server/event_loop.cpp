@@ -2,6 +2,11 @@
 #include "logger.h"
 #include "auth_manager.h"
 #include "request_router.h"
+#include "session_manager.h"
+#include "game_timer.h"
+#include "scoring_system.h"
+#include "notification_utils.h"
+#include "../database/database.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -149,7 +154,8 @@ void EventLoop::run(int server_fd) {
         }
 
         if (poll_result == 0) {
-            // Timeout - can do periodic tasks here (ping check, etc.)
+            // Timeout - do periodic tasks (ping check, game timeout check, etc.)
+            checkGameTimeouts();
             continue;
         }
 
@@ -508,6 +514,53 @@ void EventLoop::rebuildPollFds() {
         if (poll_fds_[i].fd != server_fd_ && poll_fds_[i].fd != wakeup_pipe_[0]) {
             fd_to_index_[poll_fds_[i].fd] = i;
         }
+    }
+}
+
+void EventLoop::checkGameTimeouts() {
+    // Get all timed-out games
+    vector<int> timed_out_games = GameTimer::getInstance().getTimedOutGames();
+    
+    for (int game_id : timed_out_games) {
+        // Find client session for this game
+        int client_fd = SessionManager::getInstance().getClientFdByGameId(game_id);
+        if (client_fd < 0) {
+            // No active session found - client may have disconnected
+            // Stop the timer, database cleanup will happen on next START
+            GameTimer::getInstance().stopTimer(game_id);
+            continue;
+        }
+        
+        ClientSession* session = SessionManager::getInstance().getSession(client_fd);
+        if (!session || !session->in_game || session->game_id != game_id) {
+            // Session state doesn't match - stop timer and continue
+            GameTimer::getInstance().stopTimer(game_id);
+            continue;
+        }
+        
+        // End the game due to timeout
+        session->in_game = false;
+        GameTimer::getInstance().stopTimer(game_id);
+        
+        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(session->current_question_number);
+        int safe_checkpoint_score = session->total_score;
+        
+        // Update game session in database
+        Database::getInstance().endGame(game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
+        
+        // Send GAME_END notification
+        string game_end_data = "{\"gameId\":" + to_string(game_id) +
+                              ",\"status\":\"lost\"" +
+                              ",\"finalLevel\":" + to_string(session->current_question_number) +
+                              ",\"finalQuestionNumber\":" + to_string(session->current_question_number) +
+                              ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"totalScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"isWinner\":false}";
+        NotificationUtils::sendNotification(client_fd, "GAME_END", game_end_data);
+        
+        LOG_INFO("Game " + to_string(game_id) + " timed out and ended automatically");
     }
 }
 

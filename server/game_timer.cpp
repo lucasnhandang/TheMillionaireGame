@@ -42,5 +42,20 @@ void GameTimer::stopTimer(int game_id) {
     timer_start_times_.erase(game_id);
 }
 
+std::vector<int> GameTimer::getTimedOutGames() {
+    std::lock_guard<std::mutex> lock(timers_mutex_);
+    std::vector<int> timed_out;
+    time_t now = time(nullptr);
+    
+    for (const auto& pair : timer_start_times_) {
+        time_t elapsed = now - pair.second;
+        if (elapsed >= question_timeout_seconds_) {
+            timed_out.push_back(pair.first);
+        }
+    }
+    
+    return timed_out;
+}
+
 } // namespace MillionaireGame
 

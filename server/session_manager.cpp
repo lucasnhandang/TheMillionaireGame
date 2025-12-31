@@ -111,5 +111,15 @@ void SessionManager::waitForClientsToFinish() {
     LOG_INFO("Shutdown complete");
 }
 
+int SessionManager::getClientFdByGameId(int game_id) {
+    lock_guard<mutex> lock(clients_mutex_);
+    for (const auto& pair : active_clients_) {
+        if (pair.second.in_game && pair.second.game_id == game_id) {
+            return pair.first;
+        }
+    }
+    return -1;
+}
+
 } // namespace MillionaireGame
 

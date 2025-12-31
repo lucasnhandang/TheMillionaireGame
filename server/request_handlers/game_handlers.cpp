@@ -7,6 +7,8 @@
 #include "../json_utils.h"
 #include "../stream_handler.h"
 #include "../notification_utils.h"
+#include "../logger.h"
+#include "../../database/database.h"
 #include <ctime>
 #include <algorithm>
 
@@ -17,7 +19,9 @@ namespace MillionaireGame {
 namespace GameHandlers {
 
 string handleStart(const string& request, ClientSession& session, int client_fd) {
-    if (session.in_game) {
+    // Check database only - database is source of truth
+    GameSession active_game = Database::getInstance().getActiveGameSession(session.username);
+    if (active_game.id > 0) {
         return StreamUtils::createErrorResponse(405, "Already in a game");
     }
 
@@ -51,6 +55,9 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
     session.current_prize = ScoringSystem::getInstance().getPrizeForLevel(0, 1);
     session.total_score = 0;
     session.used_lifelines.clear();
+    
+    // Start timer for first question
+    GameTimer::getInstance().startQuestionTimer(game_id);
 
     string data = "{\"gameId\":" + to_string(game_id) + 
                  ",\"timestamp\":" + to_string(time(nullptr)) + "}";
@@ -106,6 +113,9 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
         long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(session.current_question_number);
         int safe_checkpoint_score = session.total_score;
         
+        // Update game session in database (same as wrong answer)
+        Database::getInstance().endGame(game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
+        
         string data = "{\"gameId\":" + to_string(game_id) + 
                      ",\"correct\":false" +
                      ",\"questionNumber\":" + to_string(session.current_question_number) +
@@ -115,7 +125,20 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
                      ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
                      ",\"totalScore\":" + to_string(safe_checkpoint_score) +
                      ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
-                     ",\"gameOver\":true,\"isWinner\":false,\"timeout\":true}";
+                     ",\"gameOver\":true,\"isWinner\":false}";
+        
+        // Send GAME_END notification (same as wrong answer)
+        string game_end_data = "{\"gameId\":" + to_string(game_id) +
+                              ",\"status\":\"lost\"" +
+                              ",\"finalLevel\":" + to_string(session.current_question_number) +
+                              ",\"finalQuestionNumber\":" + to_string(session.current_question_number) +
+                              ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
+                              ",\"totalScore\":" + to_string(safe_checkpoint_score) +
+                              ",\"isWinner\":false}";
+        NotificationUtils::sendNotification(client_fd, "GAME_END", game_end_data);
+        
         // For timeout, we return error response but include game data
         return "{\"responseCode\":408,\"data\":" + data + "}";
     }
@@ -333,7 +356,35 @@ string handleLifeline(const string& request, ClientSession& session, int client_
     }
     
     session.used_lifelines.insert(lifeline_type);
-    string data = "{\"lifelineType\":\"" + lifeline_type + "}";
+    
+    // Build response data with lifeline result
+    // result.result_data contains the hint JSON object
+    // For 5050: {"remainingOptions":[0,2]}
+    // For PHONE: {"suggestion":"I'm 85% sure it's A"}
+    // For AUDIENCE: {"poll":{"A":65,"B":15,"C":10,"D":10}}
+    
+    // Merge result_data into response, adding lifelineType
+    string data;
+    if (!result.result_data.empty()) {
+        // result_data is a JSON object, merge lifelineType into it
+        string inner_data = result.result_data;
+        if (inner_data.front() == '{' && inner_data.back() == '}') {
+            // Remove outer braces
+            inner_data = inner_data.substr(1, inner_data.length() - 2);
+            // Add lifelineType as first field
+            data = "{\"lifelineType\":\"" + lifeline_type + "\"";
+            if (!inner_data.empty()) {
+                data += "," + inner_data;
+            }
+            data += "}";
+        } else {
+            // Fallback: just wrap it
+            data = "{\"lifelineType\":\"" + lifeline_type + "\",\"data\":" + result.result_data + "}";
+        }
+    } else {
+        // Fallback if no result_data
+        data = "{\"lifelineType\":\"" + lifeline_type + "\"}";
+    }
     
     // TODO: Implement LIFELINE_INFO notification with delay
     // Delay times: 5050=5s, PHONE=10s, AUDIENCE=5s
@@ -351,12 +402,23 @@ string handleLifeline(const string& request, ClientSession& session, int client_
 }
 
 string handleGiveUp(const string& request, ClientSession& session, int client_fd) {
-    if (!session.in_game) {
-        return StreamUtils::createErrorResponse(406, "Not in a game");
-    }
-
+    // Check both in-memory session and database for active game
     int game_id = JsonUtils::extractInt(request, "gameId", -1);
-    int question_number = JsonUtils::extractInt(request, "questionNumber", -1);
+    
+    // If session.in_game is false, check database for active game
+    if (!session.in_game) {
+        GameSession active_game = Database::getInstance().getActiveGameSession(session.username);
+        if (active_game.id == 0) {
+            return StreamUtils::createErrorResponse(406, "Not in a game");
+        }
+        // Restore session state from database
+        session.in_game = true;
+        session.game_id = active_game.id;
+        session.current_question_number = active_game.current_question_number;
+        session.current_prize = active_game.current_prize;
+        session.total_score = active_game.total_score;
+        game_id = active_game.id; // Use game_id from database if not provided
+    }
 
     if (game_id < 0) {
         return StreamUtils::createErrorResponse(422, "Missing or invalid gameId");
@@ -366,16 +428,24 @@ string handleGiveUp(const string& request, ClientSession& session, int client_fd
         return StreamUtils::createErrorResponse(412, "Invalid gameId - gameId doesn't match active game");
     }
 
+    int question_number = JsonUtils::extractInt(request, "questionNumber", -1);
     if (question_number != session.current_question_number) {
         return StreamUtils::createErrorResponse(422, 
             "Question number mismatch: expected " + to_string(session.current_question_number) + 
             ", got " + to_string(question_number));
     }
 
-    int final_prize = session.current_prize;
+    long long final_prize = session.current_prize;
     int final_question_number = session.current_question_number;
     int total_score = session.total_score;
 
+    // Stop timer
+    GameTimer::getInstance().stopTimer(game_id);
+    
+    // End game in database (use 'quit' status as per schema)
+    Database::getInstance().endGame(game_id, "quit", total_score, final_prize);
+    
+    // Update session state
     session.in_game = false;
 
     string data = "{\"finalPrize\":" + to_string(final_prize) + 
@@ -385,7 +455,7 @@ string handleGiveUp(const string& request, ClientSession& session, int client_fd
     
     // Send GAME_END notification
     string game_end_data = "{\"gameId\":" + to_string(game_id) +
-                          ",\"status\":\"gave_up\"" +
+                          ",\"status\":\"quit\"" +
                           ",\"finalLevel\":" + to_string(final_question_number) +
                           ",\"finalQuestionNumber\":" + to_string(final_question_number) +
                           ",\"finalPrize\":" + to_string(final_prize) +

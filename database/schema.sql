@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS questions (
     correct_answer INTEGER NOT NULL CHECK (correct_answer >= 0 AND correct_answer <= 3),
     level INTEGER NOT NULL CHECK (level >= 0 AND level <= 2),  -- 0=easy, 1=medium, 2=hard
     is_active BOOLEAN DEFAULT TRUE,
+    lifeline_5050_info JSONB,  -- Array of indices to keep, e.g., [0,2] means keep options A and C
+    lifeline_ask_info JSONB,   -- Audience poll percentages, e.g., {"A":65,"B":15,"C":10,"D":10}
+    lifeline_call_info TEXT,   -- Phone a friend message, e.g., "I'm 85% sure it's A"
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
@@ -159,7 +162,7 @@ CREATE INDEX IF NOT EXISTS idx_game_questions_game_id ON game_questions(game_id)
 CREATE INDEX IF NOT EXISTS idx_game_answers_game_id ON game_answers(game_id);
 
 -- Saved games
-CREATE INDEX IF NOT EXISTS idx_saved_games_user_id ON saved_games(user_id);
+-- CREATE INDEX IF NOT EXISTS idx_saved_games_user_id ON saved_games(user_id);
 
 -- Friends
 CREATE INDEX IF NOT EXISTS idx_friendships_user1 ON friendships(user1_id);
@@ -172,4 +175,3 @@ CREATE INDEX IF NOT EXISTS idx_messages_from_user ON messages(from_user_id);
 
 -- Leaderboard
 CREATE INDEX IF NOT EXISTS idx_leaderboard_total_score ON leaderboard(total_score DESC);
-CREATE INDEX IF NOT EXISTS idx_leaderboard_final_question ON leaderboard(final_question_number DESC);

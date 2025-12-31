@@ -317,8 +317,8 @@ int Database::createGameSession(const string& username) {
     if (user_id == 0) return 0;
     
     string query = "INSERT INTO game_sessions (user_id, status, current_question_number, "
-                   "current_level, current_prize, total_score) VALUES (" +
-                   to_string(user_id) + ", 'active', 1, 1, 1000000, 0) RETURNING id";
+                   "current_prize, total_score) VALUES (" +
+                   to_string(user_id) + ", 'active', 1, 1000000, 0) RETURNING id";
     
     PGresult* res = PQexec(conn_, query.c_str());
     
@@ -338,7 +338,6 @@ bool Database::updateGameSession(const GameSession& session) {
     
     string query = "UPDATE game_sessions SET status = " + escapeString(session.status) +
                    ", current_question_number = " + to_string(session.current_question_number) +
-                   ", current_level = " + to_string(session.current_level) +
                    ", current_prize = " + to_string(session.current_prize) +
                    ", total_score = " + to_string(session.total_score) +
                    ", final_prize = " + (session.final_prize > 0 ? to_string(session.final_prize) : "NULL") +
@@ -363,7 +362,7 @@ GameSession Database::getActiveGameSession(const string& username) {
     int user_id = getUserId(username);
     if (user_id == 0) return session;
     
-    string query = "SELECT id, user_id, status, current_question_number, current_level, "
+    string query = "SELECT id, user_id, status, current_question_number, "
                    "current_prize, total_score, final_prize, "
                    "EXTRACT(EPOCH FROM started_at)::bigint, "
                    "EXTRACT(EPOCH FROM ended_at)::bigint "
@@ -381,12 +380,14 @@ GameSession Database::getActiveGameSession(const string& username) {
     session.user_id = atoi(PQgetvalue(res, 0, 1));
     session.status = PQgetvalue(res, 0, 2);
     session.current_question_number = atoi(PQgetvalue(res, 0, 3));
-    session.current_level = atoi(PQgetvalue(res, 0, 4));
-    session.current_prize = atoll(PQgetvalue(res, 0, 5));
-    session.total_score = atoi(PQgetvalue(res, 0, 6));
-    if (PQgetvalue(res, 0, 7)) session.final_prize = atoll(PQgetvalue(res, 0, 7));
-    session.started_at = atol(PQgetvalue(res, 0, 8));
-    if (PQgetvalue(res, 0, 9)) session.ended_at = atol(PQgetvalue(res, 0, 9));
+    // Calculate current_level from current_question_number (1-5=0, 6-10=1, 11-15=2)
+    session.current_level = (session.current_question_number <= 5) ? 0 : 
+                           (session.current_question_number <= 10) ? 1 : 2;
+    session.current_prize = atoll(PQgetvalue(res, 0, 4));
+    session.total_score = atoi(PQgetvalue(res, 0, 5));
+    if (PQgetvalue(res, 0, 6)) session.final_prize = atoll(PQgetvalue(res, 0, 6));
+    session.started_at = atol(PQgetvalue(res, 0, 7));
+    if (PQgetvalue(res, 0, 8)) session.ended_at = atol(PQgetvalue(res, 0, 8));
     
     PQclear(res);
     return session;
@@ -436,7 +437,7 @@ GameSession Database::loadGameProgress(const string& username) {
     if (user_id == 0) return session;
     
     string query = "SELECT sg.game_id, sg.question_number, sg.prize, sg.score, "
-                   "gs.status, gs.current_level, gs.total_score "
+                   "gs.status, gs.total_score "
                    "FROM saved_games sg "
                    "JOIN game_sessions gs ON sg.game_id = gs.id "
                    "WHERE sg.user_id = " + to_string(user_id) + " ORDER BY sg.saved_at DESC LIMIT 1";
@@ -453,7 +454,9 @@ GameSession Database::loadGameProgress(const string& username) {
     session.current_prize = atoll(PQgetvalue(res, 0, 2));
     session.total_score = atoi(PQgetvalue(res, 0, 3));
     session.status = PQgetvalue(res, 0, 4);
-    session.current_level = atoi(PQgetvalue(res, 0, 5));
+    // Calculate current_level from current_question_number (1-5=0, 6-10=1, 11-15=2)
+    session.current_level = (session.current_question_number <= 5) ? 0 : 
+                           (session.current_question_number <= 10) ? 1 : 2;
     
     PQclear(res);
     return session;
@@ -479,12 +482,12 @@ bool Database::endGame(int game_id, const string& status, int total_score, long 
     PQclear(res);
     
     // Update leaderboard
-    query = "SELECT user_id, final_prize FROM game_sessions WHERE id = " + to_string(game_id);
+    query = "SELECT user_id, current_question_number, final_prize FROM game_sessions WHERE id = " + to_string(game_id);
     res = PQexec(conn_, query.c_str());
     if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
         int user_id = atoi(PQgetvalue(res, 0, 0));
-        long long prize = atoll(PQgetvalue(res, 0, 1));
-        int final_q = (status == "won") ? 15 : 0; // Calculate from game state
+        int final_q = atoi(PQgetvalue(res, 0, 1)); // Get from current_question_number
+        long long prize = atoll(PQgetvalue(res, 0, 2));
         updateLeaderboard(user_id, final_q, total_score, prize);
     }
     PQclear(res);
@@ -549,22 +552,28 @@ vector<LeaderboardEntry> Database::getLeaderboard(const string& type, int page, 
         int user_id = getUserId(username);
         if (user_id == 0) return entries;
         
-        query = "SELECT DISTINCT u.id, u.username, COALESCE(l.final_question_number, 0), "
-                "COALESCE(l.total_score, 0), COALESCE(l.highest_prize, 0) "
+        query = "SELECT DISTINCT u.id, u.username, "
+                "COALESCE(MAX(gs.current_question_number), 0) as final_question_number, "
+                "COALESCE(l.total_score, 0), 0 as highest_prize "
                 "FROM users u "
                 "LEFT JOIN leaderboard l ON u.id = l.user_id "
+                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost') "
                 "WHERE u.id IN ("
                 "  SELECT CASE WHEN user1_id = " + to_string(user_id) + " THEN user2_id ELSE user1_id END "
                 "  FROM friendships WHERE user1_id = " + to_string(user_id) + " OR user2_id = " + to_string(user_id) +
                 ") OR u.id = " + to_string(user_id) +
-                " ORDER BY COALESCE(l.final_question_number, 0) DESC, COALESCE(l.total_score, 0) DESC "
+                " GROUP BY u.id, u.username, l.total_score "
+                "ORDER BY final_question_number DESC, COALESCE(l.total_score, 0) DESC "
                 "LIMIT " + to_string(limit) + " OFFSET " + to_string((page - 1) * limit);
     } else {
-        query = "SELECT u.id, u.username, COALESCE(l.final_question_number, 0), "
-                "COALESCE(l.total_score, 0), COALESCE(l.highest_prize, 0) "
+        query = "SELECT u.id, u.username, "
+                "COALESCE(MAX(gs.current_question_number), 0) as final_question_number, "
+                "COALESCE(l.total_score, 0), 0 as highest_prize "
                 "FROM users u "
                 "LEFT JOIN leaderboard l ON u.id = l.user_id "
-                "ORDER BY COALESCE(l.final_question_number, 0) DESC, COALESCE(l.total_score, 0) DESC "
+                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost') "
+                "GROUP BY u.id, u.username, l.total_score "
+                "ORDER BY final_question_number DESC, COALESCE(l.total_score, 0) DESC "
                 "LIMIT " + to_string(limit) + " OFFSET " + to_string((page - 1) * limit);
     }
     
@@ -595,36 +604,29 @@ vector<LeaderboardEntry> Database::getLeaderboard(const string& type, int page, 
 bool Database::updateLeaderboard(int user_id, int final_question_number, long long total_score, long long highest_prize) {
     if (!isConnected()) return false;
     
-    // Get current best stats
-    string query = "SELECT final_question_number, total_score, highest_prize, games_played "
+    // Get current best stats (only total_score and games_played exist in leaderboard table)
+    string query = "SELECT total_score, games_played "
                    "FROM leaderboard WHERE user_id = " + to_string(user_id);
     PGresult* res = PQexec(conn_, query.c_str());
     
-    int best_final_q = final_question_number;
     long long best_score = total_score;
-    long long best_prize = highest_prize;
     int games_played = 1;
     
     if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
-        int current_final_q = atoi(PQgetvalue(res, 0, 0));
-        long long current_score = atoll(PQgetvalue(res, 0, 1));
-        long long current_prize = atoll(PQgetvalue(res, 0, 2));
-        games_played = atoi(PQgetvalue(res, 0, 3)) + 1;
+        long long current_score = atoll(PQgetvalue(res, 0, 0));
+        games_played = atoi(PQgetvalue(res, 0, 1)) + 1;
         
-        // Keep best stats
-        if (current_final_q > best_final_q) best_final_q = current_final_q;
+        // Keep best score
         if (current_score > best_score) best_score = current_score;
-        if (current_prize > best_prize) best_prize = current_prize;
     }
     PQclear(res);
     
-    query = "INSERT INTO leaderboard (user_id, final_question_number, total_score, highest_prize, games_played) "
-            "VALUES (" + to_string(user_id) + ", " + to_string(best_final_q) + ", " +
-            to_string(best_score) + ", " + to_string(best_prize) + ", " + to_string(games_played) + ") "
+    // final_question_number and highest_prize are not stored in leaderboard table
+    // They are calculated dynamically from game_sessions when querying
+    query = "INSERT INTO leaderboard (user_id, total_score, games_played) "
+            "VALUES (" + to_string(user_id) + ", " + to_string(best_score) + ", " + to_string(games_played) + ") "
             "ON CONFLICT (user_id) DO UPDATE SET "
-            "final_question_number = GREATEST(leaderboard.final_question_number, EXCLUDED.final_question_number), "
             "total_score = GREATEST(leaderboard.total_score, EXCLUDED.total_score), "
-            "highest_prize = GREATEST(leaderboard.highest_prize, EXCLUDED.highest_prize), "
             "games_played = leaderboard.games_played + 1, "
             "last_updated = CURRENT_TIMESTAMP";
     
@@ -895,7 +897,7 @@ vector<GameSession> Database::getGameHistory(const string& username, int limit) 
     int user_id = getUserId(username);
     if (user_id == 0) return sessions;
     
-    string query = "SELECT id, user_id, status, current_question_number, current_level, "
+    string query = "SELECT id, user_id, status, current_question_number, "
                    "current_prize, total_score, final_prize, "
                    "EXTRACT(EPOCH FROM started_at)::bigint, "
                    "EXTRACT(EPOCH FROM ended_at)::bigint "
@@ -915,12 +917,14 @@ vector<GameSession> Database::getGameHistory(const string& username, int limit) 
         session.user_id = atoi(PQgetvalue(res, i, 1));
         session.status = PQgetvalue(res, i, 2);
         session.current_question_number = atoi(PQgetvalue(res, i, 3));
-        session.current_level = atoi(PQgetvalue(res, i, 4));
-        session.current_prize = atoll(PQgetvalue(res, i, 5));
-        session.total_score = atoi(PQgetvalue(res, i, 6));
-        if (PQgetvalue(res, i, 7)) session.final_prize = atoll(PQgetvalue(res, i, 7));
-        session.started_at = atol(PQgetvalue(res, i, 8));
-        if (PQgetvalue(res, i, 9)) session.ended_at = atol(PQgetvalue(res, i, 9));
+        // Calculate current_level from current_question_number (1-5=0, 6-10=1, 11-15=2)
+        session.current_level = (session.current_question_number <= 5) ? 0 : 
+                               (session.current_question_number <= 10) ? 1 : 2;
+        session.current_prize = atoll(PQgetvalue(res, i, 4));
+        session.total_score = atoi(PQgetvalue(res, i, 5));
+        if (PQgetvalue(res, i, 6)) session.final_prize = atoll(PQgetvalue(res, i, 6));
+        session.started_at = atol(PQgetvalue(res, i, 7));
+        if (PQgetvalue(res, i, 8)) session.ended_at = atol(PQgetvalue(res, i, 8));
         sessions.push_back(session);
     }
     
@@ -935,8 +939,13 @@ vector<GameSession> Database::getGameHistory(const string& username, int limit) 
 int Database::addQuestion(const Question& question) {
     if (!isConnected()) return 0;
     
+    // Build lifeline info values (JSONB for 5050 and ask, TEXT for call)
+    string lifeline_5050_val = question.lifeline_5050_info.empty() ? "NULL" : escapeString(question.lifeline_5050_info);
+    string lifeline_ask_val = question.lifeline_ask_info.empty() ? "NULL" : escapeString(question.lifeline_ask_info);
+    string lifeline_call_val = question.lifeline_call_info.empty() ? "NULL" : escapeString(question.lifeline_call_info);
+    
     string query = "INSERT INTO questions (question_text, option_a, option_b, option_c, option_d, "
-                   "correct_answer, level, is_active, updated_by) VALUES (" +
+                   "correct_answer, level, is_active, lifeline_5050_info, lifeline_ask_info, lifeline_call_info, updated_by) VALUES (" +
                    escapeString(question.question_text) + ", " +
                    escapeString(question.option_a) + ", " +
                    escapeString(question.option_b) + ", " +
@@ -945,6 +954,9 @@ int Database::addQuestion(const Question& question) {
                    to_string(question.correct_answer) + ", " +
                    to_string(question.level) + ", " +
                    (question.is_active ? "TRUE" : "FALSE") + ", " +
+                   lifeline_5050_val + "::jsonb, " +
+                   lifeline_ask_val + "::jsonb, " +
+                   lifeline_call_val + ", " +
                    (question.updated_by > 0 ? to_string(question.updated_by) : "NULL") + ") RETURNING id";
     
     PGresult* res = PQexec(conn_, query.c_str());
@@ -1010,6 +1022,7 @@ Question Database::getQuestion(int question_id) {
     
     string query = "SELECT id, question_text, option_a, option_b, option_c, option_d, "
                    "correct_answer, level, is_active, "
+                   "lifeline_5050_info, lifeline_ask_info, lifeline_call_info, "
                    "EXTRACT(EPOCH FROM created_at)::bigint, "
                    "EXTRACT(EPOCH FROM updated_at)::bigint, updated_by "
                    "FROM questions WHERE id = " + to_string(question_id);
@@ -1030,9 +1043,12 @@ Question Database::getQuestion(int question_id) {
     question.correct_answer = atoi(PQgetvalue(res, 0, 6));
     question.level = atoi(PQgetvalue(res, 0, 7));
     question.is_active = (PQgetvalue(res, 0, 8)[0] == 't');
-    question.created_at = atol(PQgetvalue(res, 0, 9));
-    if (PQgetvalue(res, 0, 10)) question.updated_at = atol(PQgetvalue(res, 0, 10));
-    if (PQgetvalue(res, 0, 11)) question.updated_by = atoi(PQgetvalue(res, 0, 11));
+    if (PQgetvalue(res, 0, 9)) question.lifeline_5050_info = PQgetvalue(res, 0, 9);
+    if (PQgetvalue(res, 0, 10)) question.lifeline_ask_info = PQgetvalue(res, 0, 10);
+    if (PQgetvalue(res, 0, 11)) question.lifeline_call_info = PQgetvalue(res, 0, 11);
+    question.created_at = atol(PQgetvalue(res, 0, 12));
+    if (PQgetvalue(res, 0, 13)) question.updated_at = atol(PQgetvalue(res, 0, 13));
+    if (PQgetvalue(res, 0, 14)) question.updated_by = atoi(PQgetvalue(res, 0, 14));
     
     PQclear(res);
     return question;
@@ -1045,6 +1061,7 @@ Question Database::getGameQuestion(int game_id, int question_order) {
     // Get question_id from game_questions table, then get full question details
     string query = "SELECT q.id, q.question_text, q.option_a, q.option_b, q.option_c, q.option_d, "
                    "q.correct_answer, q.level, q.is_active, "
+                   "q.lifeline_5050_info, q.lifeline_ask_info, q.lifeline_call_info, "
                    "EXTRACT(EPOCH FROM q.created_at)::bigint, "
                    "EXTRACT(EPOCH FROM q.updated_at)::bigint, q.updated_by "
                    "FROM game_questions gq "
@@ -1068,9 +1085,12 @@ Question Database::getGameQuestion(int game_id, int question_order) {
     question.correct_answer = atoi(PQgetvalue(res, 0, 6));
     question.level = atoi(PQgetvalue(res, 0, 7));
     question.is_active = (PQgetvalue(res, 0, 8)[0] == 't');
-    question.created_at = atol(PQgetvalue(res, 0, 9));
-    if (PQgetvalue(res, 0, 10)) question.updated_at = atol(PQgetvalue(res, 0, 10));
-    if (PQgetvalue(res, 0, 11)) question.updated_by = atoi(PQgetvalue(res, 0, 11));
+    if (PQgetvalue(res, 0, 9)) question.lifeline_5050_info = PQgetvalue(res, 0, 9);
+    if (PQgetvalue(res, 0, 10)) question.lifeline_ask_info = PQgetvalue(res, 0, 10);
+    if (PQgetvalue(res, 0, 11)) question.lifeline_call_info = PQgetvalue(res, 0, 11);
+    question.created_at = atol(PQgetvalue(res, 0, 12));
+    if (PQgetvalue(res, 0, 13)) question.updated_at = atol(PQgetvalue(res, 0, 13));
+    if (PQgetvalue(res, 0, 14)) question.updated_by = atoi(PQgetvalue(res, 0, 14));
     
     PQclear(res);
     return question;
@@ -1081,7 +1101,9 @@ vector<Question> Database::getQuestions(int level, int page, int limit) {
     if (!isConnected()) return questions;
     
     string query = "SELECT id, question_text, option_a, option_b, option_c, option_d, "
-                   "correct_answer, level, is_active FROM questions WHERE is_active = TRUE";
+                   "correct_answer, level, is_active, "
+                   "lifeline_5050_info, lifeline_ask_info, lifeline_call_info "
+                   "FROM questions WHERE is_active = TRUE";
     
     if (level > 0) {
         query += " AND level = " + to_string(level);
@@ -1107,6 +1129,9 @@ vector<Question> Database::getQuestions(int level, int page, int limit) {
         q.correct_answer = atoi(PQgetvalue(res, i, 6));
         q.level = atoi(PQgetvalue(res, i, 7));
         q.is_active = (PQgetvalue(res, i, 8)[0] == 't');
+        if (PQgetvalue(res, i, 9)) q.lifeline_5050_info = PQgetvalue(res, i, 9);
+        if (PQgetvalue(res, i, 10)) q.lifeline_ask_info = PQgetvalue(res, i, 10);
+        if (PQgetvalue(res, i, 11)) q.lifeline_call_info = PQgetvalue(res, i, 11);
         questions.push_back(q);
     }
     

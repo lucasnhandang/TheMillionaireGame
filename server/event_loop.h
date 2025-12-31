@@ -102,6 +102,11 @@ private:
      */
     void workerThreadFunc();
 
+    /**
+     * Check for timed-out games and end them automatically
+     */
+    void checkGameTimeouts();
+
 private:
     ServerConfig config_;
     std::atomic<bool> running_;

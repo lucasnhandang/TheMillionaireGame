@@ -38,6 +38,9 @@ struct Question {
     int correct_answer;  // 0-3
     int level;  // 1-15
     bool is_active;
+    std::string lifeline_5050_info;  // JSON array of indices to keep, e.g., "[0,2]"
+    std::string lifeline_ask_info;   // JSON object with audience poll, e.g., "{\"A\":65,\"B\":15,\"C\":10,\"D\":10}"
+    std::string lifeline_call_info;  // Phone friend message, e.g., "I'm 85% sure it's A"
     time_t created_at;
     time_t updated_at;
     int updated_by;

@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include <mutex>
+#include <vector>
 #include <ctime>
 
 namespace MillionaireGame {
@@ -40,6 +41,12 @@ public:
      * @param game_id Game session ID
      */
     void stopTimer(int game_id);
+    
+    /**
+     * Get all game IDs that have timed out
+     * @return Vector of timed-out game IDs
+     */
+    std::vector<int> getTimedOutGames();
 
 private:
     GameTimer() : question_timeout_seconds_(60) {}

@@ -2,6 +2,7 @@
 #include "../auth_manager.h"
 #include "../json_utils.h"
 #include "../stream_handler.h"
+#include "../../database/database.h"
 
 using namespace std;
 
