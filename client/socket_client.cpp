@@ -59,8 +59,8 @@ bool SocketClient::connect() {
     u_long mode = 1;
     ioctlsocket(sockfd_, FIONBIO, &mode);
 #else
-    int flags = fcntl(sockfd_, F_GETFL, 0);
-    fcntl(sockfd_, F_SETFL, flags | O_NONBLOCK);
+    int flags_nonblock = fcntl(sockfd_, F_GETFL, 0);
+    fcntl(sockfd_, F_SETFL, flags_nonblock | O_NONBLOCK);
 #endif
     
     // Setup server address
@@ -113,8 +113,8 @@ bool SocketClient::connect() {
     mode = 0;
     ioctlsocket(sockfd_, FIONBIO, &mode);
 #else
-    int flags = fcntl(sockfd_, F_GETFL, 0);
-    fcntl(sockfd_, F_SETFL, flags & ~O_NONBLOCK);
+    int flags_block = fcntl(sockfd_, F_GETFL, 0);
+    fcntl(sockfd_, F_SETFL, flags_block & ~O_NONBLOCK);
 #endif
     
     connected_ = true;
@@ -159,6 +159,8 @@ bool SocketClient::sendRequest(const std::string& requestType, const std::string
 }
 
 bool SocketClient::getMessage(Message& msg, int timeoutMs) {
+    (void)timeoutMs; // Suppress unused parameter warning (timeout not implemented yet)
+    
     std::lock_guard<std::mutex> lock(queueMutex_);
     
     if (messageQueue_.empty()) {

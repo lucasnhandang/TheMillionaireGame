@@ -40,18 +40,23 @@ directories:
 
 # Build client
 $(CLIENT_EXE): $(CLIENT_OBJ) $(IMGUI_OBJ) $(IMGUI_BACKEND_OBJ) | $(GLFW_LIB)
+	@echo "Linking client..."
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LDFLAGS)
+	@echo "Build complete! Executable: $@"
 
 # Compile client object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@echo "Compiling $<..."
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile ImGui object files
 $(OBJ_DIR)/imgui_%.o: $(IMGUI_DIR)/%.cpp
+	@echo "Compiling ImGui: $<..."
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile ImGui backend object files
 $(OBJ_DIR)/imgui_backend_%.o: $(IMGUI_DIR)/backends/%.cpp
+	@echo "Compiling ImGui backend: $<..."
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Build GLFW if needed

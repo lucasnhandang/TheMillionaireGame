@@ -54,7 +54,7 @@ struct GameState {
     };
 };
 
-void updateTimer(GameState& state, ProtocolHandler& protocol) {
+void updateTimer(GameState& state, ProtocolHandler* protocol) {
     while (state.inGame && state.timeRemaining > 0) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         if (state.inGame) {
@@ -63,7 +63,9 @@ void updateTimer(GameState& state, ProtocolHandler& protocol) {
     }
 }
 
-void handleNotifications(SocketClient* client, GameState& state, ProtocolHandler& protocol) {
+void handleNotifications(SocketClient* client, GameState& state, ProtocolHandler* protocol) {
+    if (!client || !protocol) return; // Demo mode
+    
     SocketClient::Message msg;
     while (true) {
         if (client->getMessage(msg, 100)) {
@@ -85,7 +87,9 @@ void handleNotifications(SocketClient* client, GameState& state, ProtocolHandler
                 state.selectedAnswer = -1;
                 
                 // Start timer thread
-                std::thread(updateTimer, std::ref(state), std::ref(protocol)).detach();
+                if (protocol) {
+                    std::thread(updateTimer, std::ref(state), std::ref(*protocol)).detach();
+                }
             } else if (msg.type == "GAME_END") {
                 state.inGame = false;
             } else if (msg.type == "LIFELINE_INFO") {
@@ -145,19 +149,35 @@ int main(int argc, char** argv) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
     
-    // Connect to server
-    SocketClient client(host, port);
-    if (!client.connect()) {
-        std::cerr << "Failed to connect to server at " << host << ":" << port << std::endl;
-        return 1;
+    // Check for demo mode
+    bool demoMode = false;
+    if (argc > 1 && std::string(argv[1]) == "--demo") {
+        demoMode = true;
+        std::cout << "Running in DEMO MODE (no server connection)" << std::endl;
     }
     
-    ProtocolHandler protocol(&client);
+    // Connect to server (skip in demo mode)
+    SocketClient* client = nullptr;
+    ProtocolHandler* protocol = nullptr;
+    
+    if (!demoMode) {
+        client = new SocketClient(host, port);
+        if (!client->connect()) {
+            std::cerr << "Failed to connect to server at " << host << ":" << port << std::endl;
+            std::cerr << "Tip: Make sure server is running, or use --demo flag for demo mode" << std::endl;
+            return 1;
+        }
+        protocol = new ProtocolHandler(client);
+    }
+    
     GameState state;
     
-    // Start notification handler thread
-    std::thread notificationThread(handleNotifications, &client, std::ref(state), std::ref(protocol));
-    notificationThread.detach();
+    // Start notification handler thread (skip in demo mode)
+    std::thread* notificationThread = nullptr;
+    if (!demoMode && client && protocol) {
+        notificationThread = new std::thread(handleNotifications, client, std::ref(state), protocol);
+        notificationThread->detach();
+    }
     
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -185,12 +205,19 @@ int main(int argc, char** argv) {
                 }
                 
                 if (ImGui::Button("Login", ImVec2(200, 30))) {
-                    ProtocolHandler::LoginResponse response = protocol.login(state.username, state.password);
-                    if (response.responseCode == 200) {
+                    if (demoMode) {
+                        // Demo mode - fake login
                         state.loggedIn = true;
                         state.errorMessage.clear();
-                    } else {
-                        state.errorMessage = "Login failed: " + response.message;
+                        state.username[0] = '\0'; // Clear for demo
+                    } else if (protocol) {
+                        ProtocolHandler::LoginResponse response = protocol->login(state.username, state.password);
+                        if (response.responseCode == 200) {
+                            state.loggedIn = true;
+                            state.errorMessage.clear();
+                        } else {
+                            state.errorMessage = "Login failed: " + response.message;
+                        }
                     }
                 }
                 
@@ -222,13 +249,20 @@ int main(int argc, char** argv) {
                     } else if (strcmp(state.password, state.registerPassword2) != 0) {
                         state.errorMessage = "Passwords do not match";
                     } else {
-                        int code = protocol.registerUser(state.username, state.password);
-                        if (code == 201) {
+                        if (demoMode) {
+                            // Demo mode - fake registration
                             state.errorMessage = "Registration successful! Please login.";
                             state.showRegister = false;
                             state.showLogin = true;
-                        } else {
-                            state.errorMessage = "Registration failed";
+                        } else if (protocol) {
+                            int code = protocol->registerUser(state.username, state.password);
+                            if (code == 201) {
+                                state.errorMessage = "Registration successful! Please login.";
+                                state.showRegister = false;
+                                state.showLogin = true;
+                            } else {
+                                state.errorMessage = "Registration failed";
+                            }
                         }
                     }
                 }
@@ -276,21 +310,36 @@ int main(int argc, char** argv) {
                 ImGui::Separator();
                 
                 if (ImGui::Button("Start New Game", ImVec2(200, 50))) {
-                    int code = protocol.startGame(false);
-                    if (code == 412) {
-                        state.errorMessage = "You have a saved game. Use Resume or override.";
-                    } else if (code != 200) {
-                        state.errorMessage = "Failed to start game";
+                    if (demoMode) {
+                        // Demo mode - fake game start
+                        state.inGame = true;
+                        state.currentQuestionNumber = 1;
+                        state.question = "Demo Question: What is the capital of Vietnam?";
+                        state.options = {"Hanoi", "Ho Chi Minh City", "Da Nang", "Hue"};
+                        state.timeRemaining = 30;
+                        state.currentPrize = 1000000;
+                        state.errorMessage.clear();
+                    } else if (protocol) {
+                        int code = protocol->startGame(false);
+                        if (code == 412) {
+                            state.errorMessage = "You have a saved game. Use Resume or override.";
+                        } else if (code != 200) {
+                            state.errorMessage = "Failed to start game";
+                        }
                     }
                 }
                 
                 ImGui::SameLine();
                 if (ImGui::Button("Resume Game", ImVec2(200, 50))) {
-                    int code = protocol.resumeGame();
-                    if (code == 404) {
-                        state.errorMessage = "No saved game found";
-                    } else if (code != 200) {
-                        state.errorMessage = "Failed to resume game";
+                    if (demoMode) {
+                        state.errorMessage = "No saved game in demo mode";
+                    } else if (protocol) {
+                        int code = protocol->resumeGame();
+                        if (code == 404) {
+                            state.errorMessage = "No saved game found";
+                        } else if (code != 200) {
+                            state.errorMessage = "Failed to resume game";
+                        }
                     }
                 }
                 
@@ -328,17 +377,35 @@ int main(int argc, char** argv) {
                 
                 if (ImGui::Button("Submit Answer", ImVec2(200, 50))) {
                     if (state.selectedAnswer >= 0) {
-                        ProtocolHandler::AnswerResponse response = protocol.answerQuestion(state.selectedAnswer);
-                        if (response.responseCode == 200) {
-                            if (response.gameOver) {
-                                if (response.isWinner) {
-                                    state.errorMessage = "Congratulations! You won!";
+                        if (demoMode) {
+                            // Demo mode - fake answer
+                            if (state.selectedAnswer == 0) { // Assume first answer is correct in demo
+                                state.errorMessage = "Correct! (Demo Mode)";
+                                state.currentQuestionNumber++;
+                                if (state.currentQuestionNumber > 15) {
+                                    state.errorMessage = "Congratulations! You won! (Demo)";
+                                    state.inGame = false;
                                 } else {
-                                    state.errorMessage = "Game Over! Final Prize: " + std::to_string(response.finalPrize) + " VND";
+                                    state.question = "Demo Question " + std::to_string(state.currentQuestionNumber);
+                                    state.selectedAnswer = -1;
                                 }
-                                state.inGame = false;
                             } else {
-                                state.errorMessage = response.correct ? "Correct!" : "Wrong answer!";
+                                state.errorMessage = "Wrong answer! Game Over! (Demo)";
+                                state.inGame = false;
+                            }
+                        } else if (protocol) {
+                            ProtocolHandler::AnswerResponse response = protocol->answerQuestion(state.selectedAnswer);
+                            if (response.responseCode == 200) {
+                                if (response.gameOver) {
+                                    if (response.isWinner) {
+                                        state.errorMessage = "Congratulations! You won!";
+                                    } else {
+                                        state.errorMessage = "Game Over! Final Prize: " + std::to_string(response.finalPrize) + " VND";
+                                    }
+                                    state.inGame = false;
+                                } else {
+                                    state.errorMessage = response.correct ? "Correct!" : "Wrong answer!";
+                                }
                             }
                         }
                     }
@@ -346,8 +413,13 @@ int main(int argc, char** argv) {
                 
                 ImGui::SameLine();
                 if (ImGui::Button("Give Up", ImVec2(150, 50))) {
-                    protocol.giveUp();
-                    state.inGame = false;
+                    if (demoMode) {
+                        state.errorMessage = "You gave up! (Demo Mode)";
+                        state.inGame = false;
+                    } else if (protocol) {
+                        protocol->giveUp();
+                        state.inGame = false;
+                    }
                 }
                 
                 // Lifelines
@@ -355,15 +427,30 @@ int main(int argc, char** argv) {
                 ImGui::Text("Lifelines:");
                 
                 if (state.availableLifelines[0] && ImGui::Button("50/50", ImVec2(150, 30))) {
-                    protocol.useLifeline("5050");
+                    if (demoMode) {
+                        state.errorMessage = "50/50 used! (Demo - removes 2 wrong answers)";
+                        state.availableLifelines[0] = false;
+                    } else if (protocol) {
+                        protocol->useLifeline("5050");
+                    }
                 }
                 ImGui::SameLine();
                 if (state.availableLifelines[1] && ImGui::Button("Phone a Friend", ImVec2(150, 30))) {
-                    protocol.useLifeline("PHONE");
+                    if (demoMode) {
+                        state.errorMessage = "Friend says: I think it's A! (Demo)";
+                        state.availableLifelines[1] = false;
+                    } else if (protocol) {
+                        protocol->useLifeline("PHONE");
+                    }
                 }
                 ImGui::SameLine();
                 if (state.availableLifelines[2] && ImGui::Button("Ask Audience", ImVec2(150, 30))) {
-                    protocol.useLifeline("AUDIENCE");
+                    if (demoMode) {
+                        state.errorMessage = "Audience poll: A: 65%, B: 15%, C: 10%, D: 10% (Demo)";
+                        state.availableLifelines[2] = false;
+                    } else if (protocol) {
+                        protocol->useLifeline("AUDIENCE");
+                    }
                 }
                 
                 if (!state.errorMessage.empty()) {
@@ -389,8 +476,17 @@ int main(int argc, char** argv) {
     }
     
     // Cleanup
-    protocol.logout();
-    client.disconnect();
+    if (!demoMode && protocol) {
+        protocol->logout();
+        delete protocol;
+    }
+    if (!demoMode && client) {
+        client->disconnect();
+        delete client;
+    }
+    if (notificationThread) {
+        delete notificationThread;
+    }
     
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
