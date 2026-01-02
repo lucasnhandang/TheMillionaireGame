@@ -10,6 +10,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 #ifdef _WIN32
     #include <GL/gl.h>
@@ -88,7 +89,7 @@ void handleNotifications(SocketClient* client, GameState& state, ProtocolHandler
                 
                 // Start timer thread
                 if (protocol) {
-                    std::thread(updateTimer, std::ref(state), std::ref(*protocol)).detach();
+                    std::thread(updateTimer, std::ref(state), protocol).detach();
                 }
             } else if (msg.type == "GAME_END") {
                 state.inGame = false;
