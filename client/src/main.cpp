@@ -36,7 +36,20 @@ int main(int argc, char* argv[]) {
     // Create protocol handler
     ProtocolHandler protocol(&client);
     
-    // Start notification listener
+    // Wait for CONNECTION notification from server
+    cout << "Dang cho thong bao ket noi tu server..." << endl;
+    string connectionMsg = client.receiveMessage(5);
+    if (!connectionMsg.empty() && protocol.isNotification(connectionMsg)) {
+        string type = protocol.getNotificationType(connectionMsg);
+        if (type == "CONNECTION") {
+            cout << "Da ket noi voi server thanh cong!" << endl;
+        }
+    } else if (connectionMsg.empty()) {
+        cerr << "Khong nhan duoc thong bao ket noi tu server!" << endl;
+        cerr << "Co the server khong ho tro protocol nay." << endl;
+    }
+    
+    // Start notification listener for future notifications
     client.setNotificationCallback([&protocol](const string& message) {
         // Handle notifications (can be extended)
         if (protocol.isNotification(message)) {

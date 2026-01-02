@@ -30,7 +30,34 @@ string ProtocolHandler::sendRequestAndReceive(const string& request) {
     if (!client_->sendMessage(request)) {
         return "";
     }
-    return client_->receiveMessage(10); // 10 second timeout
+    
+    // Receive response (may need to skip notifications)
+    string message;
+    int attempts = 0;
+    const int maxAttempts = 10; // Max attempts to get a response (not notification)
+    
+    while (attempts < maxAttempts) {
+        message = client_->receiveMessage(2); // 2 second timeout per attempt
+        
+        if (message.empty()) {
+            return ""; // Connection error or timeout
+        }
+        
+        // Check if this is a response (has responseCode) or notification (has type)
+        if (isResponse(message)) {
+            return message; // This is the response we want
+        } else if (isNotification(message)) {
+            // This is a notification, skip it and wait for response
+            // In production, handle notification properly
+            attempts++;
+            continue;
+        } else {
+            // Unknown format, return it anyway
+            return message;
+        }
+    }
+    
+    return ""; // Timeout waiting for response
 }
 
 // Authentication
