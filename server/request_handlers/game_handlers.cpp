@@ -1,16 +1,33 @@
 #include "game_handlers.h"
 #include "../game_state_manager.h"
+#include "../database.h"
 #include "../json_utils.h"
 #include "../stream_handler.h"
 #include "../notification_utils.h"
 #include <ctime>
 #include <algorithm>
+#include <sstream>
 
 using namespace std;
 
 namespace MillionaireGame {
 
 namespace GameHandlers {
+
+// Helper function to build QUESTION_INFO notification data
+string buildQuestionInfoData(const Question& q, int game_id, const ClientSession& session) {
+    ostringstream data;
+    data << "{\"gameId\":" << game_id
+         << ",\"questionNumber\":" << session.current_question_number
+         << ",\"question\":\"" << q.question_text << "\""
+         << ",\"options\":["
+         << "{\"label\":\"A\",\"text\":\"" << q.option_a << "\"},"
+         << "{\"label\":\"B\",\"text\":\"" << q.option_b << "\"},"
+         << "{\"label\":\"C\",\"text\":\"" << q.option_c << "\"},"
+         << "{\"label\":\"D\",\"text\":\"" << q.option_d << "\"}"
+         << "]}";
+    return data.str();
+}
 
 string handleStart(const string& request, ClientSession& session, int client_fd) {
     if (session.in_game) {
@@ -43,11 +60,14 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
                             ",\"timestamp\":" + to_string(time(nullptr)) + "}";
     NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
     
-    // TODO: Send QUESTION_INFO notification with first question
-    // This requires database integration to load question data
-    // Question q = Database::getInstance().getQuestion(session.current_level);
-    // string question_data = buildQuestionInfoData(q, game_id, session);
-    // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    // Load and send first question
+    Question q = Database::getInstance().getRandomQuestion(session.current_level);
+    if (q.id > 0) {
+        string question_data = buildQuestionInfoData(q, game_id, session);
+        NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    } else {
+        LOG_WARNING("No question found for level " + to_string(session.current_level));
+    }
     
     return StreamUtils::createSuccessResponse(200, data);
 }
@@ -98,7 +118,16 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
     //     return StreamUtils::createErrorResponse(408, "Question timeout");
     // }
 
-    bool correct = GameStateManager::getInstance().checkAnswer(session.current_level, to_string(answer_index));
+    // Check answer against database - load question for current level
+    Question current_q = Database::getInstance().getRandomQuestion(session.current_level);
+    bool correct = false;
+    if (current_q.id > 0) {
+        correct = (answer_index == current_q.correct_answer);
+    } else {
+        // Fallback if question not found
+        LOG_WARNING("Question not found for level " + to_string(session.current_level) + ", using fallback");
+        correct = GameStateManager::getInstance().checkAnswer(session.current_level, to_string(answer_index));
+    }
     int time_remaining = 15;  // Placeholder
     int lifelines_used = session.used_lifelines.size();
     int points_earned = max(0, time_remaining - (lifelines_used * 5));
@@ -139,11 +168,15 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
                          ",\"currentPrize\":" + to_string(session.current_prize) +
                          ",\"gameOver\":false,\"isWinner\":false}";
             
-            // TODO: Send QUESTION_INFO notification with next question
-            // This requires database integration to load question data
-            // Question next_q = Database::getInstance().getQuestion(session.current_level);
-            // string question_data = buildQuestionInfoData(next_q, game_id, session);
-            // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+            // Load and send next question
+            session.current_level = session.current_question_number;
+            Question next_q = Database::getInstance().getRandomQuestion(session.current_level);
+            if (next_q.id > 0) {
+                string question_data = buildQuestionInfoData(next_q, game_id, session);
+                NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+            } else {
+                LOG_WARNING("No question found for level " + to_string(session.current_level));
+            }
             
             return StreamUtils::createSuccessResponse(200, data);
         }
@@ -303,11 +336,15 @@ string handleResume(const string& request, ClientSession& session, int client_fd
                  ",\"gameId\":" + to_string(session.game_id) +
                  ",\"totalScore\":" + to_string(session.total_score) + "}";
     
-    // TODO: Send QUESTION_INFO notification with resumed question
-    // This requires database integration to load question data
-    // Question q = Database::getInstance().getQuestion(session.current_level);
-    // string question_data = buildQuestionInfoData(q, session.game_id, session);
-    // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    // Load and send resumed question
+    session.current_level = progress.level;
+    Question q = Database::getInstance().getRandomQuestion(session.current_level);
+    if (q.id > 0) {
+        string question_data = buildQuestionInfoData(q, session.game_id, session);
+        NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    } else {
+        LOG_WARNING("No question found for level " + to_string(session.current_level));
+    }
     
     return StreamUtils::createSuccessResponse(200, data);
 }

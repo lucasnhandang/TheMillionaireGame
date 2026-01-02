@@ -89,6 +89,13 @@ bool ConfigLoader::loadFromString(const string& json_content, ServerConfig& conf
     config.connection_timeout_seconds = extractIntValue(json, "connection_timeout_seconds", 300);
     config.worker_threads = extractIntValue(json, "worker_threads", 4);
     
+    // Database configuration
+    config.db_host = extractStringValue(json, "db_host", "localhost");
+    config.db_port = extractIntValue(json, "db_port", 5432);
+    config.db_name = extractStringValue(json, "db_name", "millionaire_game");
+    config.db_user = extractStringValue(json, "db_user", "postgres");
+    config.db_password = extractStringValue(json, "db_password", "");
+    
     return true;
 }
 

@@ -1,6 +1,7 @@
 #include "server_core.h"
 #include "logger.h"
 #include "session_manager.h"
+#include "database.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -64,6 +65,15 @@ bool ServerCore::start() {
         return false;
     }
 
+    // Initialize database connection
+    if (!Database::getInstance().connect(config_.db_host, config_.db_port,
+                                         config_.db_name, config_.db_user,
+                                         config_.db_password)) {
+        LOG_WARNING("Failed to connect to database. Server will continue but game features may not work.");
+    } else {
+        LOG_INFO("Database connected successfully");
+    }
+    
     running_ = true;
     LOG_INFO("Server started on port " + to_string(config_.port));
 

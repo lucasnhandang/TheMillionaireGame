@@ -3,7 +3,7 @@
 
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g -I.
-LDFLAGS = -pthread
+LDFLAGS = -pthread -lpq
 
 # Directories
 SRC_DIR = .
@@ -23,6 +23,7 @@ CLIENT_HANDLER_SRC = client_handler.cpp
 EVENT_LOOP_SRC = event_loop.cpp
 JSON_UTILS_SRC = json_utils.cpp
 GAME_STATE_MANAGER_SRC = game_state_manager.cpp
+DATABASE_SRC = database.cpp
 AUTH_HANDLERS_SRC = request_handlers/auth_handlers.cpp
 GAME_HANDLERS_SRC = request_handlers/game_handlers.cpp
 SOCIAL_HANDLERS_SRC = request_handlers/social_handlers.cpp
@@ -46,6 +47,7 @@ CLIENT_HANDLER_OBJ = $(OBJ_DIR)/client_handler.o
 EVENT_LOOP_OBJ = $(OBJ_DIR)/event_loop.o
 JSON_UTILS_OBJ = $(OBJ_DIR)/json_utils.o
 GAME_STATE_MANAGER_OBJ = $(OBJ_DIR)/game_state_manager.o
+DATABASE_OBJ = $(OBJ_DIR)/database.o
 AUTH_HANDLERS_OBJ = $(OBJ_DIR)/auth_handlers.o
 GAME_HANDLERS_OBJ = $(OBJ_DIR)/game_handlers.o
 SOCIAL_HANDLERS_OBJ = $(OBJ_DIR)/social_handlers.o
@@ -71,7 +73,7 @@ directories:
 # Build main server
 $(SERVER_EXE): $(SERVER_OBJ) $(SERVER_CORE_OBJ) $(SESSION_MANAGER_OBJ) $(AUTH_MANAGER_OBJ) \
 	$(REQUEST_ROUTER_OBJ) $(EVENT_LOOP_OBJ) $(JSON_UTILS_OBJ) $(GAME_STATE_MANAGER_OBJ) \
-	$(AUTH_HANDLERS_OBJ) $(GAME_HANDLERS_OBJ) $(SOCIAL_HANDLERS_OBJ) $(USER_HANDLERS_OBJ) \
+	$(DATABASE_OBJ) $(AUTH_HANDLERS_OBJ) $(GAME_HANDLERS_OBJ) $(SOCIAL_HANDLERS_OBJ) $(USER_HANDLERS_OBJ) \
 	$(ADMIN_HANDLERS_OBJ) $(CONNECTION_HANDLERS_OBJ) $(NOTIFICATION_UTILS_OBJ) $(STREAM_HANDLER_OBJ) $(LOGGER_OBJ) $(CONFIG_OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
