@@ -39,12 +39,19 @@ int main(int argc, char* argv[]) {
     // Wait for CONNECTION notification from server
     cout << "Dang cho thong bao ket noi tu server..." << endl;
     string connectionMsg = client.receiveMessage(5);
-    if (!connectionMsg.empty() && protocol.isNotification(connectionMsg)) {
-        string type = protocol.getNotificationType(connectionMsg);
-        if (type == "CONNECTION") {
-            cout << "Da ket noi voi server thanh cong!" << endl;
+    if (!connectionMsg.empty()) {
+        cerr << "[DEBUG] Received initial message: " << connectionMsg.substr(0, 100) << "..." << endl;
+        if (protocol.isNotification(connectionMsg)) {
+            string type = protocol.getNotificationType(connectionMsg);
+            cerr << "[DEBUG] Notification type: " << type << endl;
+            if (type == "CONNECTION") {
+                cout << "Da ket noi voi server thanh cong!" << endl;
+            }
+        } else {
+            cerr << "[DEBUG] Initial message is not a notification" << endl;
         }
-    } else if (connectionMsg.empty()) {
+    } else {
+        cerr << "[DEBUG] No initial message received" << endl;
         cerr << "Khong nhan duoc thong bao ket noi tu server!" << endl;
         cerr << "Co the server khong ho tro protocol nay." << endl;
     }

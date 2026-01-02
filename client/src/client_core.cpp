@@ -8,6 +8,7 @@
 #include <thread>
 #include <iostream>
 #include <cstring>
+#include <errno.h>
 
 using namespace std;
 
@@ -75,18 +76,21 @@ bool ClientCore::isConnected() const {
 
 bool ClientCore::sendMessage(const string& message) {
     if (!isConnected()) {
+        cerr << "[DEBUG] Cannot send: not connected" << endl;
         return false;
     }
     
     string msg = message + "\n";
+    cerr << "[DEBUG] Sending " << msg.length() << " bytes to server" << endl;
     ssize_t sent = send(socket_fd_, msg.c_str(), msg.length(), 0);
     
     if (sent < 0) {
-        cerr << "Error sending message" << endl;
+        cerr << "[DEBUG] Error sending message: " << strerror(errno) << endl;
         connected_ = false;
         return false;
     }
     
+    cerr << "[DEBUG] Sent " << sent << " bytes (expected " << msg.length() << ")" << endl;
     return sent == static_cast<ssize_t>(msg.length());
 }
 
