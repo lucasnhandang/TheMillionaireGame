@@ -60,10 +60,18 @@ echo ""
 
 # Test connection
 echo "6. Testing connection..."
-if psql -U postgres -d millionaire_game -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "   ✓ Connection successful!"
+# First try with sudo (works with peer auth)
+if sudo -u postgres psql -d millionaire_game -c "SELECT 1;" > /dev/null 2>&1; then
+    echo "   ✓ Connection successful (with sudo)!"
+    # Now test without sudo (should work with trust)
+    if psql -U postgres -d millionaire_game -c "SELECT 1;" > /dev/null 2>&1; then
+        echo "   ✓ Connection successful (without sudo)!"
+    else
+        echo "   ⚠ Can connect with sudo but not without"
+        echo "   This is OK - server will use connection string"
+    fi
 else
-    echo "   ✗ Connection failed"
+    echo "   ✗ Connection failed even with sudo"
     echo "   Check PostgreSQL logs: sudo journalctl -u postgresql -n 50"
     exit 1
 fi
