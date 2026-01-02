@@ -1,6 +1,7 @@
 #include "game_handlers.h"
 #include "../game_state_manager.h"
 #include "../database.h"
+#include "../logger.h"
 #include "../json_utils.h"
 #include "../stream_handler.h"
 #include "../notification_utils.h"

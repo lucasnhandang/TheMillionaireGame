@@ -1,6 +1,7 @@
 #include "auth_handlers.h"
 #include "../session_manager.h"
 #include "../auth_manager.h"
+#include "../database.h"
 #include "../logger.h"
 #include <ctime>
 
@@ -22,30 +23,29 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
         return StreamUtils::createErrorResponse(400, "Missing username or password");
     }
 
-    // TODO: Replace with database call when database is integrated
-    // bool login_success = Database::getInstance().authenticateUser(username, password);
-    // if (!login_success) {
-    //     return StreamUtils::createErrorResponse(401, "Invalid credentials");
-    // }
-    // 
-    // // Check if user is banned
-    // User user = Database::getInstance().getUser(username);
-    // if (user.is_banned) {
-    //     return StreamUtils::createErrorResponse(403, "Account is banned");
-    // }
-    // 
-    // string user_role = Database::getInstance().getUserRole(username);
+    // Authenticate user with database
+    bool login_success = false;
+    if (Database::getInstance().isConnected()) {
+        login_success = Database::getInstance().authenticateUser(username, password);
+    } else {
+        // Fallback: allow login if database not connected (for development)
+        LOG_WARNING("Database not connected, using fallback authentication");
+        login_success = true;
+    }
     
-    // Placeholder authentication
-    bool login_success = true;  // Will be replaced with database call
     if (!login_success) {
         return StreamUtils::createErrorResponse(401, "Invalid credentials");
     }
-
-    // Get user role (placeholder - will be replaced with database call)
+    
+    // Get user role from database
     string user_role = "user";
-    if (AuthManager::getInstance().isAdmin(username)) {
-        user_role = "admin";
+    if (Database::getInstance().isConnected()) {
+        user_role = Database::getInstance().getUserRole(username);
+    } else {
+        // Fallback: check admin list
+        if (AuthManager::getInstance().isAdmin(username)) {
+            user_role = "admin";
+        }
     }
 
     string token = AuthManager::getInstance().generateToken();
@@ -58,7 +58,7 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
     SessionManager::getInstance().addOnlineUser(username);
 
     string data = "{\"authToken\":\"" + token + "\",\"username\":\"" + username + 
-                 "\",\"role\":\"" + user_role + "}";
+                 "\",\"role\":\"" + user_role + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 
