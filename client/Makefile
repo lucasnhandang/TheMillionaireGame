@@ -118,10 +118,34 @@ $(GLFW_LIB_OLD): $(GLFW_LIB_BUILT)
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
+# Rebuild GLFW for Linux
+rebuild-glfw:
+	@echo "=== Rebuilding GLFW for Linux ==="
+	@cd $(GLFW_DIR) && rm -rf build
+	@mkdir -p $(GLFW_BUILD_DIR)
+	@cd $(GLFW_BUILD_DIR) && cmake .. \
+		-DGLFW_BUILD_X11=ON \
+		-DGLFW_BUILD_WAYLAND=OFF \
+		-DGLFW_BUILD_WIN32=OFF \
+		-DGLFW_BUILD_COCOA=OFF \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DGLFW_BUILD_EXAMPLES=OFF \
+		-DGLFW_BUILD_TESTS=OFF \
+		-DGLFW_BUILD_DOCS=OFF
+	@cd $(GLFW_BUILD_DIR) && make -j$$(nproc 2>/dev/null || echo 4)
+	@if [ -f "$(GLFW_LIB_BUILT)" ]; then \
+		mkdir -p $(GLFW_DIR)/lib; \
+		cp $(GLFW_LIB_BUILT) $(GLFW_DIR)/lib/; \
+		echo "GLFW rebuild complete! Library: $(GLFW_DIR)/lib/libglfw3.a"; \
+	else \
+		echo "Error: GLFW library not found after build!"; \
+		exit 1; \
+	fi
+
 # Run client
 run: $(CLIENT_EXE)
 	./$(CLIENT_EXE)
 
 # Phony targets
-.PHONY: all clean run directories
+.PHONY: all clean run directories rebuild-glfw
 
