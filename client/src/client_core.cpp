@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #include <thread>
 #include <iostream>
 #include <cstring>
@@ -96,25 +97,42 @@ bool ClientCore::sendMessage(const string& message) {
 
 string ClientCore::receiveMessage(int timeoutSeconds) {
     if (!isConnected()) {
+        cerr << "[DEBUG] receiveMessage: not connected" << endl;
         return "";
     }
     
+    cerr << "[DEBUG] receiveMessage: timeout=" << timeoutSeconds << " seconds" << endl;
+    
+    // Use select() for proper timeout handling
     if (timeoutSeconds > 0) {
-        // Set socket to non-blocking for timeout
-        int flags = fcntl(socket_fd_, F_GETFL, 0);
-        fcntl(socket_fd_, F_SETFL, flags | O_NONBLOCK);
+        fd_set read_fds;
+        struct timeval timeout;
         
-        // Simple timeout implementation
-        // In production, use select() or poll() for better timeout handling
-        string result = readLine();
+        FD_ZERO(&read_fds);
+        FD_SET(socket_fd_, &read_fds);
         
-        // Restore blocking mode
-        fcntl(socket_fd_, F_SETFL, flags);
+        timeout.tv_sec = timeoutSeconds;
+        timeout.tv_usec = 0;
         
-        return result;
+        int select_result = select(socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout);
+        
+        if (select_result < 0) {
+            cerr << "[DEBUG] select() error: " << strerror(errno) << endl;
+            return "";
+        } else if (select_result == 0) {
+            cerr << "[DEBUG] select() timeout" << endl;
+            return "";
+        } else if (!FD_ISSET(socket_fd_, &read_fds)) {
+            cerr << "[DEBUG] socket not ready for reading" << endl;
+            return "";
+        }
+        
+        cerr << "[DEBUG] Data available, reading line..." << endl;
     }
     
-    return readLine();
+    string result = readLine();
+    cerr << "[DEBUG] readLine() returned: " << (result.empty() ? "(empty)" : result.substr(0, 50) + "...") << endl;
+    return result;
 }
 
 string ClientCore::readLine() {

@@ -38,22 +38,34 @@ int main(int argc, char* argv[]) {
     
     // Wait for CONNECTION notification from server
     cout << "Dang cho thong bao ket noi tu server..." << endl;
-    string connectionMsg = client.receiveMessage(5);
-    if (!connectionMsg.empty()) {
-        cerr << "[DEBUG] Received initial message: " << connectionMsg.substr(0, 100) << "..." << endl;
-        if (protocol.isNotification(connectionMsg)) {
-            string type = protocol.getNotificationType(connectionMsg);
-            cerr << "[DEBUG] Notification type: " << type << endl;
-            if (type == "CONNECTION") {
-                cout << "Da ket noi voi server thanh cong!" << endl;
+    
+    // Try multiple times to get CONNECTION notification
+    string connectionMsg;
+    for (int i = 0; i < 5; i++) {
+        connectionMsg = client.receiveMessage(2);
+        if (!connectionMsg.empty()) {
+            cerr << "[DEBUG] Received initial message (attempt " << (i+1) << "): " << connectionMsg.substr(0, 100) << "..." << endl;
+            if (protocol.isNotification(connectionMsg)) {
+                string type = protocol.getNotificationType(connectionMsg);
+                cerr << "[DEBUG] Notification type: " << type << endl;
+                if (type == "CONNECTION") {
+                    cout << "Da ket noi voi server thanh cong!" << endl;
+                    break;
+                }
+            } else {
+                cerr << "[DEBUG] Initial message is not a notification, waiting for CONNECTION..." << endl;
+                // Not CONNECTION notification, continue waiting
+                continue;
             }
         } else {
-            cerr << "[DEBUG] Initial message is not a notification" << endl;
+            cerr << "[DEBUG] No message received (attempt " << (i+1) << "), retrying..." << endl;
         }
-    } else {
-        cerr << "[DEBUG] No initial message received" << endl;
-        cerr << "Khong nhan duoc thong bao ket noi tu server!" << endl;
-        cerr << "Co the server khong ho tro protocol nay." << endl;
+    }
+    
+    if (connectionMsg.empty() || !protocol.isNotification(connectionMsg) || 
+        protocol.getNotificationType(connectionMsg) != "CONNECTION") {
+        cerr << "[DEBUG] Warning: Did not receive CONNECTION notification, but continuing anyway..." << endl;
+        cout << "Khong nhan duoc thong bao ket noi, nhung van tiep tuc..." << endl;
     }
     
     // Start notification listener for future notifications
