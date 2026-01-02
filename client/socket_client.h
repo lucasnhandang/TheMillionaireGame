@@ -3,63 +3,51 @@
 
 #include <string>
 #include <functional>
-#include <mutex>
 #include <thread>
+#include <mutex>
+#include <queue>
 #include <atomic>
-#include <vector>
+#include <map>
+#include <netdb.h>
+#include <errno.h>
 
-#ifdef _WIN32
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #pragma comment(lib, "ws2_32.lib")
-    typedef SOCKET SocketFD;
-#else
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <unistd.h>
-    #include <fcntl.h>
-    typedef int SocketFD;
-    #define INVALID_SOCKET -1
-    #define SOCKET_ERROR -1
-#endif
-
-/**
- * SocketClient - TCP socket client for connecting to game server
- * Handles TCP connection, message sending/receiving with newline delimiter
- */
 class SocketClient {
 public:
-    SocketClient();
+    SocketClient(const std::string& host = "localhost", int port = 8080);
     ~SocketClient();
-
-    // Connection management
-    bool connect(const std::string& host, int port);
-    void disconnect();
-    bool isConnected() const;
-
-    // Message sending/receiving
-    bool sendMessage(const std::string& message);
-    std::string receiveMessage(int timeout_seconds = 5);
-
-    // Callback for incoming messages
-    void setMessageCallback(std::function<void(const std::string&)> callback);
     
-    // Start listening thread for async message receiving
-    void startListening();
-
+    bool connect();
+    void disconnect();
+    bool sendRequest(const std::string& requestType, const std::string& data);
+    bool isConnected() const { return connected_; }
+    
+    // Message queue
+    struct Message {
+        std::string type;
+        std::string data;
+    };
+    
+    bool getMessage(Message& msg, int timeoutMs = 1000);
+    
+    // Notification handlers
+    void setNotificationHandler(const std::string& notificationType, 
+                                std::function<void(const std::string&)> handler);
+    
 private:
-    SocketFD socket_fd_;
-    bool connected_;
-    std::string buffer_;
-    std::mutex buffer_mutex_;
-    std::thread listen_thread_;
-    std::atomic<bool> should_listen_;
-    std::function<void(const std::string&)> message_callback_;
-
-    void listenLoop();
-    void initializeWinSock();
-    void cleanupWinSock();
+    std::string host_;
+    int port_;
+    int sockfd_;
+    std::atomic<bool> connected_;
+    std::atomic<bool> running_;
+    
+    std::thread receiveThread_;
+    std::mutex queueMutex_;
+    std::queue<Message> messageQueue_;
+    
+    std::map<std::string, std::function<void(const std::string&)>> notificationHandlers_;
+    
+    void receiveLoop();
+    void handleMessage(const std::string& message);
 };
 
 #endif // SOCKET_CLIENT_H

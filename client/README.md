@@ -1,156 +1,216 @@
-# Client Module
+# Who Wants to be a Millionaire - Client (C++)
 
-## Overview
+Client application for the Who Wants to be a Millionaire game, written in C++ with ImGui GUI.
 
-This folder contains the client application code including GUI and client-server communication logic.
+## Requirements
 
-## Responsibilities (Member B)
+- C++11 compatible compiler (GCC or Clang)
+- OpenGL libraries
+- X11 development libraries
+- CMake (for building GLFW)
+- Linux/Ubuntu environment
 
-- **Client Protocol Implementation**: Implement client-side protocol handlers for all request types
-- **GUI Development**: Create user interface for the game
-- **Network Communication**: Handle TCP socket communication with server
-- **Game UI Logic**: Implement game flow, question display, lifeline UI, etc.
+## Dependencies
 
-## Folder Structure
+The client uses:
+- **ImGui**: Immediate mode GUI library (included in project)
+- **GLFW**: Window and input handling (included in project)
+- **OpenGL**: Graphics rendering
+
+## Installation
+
+### 1. Install System Dependencies
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential g++ make cmake
+sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
+sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+```
+
+### 2. Build GLFW (if not already built)
+
+```bash
+cd glfw
+cmake .
+make
+cd ..
+```
+
+### 3. Build Client
+
+```bash
+cd client
+make clean
+make
+```
+
+The executable will be in `bin/client`.
+
+## Running the Client
+
+### Basic Usage
+
+```bash
+cd client
+./bin/client
+```
+
+### With Custom Server Address
+
+```bash
+cd client
+./bin/client 192.168.1.100 8080
+```
+
+### Using Make
+
+```bash
+cd client
+make run
+```
+
+## Features
+
+### Authentication
+- User registration with password validation
+- User login
+- Session management with authentication tokens
+
+### Game Features
+- Start new game
+- Resume saved game
+- Answer questions with timer (30 seconds per question)
+- Three lifelines:
+  - 50/50: Remove two wrong answers
+  - Phone a Friend: Get a suggestion
+  - Ask the Audience: See audience poll results
+- Give up option (take current prize)
+- Leave game (auto-save)
+
+### UI Features
+- Prize ladder display
+- Real-time timer countdown
+- Question and answer display
+- Score tracking
+- Lifeline buttons
+- Game state management
+
+## Project Structure
 
 ```
 client/
-├── src/                    # Source code
-│   ├── main.cpp           # Entry point
-│   ├── client_core.h/cpp  # Client core (socket, connection)
-│   ├── protocol_handler.h/cpp  # Protocol request/response handling
-│   ├── gui/               # GUI code
-│   │   ├── main_window.h/cpp
-│   │   ├── login_window.h/cpp
-│   │   ├── game_window.h/cpp
-│   │   └── leaderboard_window.h/cpp
-│   └── utils/             # Utilities
-│       └── json_parser.h/cpp
-├── include/                # Headers
-├── resources/              # GUI resources (images, icons)
-├── CMakeLists.txt          # Build configuration (if using CMake)
-├── Makefile               # Build configuration
-├── README.md              # This file
-└── PROTOCOL_GUIDE.md      # Protocol implementation guide
+├── main.cpp                 # Main entry point with ImGui GUI
+├── socket_client.h/cpp      # TCP socket communication
+├── protocol_handler.h/cpp   # Protocol request/response handling
+├── json_utils.h/cpp         # JSON parsing utilities
+├── Makefile                 # Build configuration
+└── README.md                # This file
 ```
 
-## Protocol Reference
+## Protocol Communication
 
-See `../PROTOCOL.md` for complete protocol specification.
+The client communicates with the server using:
+- **Protocol**: TCP sockets
+- **Format**: JSON messages
+- **Delimiter**: Newline character (`\n`)
 
-### Key Request Types to Implement:
+All requests follow the format:
+```json
+{
+  "requestType": "REQUEST_TYPE",
+  "data": { ... }
+}
+```
 
-**Authentication:**
-- LOGIN
-- REGISTER
-- LOGOUT
+All responses follow the format:
+```json
+{
+  "responseCode": 200,
+  "data": { ... }
+}
+```
 
-**Game Actions:**
-- START
-- ANSWER
-- LIFELINE (5050, PHONE, AUDIENCE)
-- GIVE_UP
-- RESUME
-- LEAVE_GAME
+See `../PROTOCOL.md` for detailed protocol specification.
 
-**Social Features:**
-- LEADERBOARD
-- FRIEND_STATUS
-- ADD_FRIEND
-- ACCEPT_FRIEND
-- DECLINE_FRIEND
-- FRIEND_REQ_LIST
-- DEL_FRIEND
-- CHAT
+## Building
 
-**User Features:**
-- USER_INFO
-- VIEW_HISTORY
-- CHANGE_PASS
+### Manual Build
 
-**Connection:**
-- PING
-- CONNECTION
+```bash
+cd client
+g++ -std=c++11 -Wall -Wextra -g \
+    -I. -I../imgui -I../imgui/backends -I../glfw/include \
+    main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp \
+    ../imgui/imgui.cpp ../imgui/imgui_draw.cpp ../imgui/imgui_tables.cpp \
+    ../imgui/imgui_widgets.cpp \
+    ../imgui/backends/imgui_impl_glfw.cpp ../imgui/backends/imgui_impl_opengl3.cpp \
+    -L../glfw/lib -lglfw3 \
+    -pthread -lGL -lGLU -lX11 -lXrandr -lXinerama -lXcursor -ldl -lrt \
+    -o bin/client
+```
 
-## Implementation Steps
+### Using Makefile
 
-1. **Review Protocol**: Read `../PROTOCOL.md` and `../ERROR_CODES.md`
+```bash
+cd client
+make          # Build
+make clean   # Clean build artifacts
+make run     # Build and run
+```
 
-2. **Implement Client Core**:
-   - TCP socket connection to server
-   - Message sending/receiving
-   - Connection management
+## Troubleshooting
 
-3. **Implement Protocol Handler**:
-   - Request building (JSON format)
-   - Response parsing
-   - Error handling
+### Build Errors
 
-4. **Implement GUI**:
-   - Login/Register screen
-   - Main menu
-   - Game screen (question display, lifelines, timer)
-   - Leaderboard screen
-   - Friend management screen
+**"GL/gl.h: No such file or directory"**
+```bash
+sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
+```
 
-5. **Integrate**:
-   - Connect GUI events to protocol handlers
-   - Handle server responses and update UI
-   - Implement game flow logic
+**"X11/Xlib.h: No such file or directory"**
+```bash
+sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+```
 
-## Server Connection
+**"GLFW library not found"**
+```bash
+cd glfw
+cmake .
+make
+cd ../client
+make
+```
 
-Default server configuration:
-- Host: `localhost`
-- Port: `8080` (configurable)
+### Runtime Errors
 
-Connection should:
-- Handle connection errors gracefully
-- Implement reconnection logic
-- Show connection status to user
+**"Failed to connect to server"**
+- Make sure server is running
+- Check server address and port
+- Check firewall settings
 
-## GUI Requirements
+**"Segmentation fault"**
+- Make sure all dependencies are installed
+- Check if GLFW was built correctly
+- Run with gdb for debugging: `gdb ./bin/client`
 
-### Login Screen:
-- Username input
-- Password input
-- Login button
-- Register button
-- Error message display
+## Development
 
-### Game Screen:
-- Question display (large, readable)
-- 4 answer options (buttons)
-- Timer display
-- Lifeline buttons (5050, Phone, Audience)
-- Current prize display
-- Give up button
-- Leave game button
+### Code Structure
 
-### Leaderboard Screen:
-- Global leaderboard
-- Friend leaderboard
-- Pagination controls
+- **socket_client.h/cpp**: Low-level socket communication
+- **protocol_handler.h/cpp**: High-level protocol API
+- **json_utils.h/cpp**: Simple JSON parsing utilities
+- **main.cpp**: ImGui GUI and application logic
 
-### Friend Management:
-- Friend list with online status
-- Add friend button
-- Friend request list
-- Accept/Decline buttons
+### Adding Features
 
-## Testing
+To add new features:
 
-- Test connection to server
-- Test all request types
-- Test error handling
-- Test GUI responsiveness
-- Test game flow end-to-end
+1. Add protocol methods in `protocol_handler.h/cpp`
+2. Add UI components in `main.cpp` using ImGui
+3. Wire up events in the main loop
 
-## Notes
+## License
 
-- Use the same JSON format as specified in PROTOCOL.md
-- Handle all error codes from ERROR_CODES.md
-- Implement proper authentication token management
-- Show user-friendly error messages
-- Ensure thread-safety for network operations
-
+Part of the Who Wants to be a Millionaire project for Network Programming course.

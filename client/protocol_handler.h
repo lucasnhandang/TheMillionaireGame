@@ -1,91 +1,71 @@
 #ifndef PROTOCOL_HANDLER_H
 #define PROTOCOL_HANDLER_H
 
-#include <string>
-#include <functional>
-#include <map>
-#include <vector>
-#include <memory>
 #include "socket_client.h"
+#include "json_utils.h"
+#include <string>
+#include <map>
+#include <functional>
 
-// Forward declarations for nlohmann/json (or use a simple JSON library)
-// For simplicity, we'll use string-based JSON manipulation
-// In production, use nlohmann/json or similar
-
-/**
- * ProtocolHandler - Handles JSON protocol communication with game server
- * Builds requests and parses responses according to PROTOCOL.md
- */
 class ProtocolHandler {
 public:
-    ProtocolHandler(SocketClient* socket);
+    ProtocolHandler(SocketClient* client);
     
     // Authentication
-    bool login(const std::string& username, const std::string& password);
-    bool registerUser(const std::string& username, const std::string& password);
+    struct LoginResponse {
+        int responseCode;
+        std::string authToken;
+        std::string username;
+        std::string role;
+        std::string message;
+    };
+    
+    LoginResponse login(const std::string& username, const std::string& password);
+    int registerUser(const std::string& username, const std::string& password);
     bool logout();
     
     // Game actions
-    bool startGame(bool overrideSavedGame = false);
-    bool answerQuestion(int gameId, int questionNumber, int answerIndex);
-    bool useLifeline(int gameId, int questionNumber, const std::string& lifelineType);
-    bool giveUp(int gameId, int questionNumber);
-    bool resumeGame();
-    bool leaveGame();
+    int startGame(bool overrideSavedGame = false);
+    int resumeGame();
+    struct AnswerResponse {
+        int responseCode;
+        bool correct;
+        int questionNumber;
+        int timeRemaining;
+        int pointsEarned;
+        int totalScore;
+        int currentPrize;
+        bool gameOver;
+        bool isWinner;
+        int correctAnswer;
+        int finalPrize;
+    };
     
-    // Social features
-    bool getLeaderboard(const std::string& type, int page = 1, int limit = 20);
-    bool getFriendStatus();
-    bool addFriend(const std::string& username);
-    bool acceptFriend(const std::string& username);
-    bool declineFriend(const std::string& username);
-    bool getFriendRequestList();
-    bool deleteFriend(const std::string& username);
-    bool sendChat(const std::string& recipient, const std::string& message);
+    AnswerResponse answerQuestion(int answerIndex);
+    int useLifeline(const std::string& lifelineType);
+    int giveUp();
+    int leaveGame();
     
-    // User features
-    bool getUserInfo(const std::string& username);
-    bool getGameHistory();
-    bool changePassword(const std::string& oldPassword, const std::string& newPassword);
+    // Game state
+    int currentGameId;
+    int currentQuestionNumber;
     
-    // Connection
-    bool ping();
+    // Auth state
+    std::string authToken;
+    std::string username;
+    std::string role;
     
-    // Admin features (if role is admin)
-    bool addQuestion(const std::string& question, const std::vector<std::pair<std::string, std::string>>& options, 
-                     int correctAnswer, int level);
-    bool changeQuestion(int questionId, const std::string& question, 
-                       const std::vector<std::pair<std::string, std::string>>& options, 
-                       int correctAnswer);
-    bool viewQuestions(int page = 1, int limit = 20, int level = 0);
-    bool deleteQuestion(int questionId);
-    bool banUser(const std::string& username, const std::string& reason);
+    bool isAuthenticated() const { return !authToken.empty(); }
+    bool isAdmin() const { return role == "admin"; }
     
-    // Response handling
-    void setResponseCallback(std::function<void(int responseCode, const std::string& jsonData)> callback);
-    void handleServerMessage(const std::string& jsonMessage);
+    // Wait for response
+    SocketClient::Message waitForResponse(int timeoutMs = 5000);
     
-    // State
-    void setAuthToken(const std::string& token);
-    std::string getAuthToken() const;
-    void setUsername(const std::string& username);
-    std::string getUsername() const;
-    void setRole(const std::string& role);
-    std::string getRole() const;
-    bool isAdmin() const;
-
 private:
-    SocketClient* socket_;
-    std::string auth_token_;
-    std::string username_;
-    std::string role_;
-    std::function<void(int responseCode, const std::string& jsonData)> response_callback_;
-    
-    // Helper methods
-    std::string buildRequest(const std::string& requestType, const std::string& data);
-    std::string buildDataWithAuth(const std::string& additionalData = "");
-    bool sendRequest(const std::string& requestType, const std::string& data);
-    void parseResponse(const std::string& jsonResponse);
+    SocketClient* client_;
+    std::string buildDataJson(const std::map<std::string, std::string>& strings,
+                              const std::map<std::string, int>& ints = {},
+                              const std::map<std::string, bool>& bools = {});
 };
 
 #endif // PROTOCOL_HANDLER_H

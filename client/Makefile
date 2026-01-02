@@ -1,65 +1,72 @@
+# Makefile for Millionaire Game Client
+# C++ Client with ImGui GUI
+
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -O2
-INCLUDES = -I. -I../imgui -I../imgui/backends -I../glfw/include
-LIBS = -lglfw -lGL -lX11 -lpthread -ldl
+CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -I../glfw/include
+LDFLAGS = -pthread -lGL -lGLU -lX11 -lXrandr -lXinerama -lXcursor -ldl -lrt
 
-# Windows specific
-ifeq ($(OS),Windows_NT)
-    CXX = g++
-    INCLUDES = -I. -I../imgui -I../imgui/backends -I../glfw/include -I/usr/include
-    LIBS = -L../glfw/lib -lglfw3 -lopengl32 -lgdi32 -lws2_32 -lwsock32
-    TARGET = client.exe
-else
-    # Linux
-    TARGET = client
-    LIBS += -lrt
-endif
-
-# ImGUI sources
+# Directories
+SRC_DIR = .
+OBJ_DIR = obj
+BIN_DIR = bin
 IMGUI_DIR = ../imgui
-IMGUI_SOURCES = $(IMGUI_DIR)/imgui.cpp \
-                $(IMGUI_DIR)/imgui_demo.cpp \
-                $(IMGUI_DIR)/imgui_draw.cpp \
-                $(IMGUI_DIR)/imgui_tables.cpp \
-                $(IMGUI_DIR)/imgui_widgets.cpp \
-                $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp \
-                $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+GLFW_DIR = ../glfw
 
-IMGUI_OBJECTS = $(IMGUI_SOURCES:.cpp=.o)
+# Source files
+CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp
+IMGUI_SRC = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp \
+            $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
+IMGUI_BACKEND_SRC = $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+GLFW_SRC = $(GLFW_DIR)/src/*.c
 
-# Client sources
-CLIENT_SOURCES = main.cpp \
-                 socket_client.cpp \
-                 protocol_handler.cpp \
-                 gui_app.cpp
+# Object files
+CLIENT_OBJ = $(CLIENT_SRC:%.cpp=$(OBJ_DIR)/%.o)
+IMGUI_OBJ = $(IMGUI_SRC:$(IMGUI_DIR)/%.cpp=$(OBJ_DIR)/imgui_%.o)
+IMGUI_BACKEND_OBJ = $(IMGUI_BACKEND_SRC:$(IMGUI_DIR)/backends/%.cpp=$(OBJ_DIR)/imgui_backend_%.o)
 
-CLIENT_OBJECTS = $(CLIENT_SOURCES:.cpp=.o)
+# GLFW library (use static library if available)
+GLFW_LIB = $(GLFW_DIR)/lib/libglfw3.a
+GLFW_LDFLAGS = $(GLFW_LIB) $(LDFLAGS)
 
-ALL_OBJECTS = $(CLIENT_OBJECTS) $(IMGUI_OBJECTS)
+# Executable
+CLIENT_EXE = $(BIN_DIR)/client
 
-.PHONY: all clean install-deps
+# Default target
+all: directories $(CLIENT_EXE)
 
-all: $(TARGET)
+# Create necessary directories
+directories:
+	@mkdir -p $(OBJ_DIR) $(BIN_DIR)
 
-$(TARGET): $(ALL_OBJECTS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
+# Build client
+$(CLIENT_EXE): $(CLIENT_OBJ) $(IMGUI_OBJ) $(IMGUI_BACKEND_OBJ) | $(GLFW_LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LDFLAGS)
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+# Compile client object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Compile ImGui object files
+$(OBJ_DIR)/imgui_%.o: $(IMGUI_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile ImGui backend object files
+$(OBJ_DIR)/imgui_backend_%.o: $(IMGUI_DIR)/backends/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Build GLFW if needed
+$(GLFW_LIB):
+	@echo "GLFW library not found. Building GLFW..."
+	@cd $(GLFW_DIR) && cmake . && make
+
+# Clean build artifacts
 clean:
-	rm -f $(ALL_OBJECTS) $(TARGET) *.exe
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
-install-deps:
-	@echo "Installing dependencies..."
-	@echo "Note: You need to install:"
-	@echo "  1. ImGUI - Download from https://github.com/ocornut/imgui"
-	@echo "  2. GLFW - Install via package manager or download from https://www.glfw.org/"
-	@echo ""
-	@echo "On Ubuntu/Debian:"
-	@echo "  sudo apt-get install libglfw3-dev libgl1-mesa-dev"
-	@echo ""
-	@echo "On Windows (MinGW):"
-	@echo "  Download GLFW and extract to ../glfw/"
-	@echo "  Download ImGUI and extract to ../imgui/"
+# Run client
+run: $(CLIENT_EXE)
+	./$(CLIENT_EXE)
+
+# Phony targets
+.PHONY: all clean run directories
 

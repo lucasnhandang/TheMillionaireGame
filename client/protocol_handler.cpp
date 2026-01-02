@@ -1,354 +1,311 @@
 #include "protocol_handler.h"
 #include <sstream>
-#include <regex>
-#include <vector>
-#include <algorithm>
+#include <iostream>
 
-// Helper function to extract int from JSON (inline implementation)
-static int extractIntFromJson(const std::string& json, const std::string& key, int default_value = 0) {
-    std::string search_key = "\"" + key + "\"";
-    size_t pos = json.find(search_key);
-    if (pos == std::string::npos) return default_value;
-    
-    pos = json.find(':', pos);
-    if (pos == std::string::npos) return default_value;
-    pos++;
-    
-    while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t')) {
-        pos++;
-    }
-    
-    if (pos >= json.length()) return default_value;
-    
-    size_t end = pos;
-    while (end < json.length() && json[end] != ',' && json[end] != '}' && json[end] != ']' && json[end] != ' ') {
-        end++;
-    }
-    
-    if (end == pos) return default_value;
-    
-    try {
-        return std::stoi(json.substr(pos, end - pos));
-    } catch (...) {
-        return default_value;
-    }
+ProtocolHandler::ProtocolHandler(SocketClient* client)
+    : client_(client), currentGameId(0), currentQuestionNumber(0) {
 }
 
-ProtocolHandler::ProtocolHandler(SocketClient* socket) 
-    : socket_(socket), auth_token_(""), username_(""), role_("user") {
-    if (socket_) {
-        socket_->setMessageCallback([this](const std::string& msg) {
-            this->handleServerMessage(msg);
-        });
+std::string ProtocolHandler::buildDataJson(const std::map<std::string, std::string>& strings,
+                                          const std::map<std::string, int>& ints,
+                                          const std::map<std::string, bool>& bools) {
+    return MillionaireGame::JsonUtils::buildJson(strings, ints, bools);
+}
+
+ProtocolHandler::LoginResponse ProtocolHandler::login(const std::string& username, const std::string& password) {
+    LoginResponse response;
+    response.responseCode = 500;
+    
+    std::map<std::string, std::string> data;
+    data["username"] = username;
+    data["password"] = password;
+    
+    std::string dataJson = buildDataJson(data);
+    if (!client_->sendRequest("LOGIN", dataJson)) {
+        return response;
     }
-}
-
-std::string ProtocolHandler::buildRequest(const std::string& requestType, const std::string& data) {
-    std::ostringstream json;
-    json << "{\"requestType\":\"" << requestType << "\",\"data\":{" << data << "}}";
-    return json.str();
-}
-
-std::string ProtocolHandler::buildDataWithAuth(const std::string& additionalData) {
-    std::ostringstream data;
-    if (!auth_token_.empty()) {
-        data << "\"authToken\":\"" << auth_token_ << "\"";
-        if (!additionalData.empty()) {
-            data << "," << additionalData;
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return response;
+    }
+    
+    response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    
+    if (response.responseCode == 200) {
+        // Extract data from nested "data" object
+        size_t dataStart = msg.data.find("\"data\":{");
+        if (dataStart != std::string::npos) {
+            std::string dataStr = msg.data.substr(dataStart + 7);
+            response.authToken = MillionaireGame::JsonUtils::extractString(dataStr, "authToken");
+            response.username = MillionaireGame::JsonUtils::extractString(dataStr, "username");
+            response.role = MillionaireGame::JsonUtils::extractString(dataStr, "role");
+            response.message = MillionaireGame::JsonUtils::extractString(dataStr, "message");
+            
+            this->authToken = response.authToken;
+            this->username = response.username;
+            this->role = response.role;
         }
-    } else if (!additionalData.empty()) {
-        data << additionalData;
-    }
-    return data.str();
-}
-
-bool ProtocolHandler::sendRequest(const std::string& requestType, const std::string& data) {
-    if (!socket_ || !socket_->isConnected()) {
-        return false;
+    } else {
+        response.message = MillionaireGame::JsonUtils::extractString(msg.data, "message");
     }
     
-    std::string request = buildRequest(requestType, data);
-    return socket_->sendMessage(request);
+    return response;
 }
 
-void ProtocolHandler::parseResponse(const std::string& jsonResponse) {
-    // Extract responseCode
-    int responseCode = extractIntFromJson(jsonResponse, "responseCode");
+int ProtocolHandler::registerUser(const std::string& username, const std::string& password) {
+    std::map<std::string, std::string> data;
+    data["username"] = username;
+    data["password"] = password;
     
-    // Extract data field if exists
-    std::string data = "";
-    size_t dataPos = jsonResponse.find("\"data\":");
-    if (dataPos != std::string::npos) {
-        size_t start = jsonResponse.find("{", dataPos);
-        if (start != std::string::npos) {
-            int depth = 0;
-            size_t end = start;
-            for (size_t i = start; i < jsonResponse.length(); i++) {
-                if (jsonResponse[i] == '{') depth++;
-                if (jsonResponse[i] == '}') depth--;
-                if (depth == 0) {
-                    end = i;
-                    break;
-                }
-            }
-            if (end > start) {
-                data = jsonResponse.substr(start, end - start + 1);
-            }
-        }
+    std::string dataJson = buildDataJson(data);
+    if (!client_->sendRequest("REGISTER", dataJson)) {
+        return 500;
     }
     
-    if (response_callback_) {
-        response_callback_(responseCode, data);
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
     }
-}
-
-void ProtocolHandler::handleServerMessage(const std::string& jsonMessage) {
-    parseResponse(jsonMessage);
-}
-
-void ProtocolHandler::setResponseCallback(std::function<void(int responseCode, const std::string& jsonData)> callback) {
-    response_callback_ = callback;
-}
-
-bool ProtocolHandler::login(const std::string& username, const std::string& password) {
-    std::ostringstream data;
-    data << "\"username\":\"" << username << "\",\"password\":\"" << password << "\"";
-    return sendRequest("LOGIN", data.str());
-}
-
-bool ProtocolHandler::registerUser(const std::string& username, const std::string& password) {
-    std::ostringstream data;
-    data << "\"username\":\"" << username << "\",\"password\":\"" << password << "\"";
-    return sendRequest("REGISTER", data.str());
+    
+    return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
 }
 
 bool ProtocolHandler::logout() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("LOGOUT", data);
-}
-
-bool ProtocolHandler::startGame(bool overrideSavedGame) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (overrideSavedGame) {
-        if (!auth_token_.empty()) data << ",";
-        data << "\"overrideSavedGame\":true";
+    if (authToken.empty()) {
+        return false;
     }
-    return sendRequest("START", data.str());
-}
-
-bool ProtocolHandler::answerQuestion(int gameId, int questionNumber, int answerIndex) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"gameId\":" << gameId 
-         << ",\"questionNumber\":" << questionNumber 
-         << ",\"answerIndex\":" << answerIndex;
-    return sendRequest("ANSWER", data.str());
-}
-
-bool ProtocolHandler::useLifeline(int gameId, int questionNumber, const std::string& lifelineType) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"gameId\":" << gameId 
-         << ",\"questionNumber\":" << questionNumber 
-         << ",\"lifelineType\":\"" << lifelineType << "\"";
-    return sendRequest("LIFELINE", data.str());
-}
-
-bool ProtocolHandler::giveUp(int gameId, int questionNumber) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"gameId\":" << gameId 
-         << ",\"questionNumber\":" << questionNumber;
-    return sendRequest("GIVE_UP", data.str());
-}
-
-bool ProtocolHandler::resumeGame() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("RESUME", data);
-}
-
-bool ProtocolHandler::leaveGame() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("LEAVE_GAME", data);
-}
-
-bool ProtocolHandler::getLeaderboard(const std::string& type, int page, int limit) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"type\":\"" << type << "\""
-         << ",\"page\":" << page 
-         << ",\"limit\":" << limit;
-    return sendRequest("LEADERBOARD", data.str());
-}
-
-bool ProtocolHandler::getFriendStatus() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("FRIEND_STATUS", data);
-}
-
-bool ProtocolHandler::addFriend(const std::string& username) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"friendUsername\":\"" << username << "\"";
-    return sendRequest("ADD_FRIEND", data.str());
-}
-
-bool ProtocolHandler::acceptFriend(const std::string& username) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"friendUsername\":\"" << username << "\"";
-    return sendRequest("ACCEPT_FRIEND", data.str());
-}
-
-bool ProtocolHandler::declineFriend(const std::string& username) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"friendUsername\":\"" << username << "\"";
-    return sendRequest("DECLINE_FRIEND", data.str());
-}
-
-bool ProtocolHandler::getFriendRequestList() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("FRIEND_REQ_LIST", data);
-}
-
-bool ProtocolHandler::deleteFriend(const std::string& username) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"friendUsername\":\"" << username << "\"";
-    return sendRequest("DEL_FRIEND", data.str());
-}
-
-bool ProtocolHandler::sendChat(const std::string& recipient, const std::string& message) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"recipient\":\"" << recipient << "\""
-         << ",\"message\":\"" << message << "\"";
-    return sendRequest("CHAT", data.str());
-}
-
-bool ProtocolHandler::getUserInfo(const std::string& username) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"username\":\"" << username << "\"";
-    return sendRequest("USER_INFO", data.str());
-}
-
-bool ProtocolHandler::getGameHistory() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("VIEW_HISTORY", data);
-}
-
-bool ProtocolHandler::changePassword(const std::string& oldPassword, const std::string& newPassword) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"oldPassword\":\"" << oldPassword << "\""
-         << ",\"newPassword\":\"" << newPassword << "\"";
-    return sendRequest("CHANGE_PASS", data.str());
-}
-
-bool ProtocolHandler::ping() {
-    std::string data = buildDataWithAuth("");
-    return sendRequest("PING", data);
-}
-
-// Admin functions
-bool ProtocolHandler::addQuestion(const std::string& question, 
-                                  const std::vector<std::pair<std::string, std::string>>& options, 
-                                  int correctAnswer, int level) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"question\":\"" << question << "\",\"options\":[";
-    for (size_t i = 0; i < options.size(); i++) {
-        if (i > 0) data << ",";
-        data << "{\"label\":\"" << options[i].first << "\",\"text\":\"" << options[i].second << "\"}";
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::string dataJson = buildDataJson(data);
+    if (!client_->sendRequest("LOGOUT", dataJson)) {
+        return false;
     }
-    data << "],\"correctAnswer\":" << correctAnswer << ",\"level\":" << level;
-    return sendRequest("ADD_QUES", data.str());
-}
-
-bool ProtocolHandler::changeQuestion(int questionId, const std::string& question, 
-                                     const std::vector<std::pair<std::string, std::string>>& options, 
-                                     int correctAnswer) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"questionId\":" << questionId 
-         << ",\"question\":\"" << question << "\",\"options\":[";
-    for (size_t i = 0; i < options.size(); i++) {
-        if (i > 0) data << ",";
-        data << "{\"label\":\"" << options[i].first << "\",\"text\":\"" << options[i].second << "\"}";
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type == "RESPONSE" && 
+        MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500) == 200) {
+        authToken.clear();
+        username.clear();
+        role.clear();
+        return true;
     }
-    data << "],\"correctAnswer\":" << correctAnswer;
-    return sendRequest("CHANGE_QUES", data.str());
+    
+    return false;
 }
 
-bool ProtocolHandler::viewQuestions(int page, int limit, int level) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"page\":" << page << ",\"limit\":" << limit;
-    if (level > 0) {
-        data << ",\"level\":" << level;
+int ProtocolHandler::startGame(bool overrideSavedGame) {
+    if (authToken.empty()) {
+        return 402;
     }
-    return sendRequest("VIEW_QUES", data.str());
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::map<std::string, bool> bools;
+    bools["overrideSavedGame"] = overrideSavedGame;
+    
+    std::string dataJson = buildDataJson(data, {}, bools);
+    if (!client_->sendRequest("START", dataJson)) {
+        return 500;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
+    }
+    
+    return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
 }
 
-bool ProtocolHandler::deleteQuestion(int questionId) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"questionId\":" << questionId;
-    return sendRequest("DEL_QUES", data.str());
+int ProtocolHandler::resumeGame() {
+    if (authToken.empty()) {
+        return 402;
+    }
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::string dataJson = buildDataJson(data);
+    if (!client_->sendRequest("RESUME", dataJson)) {
+        return 500;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
+    }
+    
+    int code = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (code == 200) {
+        size_t dataStart = msg.data.find("\"data\":{");
+        if (dataStart != std::string::npos) {
+            std::string dataStr = msg.data.substr(dataStart + 7);
+            currentGameId = MillionaireGame::JsonUtils::extractInt(dataStr, "gameId", 0);
+            currentQuestionNumber = MillionaireGame::JsonUtils::extractInt(dataStr, "questionNumber", 0);
+        }
+    }
+    
+    return code;
 }
 
-bool ProtocolHandler::banUser(const std::string& username, const std::string& reason) {
-    std::ostringstream data;
-    data << buildDataWithAuth("");
-    if (!auth_token_.empty()) data << ",";
-    data << "\"username\":\"" << username << "\""
-         << ",\"reason\":\"" << reason << "\"";
-    return sendRequest("BAN_USER", data.str());
+ProtocolHandler::AnswerResponse ProtocolHandler::answerQuestion(int answerIndex) {
+    AnswerResponse response;
+    response.responseCode = 406;
+    
+    if (authToken.empty() || currentGameId == 0 || currentQuestionNumber == 0) {
+        return response;
+    }
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::map<std::string, int> ints;
+    ints["gameId"] = currentGameId;
+    ints["questionNumber"] = currentQuestionNumber;
+    ints["answerIndex"] = answerIndex;
+    
+    std::string dataJson = buildDataJson(data, ints);
+    if (!client_->sendRequest("ANSWER", dataJson)) {
+        response.responseCode = 500;
+        return response;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        response.responseCode = 500;
+        return response;
+    }
+    
+    response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    
+    if (response.responseCode == 200) {
+        size_t dataStart = msg.data.find("\"data\":{");
+        if (dataStart != std::string::npos) {
+            std::string dataStr = msg.data.substr(dataStart + 7);
+            response.correct = MillionaireGame::JsonUtils::extractBool(dataStr, "correct", false);
+            response.questionNumber = MillionaireGame::JsonUtils::extractInt(dataStr, "questionNumber", 0);
+            response.timeRemaining = MillionaireGame::JsonUtils::extractInt(dataStr, "timeRemaining", 0);
+            response.pointsEarned = MillionaireGame::JsonUtils::extractInt(dataStr, "pointsEarned", 0);
+            response.totalScore = MillionaireGame::JsonUtils::extractInt(dataStr, "totalScore", 0);
+            response.currentPrize = MillionaireGame::JsonUtils::extractInt(dataStr, "currentPrize", 0);
+            response.gameOver = MillionaireGame::JsonUtils::extractBool(dataStr, "gameOver", false);
+            response.isWinner = MillionaireGame::JsonUtils::extractBool(dataStr, "isWinner", false);
+            response.correctAnswer = MillionaireGame::JsonUtils::extractInt(dataStr, "correctAnswer", -1);
+            response.finalPrize = MillionaireGame::JsonUtils::extractInt(dataStr, "finalPrize", 0);
+            
+            if (!response.gameOver) {
+                currentQuestionNumber = response.questionNumber;
+            } else {
+                currentGameId = 0;
+                currentQuestionNumber = 0;
+            }
+        }
+    }
+    
+    return response;
 }
 
-void ProtocolHandler::setAuthToken(const std::string& token) {
-    auth_token_ = token;
+int ProtocolHandler::useLifeline(const std::string& lifelineType) {
+    if (authToken.empty() || currentGameId == 0 || currentQuestionNumber == 0) {
+        return 406;
+    }
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    data["lifelineType"] = lifelineType;
+    
+    std::map<std::string, int> ints;
+    ints["gameId"] = currentGameId;
+    ints["questionNumber"] = currentQuestionNumber;
+    
+    std::string dataJson = buildDataJson(data, ints);
+    if (!client_->sendRequest("LIFELINE", dataJson)) {
+        return 500;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
+    }
+    
+    return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
 }
 
-std::string ProtocolHandler::getAuthToken() const {
-    return auth_token_;
+int ProtocolHandler::giveUp() {
+    if (authToken.empty() || currentGameId == 0 || currentQuestionNumber == 0) {
+        return 406;
+    }
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::map<std::string, int> ints;
+    ints["gameId"] = currentGameId;
+    ints["questionNumber"] = currentQuestionNumber;
+    
+    std::string dataJson = buildDataJson(data, ints);
+    if (!client_->sendRequest("GIVE_UP", dataJson)) {
+        return 500;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
+    }
+    
+    int code = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (code == 200) {
+        currentGameId = 0;
+        currentQuestionNumber = 0;
+    }
+    
+    return code;
 }
 
-void ProtocolHandler::setUsername(const std::string& username) {
-    username_ = username;
+int ProtocolHandler::leaveGame() {
+    if (authToken.empty()) {
+        return 402;
+    }
+    
+    std::map<std::string, std::string> data;
+    data["authToken"] = authToken;
+    
+    std::string dataJson = buildDataJson(data);
+    if (!client_->sendRequest("LEAVE_GAME", dataJson)) {
+        return 500;
+    }
+    
+    SocketClient::Message msg = waitForResponse();
+    if (msg.type != "RESPONSE") {
+        return 500;
+    }
+    
+    int code = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (code == 200) {
+        currentGameId = 0;
+        currentQuestionNumber = 0;
+    }
+    
+    return code;
 }
 
-std::string ProtocolHandler::getUsername() const {
-    return username_;
-}
-
-void ProtocolHandler::setRole(const std::string& role) {
-    role_ = role;
-}
-
-std::string ProtocolHandler::getRole() const {
-    return role_;
-}
-
-bool ProtocolHandler::isAdmin() const {
-    return role_ == "admin";
+SocketClient::Message ProtocolHandler::waitForResponse(int timeoutMs) {
+    SocketClient::Message msg;
+    int waited = 0;
+    int step = 100; // Check every 100ms
+    
+    while (waited < timeoutMs) {
+        if (client_->getMessage(msg, step)) {
+            return msg;
+        }
+        waited += step;
+    }
+    
+    msg.type = "TIMEOUT";
+    msg.data = "";
+    return msg;
 }
 

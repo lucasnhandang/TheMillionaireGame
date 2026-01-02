@@ -1,336 +1,235 @@
 #include "socket_client.h"
-#include <iostream>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/select.h>
 #include <cstring>
-#include <algorithm>
-#include <cerrno>
-#include <vector>
+#include <iostream>
+#include <sstream>
+#include <errno.h>
 
-#ifdef _WIN32
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-#else
-    #include <sys/select.h>
-    #include <netdb.h>
-#endif
-
-#ifdef _WIN32
-static bool winsock_initialized = false;
-#endif
-
-SocketClient::SocketClient() 
-    : socket_fd_(INVALID_SOCKET), connected_(false), should_listen_(false) {
-#ifdef _WIN32
-    initializeWinSock();
-#endif
+SocketClient::SocketClient(const std::string& host, int port)
+    : host_(host), port_(port), sockfd_(-1), connected_(false), running_(false) {
 }
 
 SocketClient::~SocketClient() {
     disconnect();
-#ifdef _WIN32
-    cleanupWinSock();
-#endif
 }
 
-#ifdef _WIN32
-void SocketClient::initializeWinSock() {
-    if (!winsock_initialized) {
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            std::cerr << "WSAStartup failed" << std::endl;
-        } else {
-            winsock_initialized = true;
-        }
-    }
-}
-
-void SocketClient::cleanupWinSock() {
-    if (winsock_initialized) {
-        WSACleanup();
-        winsock_initialized = false;
-    }
-}
-#else
-void SocketClient::initializeWinSock() {}
-void SocketClient::cleanupWinSock() {}
-#endif
-
-bool SocketClient::connect(const std::string& host, int port) {
+bool SocketClient::connect() {
     if (connected_) {
-        disconnect();
+        return true;
     }
-
-    socket_fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_fd_ == INVALID_SOCKET) {
-        std::cerr << "Failed to create socket" << std::endl;
+    
+    // Create socket
+    sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd_ < 0) {
+        std::cerr << "Error creating socket" << std::endl;
         return false;
     }
-
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-
-    // Convert hostname to IP address
-    if (inet_pton(AF_INET, host.c_str(), &server_addr.sin_addr) <= 0) {
+    
+    // Set socket to non-blocking for timeout
+    int flags = fcntl(sockfd_, F_GETFL, 0);
+    fcntl(sockfd_, F_SETFL, flags | O_NONBLOCK);
+    
+    // Setup server address
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port_);
+    
+    if (inet_pton(AF_INET, host_.c_str(), &serverAddr.sin_addr) <= 0) {
         // Try to resolve hostname
-        struct addrinfo hints, *result;
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-
-        if (getaddrinfo(host.c_str(), nullptr, &hints, &result) != 0) {
-            std::cerr << "Failed to resolve hostname: " << host << std::endl;
-#ifdef _WIN32
-            closesocket(socket_fd_);
-#else
-            ::close(socket_fd_);
-#endif
-            socket_fd_ = INVALID_SOCKET;
+        struct hostent* he = gethostbyname(host_.c_str());
+        if (he == nullptr) {
+            std::cerr << "Error resolving hostname: " << host_ << std::endl;
+            close(sockfd_);
+            sockfd_ = -1;
             return false;
         }
-
-        server_addr.sin_addr = ((struct sockaddr_in*)result->ai_addr)->sin_addr;
-        freeaddrinfo(result);
+        memcpy(&serverAddr.sin_addr, he->h_addr_list[0], he->h_length);
     }
-
-    if (::connect(socket_fd_, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        std::cerr << "Failed to connect to server: " << host << ":" << port << std::endl;
-#ifdef _WIN32
-        closesocket(socket_fd_);
-#else
-        ::close(socket_fd_);
-#endif
-        socket_fd_ = INVALID_SOCKET;
-        return false;
+    
+    // Connect with timeout
+    int result = ::connect(sockfd_, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (result < 0) {
+        if (errno == EINPROGRESS) {
+            // Wait for connection
+            fd_set writefds;
+            struct timeval timeout;
+            timeout.tv_sec = 5;
+            timeout.tv_usec = 0;
+            FD_ZERO(&writefds);
+            FD_SET(sockfd_, &writefds);
+            
+            result = select(sockfd_ + 1, nullptr, &writefds, nullptr, &timeout);
+            if (result <= 0) {
+                std::cerr << "Connection timeout" << std::endl;
+                close(sockfd_);
+                sockfd_ = -1;
+                return false;
+            }
+        } else {
+            std::cerr << "Connection failed: " << strerror(errno) << std::endl;
+            close(sockfd_);
+            sockfd_ = -1;
+            return false;
+        }
     }
-
-    // Set socket to non-blocking mode for timeout support
-#ifdef _WIN32
-    u_long mode = 1;
-    ioctlsocket(socket_fd_, FIONBIO, &mode);
-#else
-    int flags = fcntl(socket_fd_, F_GETFL, 0);
-    fcntl(socket_fd_, F_SETFL, flags | O_NONBLOCK);
-#endif
-
+    
+    // Set back to blocking
+    flags = fcntl(sockfd_, F_GETFL, 0);
+    fcntl(sockfd_, F_SETFL, flags & ~O_NONBLOCK);
+    
     connected_ = true;
+    running_ = true;
+    
+    // Start receive thread
+    receiveThread_ = std::thread(&SocketClient::receiveLoop, this);
+    
     return true;
 }
 
 void SocketClient::disconnect() {
-    should_listen_ = false;
-    if (listen_thread_.joinable()) {
-        listen_thread_.join();
-    }
-
-    if (socket_fd_ != INVALID_SOCKET) {
-#ifdef _WIN32
-        closesocket(socket_fd_);
-#else
-        ::close(socket_fd_);
-#endif
-        socket_fd_ = INVALID_SOCKET;
-    }
+    running_ = false;
     connected_ = false;
+    
+    if (sockfd_ >= 0) {
+        close(sockfd_);
+        sockfd_ = -1;
+    }
+    
+    if (receiveThread_.joinable()) {
+        receiveThread_.join();
+    }
 }
 
-bool SocketClient::isConnected() const {
-    return connected_ && socket_fd_ != INVALID_SOCKET;
-}
-
-bool SocketClient::sendMessage(const std::string& message) {
-    if (!isConnected()) {
+bool SocketClient::sendRequest(const std::string& requestType, const std::string& data) {
+    if (!connected_ || sockfd_ < 0) {
         return false;
     }
-
-    std::string msg_with_newline = message + "\n";
     
-#ifdef _WIN32
-    int sent = send(socket_fd_, msg_with_newline.c_str(), static_cast<int>(msg_with_newline.length()), 0);
-    if (sent == SOCKET_ERROR) {
-        int error = WSAGetLastError();
-        if (error != WSAEWOULDBLOCK) {
-            connected_ = false;
-            return false;
-        }
-    }
-#else
-    ssize_t sent = ::send(socket_fd_, msg_with_newline.c_str(), msg_with_newline.length(), 0);
-    if (sent < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            connected_ = false;
-            return false;
-        }
-    }
-#endif
+    std::ostringstream request;
+    request << "{\"requestType\":\"" << requestType << "\",\"data\":" << data << "}\n";
+    
+    std::string message = request.str();
+    ssize_t sent = send(sockfd_, message.c_str(), message.length(), 0);
+    
+    return sent == static_cast<ssize_t>(message.length());
+}
 
+bool SocketClient::getMessage(Message& msg, int timeoutMs) {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    
+    if (messageQueue_.empty()) {
+        return false;
+    }
+    
+    msg = messageQueue_.front();
+    messageQueue_.pop();
     return true;
 }
 
-std::string SocketClient::receiveMessage(int timeout_seconds) {
-    if (!isConnected()) {
-        return "";
-    }
+void SocketClient::setNotificationHandler(const std::string& notificationType,
+                                          std::function<void(const std::string&)> handler) {
+    notificationHandlers_[notificationType] = handler;
+}
 
-    std::lock_guard<std::mutex> lock(buffer_mutex_);
+void SocketClient::receiveLoop() {
+    std::string buffer;
+    char recvBuffer[4096];
     
-    // Check if we have a complete message (ending with newline)
-    size_t newline_pos = buffer_.find('\n');
-    if (newline_pos != std::string::npos) {
-        std::string message = buffer_.substr(0, newline_pos);
-        buffer_.erase(0, newline_pos + 1);
-        return message;
-    }
-
-    // Try to receive more data
-    char recv_buffer[4096];
-#ifdef _WIN32
-    fd_set read_fds;
-    struct timeval timeout;
-    timeout.tv_sec = timeout_seconds;
-    timeout.tv_usec = 0;
-    
-    FD_ZERO(&read_fds);
-    FD_SET(socket_fd_, &read_fds);
-    
-    int select_result = select(0, &read_fds, nullptr, nullptr, &timeout);
-    if (select_result > 0 && FD_ISSET(socket_fd_, &read_fds)) {
-        int received = recv(socket_fd_, recv_buffer, sizeof(recv_buffer) - 1, 0);
-        if (received > 0) {
-            recv_buffer[received] = '\0';
-            buffer_ += recv_buffer;
-            
-            newline_pos = buffer_.find('\n');
-            if (newline_pos != std::string::npos) {
-                std::string message = buffer_.substr(0, newline_pos);
-                buffer_.erase(0, newline_pos + 1);
-                return message;
-            }
-        } else if (received == 0 || WSAGetLastError() != WSAEWOULDBLOCK) {
-            connected_ = false;
-            return "";
+    while (running_ && connected_) {
+        if (sockfd_ < 0) {
+            break;
         }
-    }
-#else
-    fd_set read_fds;
-    struct timeval timeout;
-    timeout.tv_sec = timeout_seconds;
-    timeout.tv_usec = 0;
-    
-    FD_ZERO(&read_fds);
-    FD_SET(socket_fd_, &read_fds);
-    
-    int select_result = select(socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout);
-    if (select_result > 0 && FD_ISSET(socket_fd_, &read_fds)) {
-        ssize_t received = recv(socket_fd_, recv_buffer, sizeof(recv_buffer) - 1, 0);
-        if (received > 0) {
-            recv_buffer[received] = '\0';
-            buffer_ += recv_buffer;
-            
-            newline_pos = buffer_.find('\n');
-            if (newline_pos != std::string::npos) {
-                std::string message = buffer_.substr(0, newline_pos);
-                buffer_.erase(0, newline_pos + 1);
-                return message;
-            }
-        } else if (received == 0 || (received < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
-            connected_ = false;
-            return "";
-        }
-    }
-#endif
-
-    return "";
-}
-
-void SocketClient::setMessageCallback(std::function<void(const std::string&)> callback) {
-    message_callback_ = callback;
-}
-
-void SocketClient::startListening() {
-    if (should_listen_) {
-        return;
-    }
-
-    should_listen_ = true;
-    listen_thread_ = std::thread(&SocketClient::listenLoop, this);
-}
-
-void SocketClient::listenLoop() {
-    char recv_buffer[4096];
-    
-    while (should_listen_ && isConnected()) {
-#ifdef _WIN32
-        fd_set read_fds;
-        struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000; // 100ms
         
-        FD_ZERO(&read_fds);
-        FD_SET(socket_fd_, &read_fds);
+        ssize_t received = recv(sockfd_, recvBuffer, sizeof(recvBuffer) - 1, 0);
         
-        int select_result = select(0, &read_fds, nullptr, nullptr, &timeout);
-        if (select_result > 0 && FD_ISSET(socket_fd_, &read_fds)) {
-            int received = recv(socket_fd_, recv_buffer, sizeof(recv_buffer) - 1, 0);
-            if (received > 0) {
-                recv_buffer[received] = '\0';
-                
-                {
-                    std::lock_guard<std::mutex> lock(buffer_mutex_);
-                    buffer_ += recv_buffer;
-                    
-                    // Process all complete messages
-                    size_t newline_pos;
-                    while ((newline_pos = buffer_.find('\n')) != std::string::npos) {
-                        std::string message = buffer_.substr(0, newline_pos);
-                        buffer_.erase(0, newline_pos + 1);
-                        
-                        if (message_callback_) {
-                            message_callback_(message);
-                        }
-                    }
-                }
-            } else if (received == 0 || (received < 0 && WSAGetLastError() != WSAEWOULDBLOCK)) {
-                connected_ = false;
+        if (received <= 0) {
+            if (received == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
+                // Connection closed or error
                 break;
             }
+            usleep(10000); // 10ms
+            continue;
         }
-#else
-        fd_set read_fds;
-        struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000; // 100ms
         
-        FD_ZERO(&read_fds);
-        FD_SET(socket_fd_, &read_fds);
+        recvBuffer[received] = '\0';
+        buffer += recvBuffer;
         
-        int select_result = select(socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout);
-        if (select_result > 0 && FD_ISSET(socket_fd_, &read_fds)) {
-            ssize_t received = recv(socket_fd_, recv_buffer, sizeof(recv_buffer) - 1, 0);
-            if (received > 0) {
-                recv_buffer[received] = '\0';
-                
-                {
-                    std::lock_guard<std::mutex> lock(buffer_mutex_);
-                    buffer_ += recv_buffer;
-                    
-                    // Process all complete messages
-                    size_t newline_pos;
-                    while ((newline_pos = buffer_.find('\n')) != std::string::npos) {
-                        std::string message = buffer_.substr(0, newline_pos);
-                        buffer_.erase(0, newline_pos + 1);
-                        
-                        if (message_callback_) {
-                            message_callback_(message);
-                        }
-                    }
-                }
-            } else if (received == 0 || (received < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
-                connected_ = false;
-                break;
+        // Process complete messages (delimited by \n)
+        size_t pos;
+        while ((pos = buffer.find('\n')) != std::string::npos) {
+            std::string message = buffer.substr(0, pos);
+            buffer.erase(0, pos + 1);
+            
+            if (!message.empty()) {
+                handleMessage(message);
             }
         }
-#endif
+    }
+    
+    connected_ = false;
+}
+
+void SocketClient::handleMessage(const std::string& message) {
+    // Check if it's a notification
+    if (message.find("\"question\"") != std::string::npos || 
+        message.find("\"questionId\"") != std::string::npos) {
+        // QUESTION_INFO
+        if (notificationHandlers_.find("QUESTION_INFO") != notificationHandlers_.end()) {
+            notificationHandlers_["QUESTION_INFO"](message);
+        }
+        Message msg;
+        msg.type = "QUESTION_INFO";
+        msg.data = message;
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        messageQueue_.push(msg);
+    } else if (message.find("\"lifelineType\"") != std::string::npos) {
+        // LIFELINE_INFO
+        if (notificationHandlers_.find("LIFELINE_INFO") != notificationHandlers_.end()) {
+            notificationHandlers_["LIFELINE_INFO"](message);
+        }
+        Message msg;
+        msg.type = "LIFELINE_INFO";
+        msg.data = message;
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        messageQueue_.push(msg);
+    } else if (message.find("\"gameId\"") != std::string::npos && 
+               message.find("\"timestamp\"") != std::string::npos) {
+        // GAME_START
+        if (notificationHandlers_.find("GAME_START") != notificationHandlers_.end()) {
+            notificationHandlers_["GAME_START"](message);
+        }
+        Message msg;
+        msg.type = "GAME_START";
+        msg.data = message;
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        messageQueue_.push(msg);
+    } else if (message.find("\"status\"") != std::string::npos &&
+               (message.find("\"won\"") != std::string::npos || 
+                message.find("\"lost\"") != std::string::npos ||
+                message.find("\"quit\"") != std::string::npos)) {
+        // GAME_END
+        if (notificationHandlers_.find("GAME_END") != notificationHandlers_.end()) {
+            notificationHandlers_["GAME_END"](message);
+        }
+        Message msg;
+        msg.type = "GAME_END";
+        msg.data = message;
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        messageQueue_.push(msg);
+    } else {
+        // Regular response
+        Message msg;
+        msg.type = "RESPONSE";
+        msg.data = message;
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        messageQueue_.push(msg);
     }
 }
 
