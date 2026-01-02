@@ -2,7 +2,9 @@
 # Network Programming Capstone Project
 
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g -I.
+# Try to find PostgreSQL include path
+PG_INCLUDE := $(shell pg_config --includedir 2>/dev/null || echo "/usr/include/postgresql")
+CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g -I. -I$(PG_INCLUDE)
 LDFLAGS = -pthread -lpq
 
 # Directories
