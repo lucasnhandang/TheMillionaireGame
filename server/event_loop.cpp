@@ -380,8 +380,11 @@ void EventLoop::handleClientRead(int client_fd) {
 }
 
 void EventLoop::handleClientWrite(int client_fd) {
+    LOG_INFO("handleClientWrite called for client " + to_string(client_fd));
+    
     auto it = write_buffers_.find(client_fd);
     if (it == write_buffers_.end() || it->second.empty()) {
+        LOG_INFO("No data to write for client " + to_string(client_fd));
         // Nothing to write, disable POLLOUT
         auto idx_it = fd_to_index_.find(client_fd);
         if (idx_it != fd_to_index_.end()) {
@@ -391,12 +394,14 @@ void EventLoop::handleClientWrite(int client_fd) {
     }
     
     string& write_buf = it->second;
+    LOG_INFO("Writing " + to_string(write_buf.length()) + " bytes to client " + to_string(client_fd));
     
     while (!write_buf.empty()) {
         ssize_t bytes_sent = send(client_fd, write_buf.c_str(), write_buf.length(), 0);
         
         if (bytes_sent < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                LOG_INFO("Socket buffer full for client " + to_string(client_fd) + ", will retry later");
                 break; // Socket buffer full, try again later
             }
             if (errno == EINTR) {
@@ -411,15 +416,19 @@ void EventLoop::handleClientWrite(int client_fd) {
             break;
         }
         
+        LOG_INFO("Sent " + to_string(bytes_sent) + " bytes to client " + to_string(client_fd) + ", " + to_string(write_buf.length() - bytes_sent) + " bytes remaining");
         write_buf.erase(0, bytes_sent);
     }
     
     // If buffer is empty, disable POLLOUT
     if (write_buf.empty()) {
+        LOG_INFO("Write buffer empty for client " + to_string(client_fd) + ", disabling POLLOUT");
         auto idx_it = fd_to_index_.find(client_fd);
         if (idx_it != fd_to_index_.end()) {
             poll_fds_[idx_it->second].events &= ~POLLOUT;
         }
+    } else {
+        LOG_INFO("Write buffer still has " + to_string(write_buf.length()) + " bytes for client " + to_string(client_fd));
     }
 }
 
@@ -438,18 +447,30 @@ void EventLoop::removeClient(int client_fd) {
 void EventLoop::processPendingMessages() {
     lock_guard<mutex> lock(outgoing_mutex_);
     
+    if (!outgoing_queue_.empty()) {
+        LOG_INFO("Processing " + to_string(outgoing_queue_.size()) + " pending messages");
+    }
+    
     while (!outgoing_queue_.empty()) {
         PendingMessage& msg = outgoing_queue_.front();
+        
+        LOG_INFO("Processing pending message for client " + to_string(msg.client_fd) + " (" + to_string(msg.message.length()) + " bytes)");
         
         auto it = write_buffers_.find(msg.client_fd);
         if (it != write_buffers_.end()) {
             it->second += msg.message;
+            LOG_INFO("Added message to write buffer for client " + to_string(msg.client_fd) + ", buffer size now: " + to_string(it->second.length()));
             
             // Enable POLLOUT for this client
             auto idx_it = fd_to_index_.find(msg.client_fd);
             if (idx_it != fd_to_index_.end()) {
                 poll_fds_[idx_it->second].events |= POLLOUT;
+                LOG_INFO("Enabled POLLOUT for client " + to_string(msg.client_fd));
+            } else {
+                LOG_WARNING("Client " + to_string(msg.client_fd) + " not found in fd_to_index_");
             }
+        } else {
+            LOG_WARNING("Write buffer not found for client " + to_string(msg.client_fd));
         }
         
         outgoing_queue_.pop();
