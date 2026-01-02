@@ -290,18 +290,23 @@ void EventLoop::acceptClient(int server_fd) {
         // Send connection notification
         string connection_msg = StreamUtils::createNotification("CONNECTION", 
             "{\"serverName\":\"Millionaire Game Server\",\"timestamp\":" + to_string(time(nullptr)) + "}") + "\n";
+        LOG_INFO("Queueing CONNECTION notification for client " + to_string(client_fd));
         queueMessage(client_fd, connection_msg);
+        LOG_INFO("CONNECTION notification queued for client " + to_string(client_fd));
     }
 }
 
 void EventLoop::handleClientRead(int client_fd) {
     char buffer[4096];
     
+    LOG_INFO("handleClientRead called for client " + to_string(client_fd));
+    
     while (true) {
         ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
         
         if (bytes_read < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                LOG_INFO("No more data available for client " + to_string(client_fd));
                 break; // No more data available
             }
             if (errno == EINTR) {
@@ -319,12 +324,16 @@ void EventLoop::handleClientRead(int client_fd) {
             return;
         }
         
+        LOG_INFO("Received " + to_string(bytes_read) + " bytes from client " + to_string(client_fd));
+        
         // Append to read buffer
         read_buffers_[client_fd].append(buffer, bytes_read);
     }
     
     // Process complete messages (newline-delimited)
     string& read_buf = read_buffers_[client_fd];
+    LOG_INFO("Read buffer for client " + to_string(client_fd) + " has " + to_string(read_buf.length()) + " bytes");
+    
     size_t pos;
     
     while ((pos = read_buf.find('\n')) != string::npos) {
@@ -335,8 +344,11 @@ void EventLoop::handleClientRead(int client_fd) {
             continue;
         }
         
+        LOG_INFO("Processing complete message from client " + to_string(client_fd) + ": " + message.substr(0, 100) + "...");
+        
         // Validate JSON format
         if (!StreamUtils::validateJsonFormat(message)) {
+            LOG_INFO("Invalid JSON format from client " + to_string(client_fd));
             string error = StreamUtils::createErrorResponse(400, "Invalid JSON format") + "\n";
             queueMessage(client_fd, error);
             continue;
@@ -347,12 +359,18 @@ void EventLoop::handleClientRead(int client_fd) {
         int fd = client_fd;
         string request = message;
         
+        LOG_INFO("Queueing request from client " + to_string(client_fd) + " to worker thread");
+        
         queueTask([this, fd, request]() {
+            LOG_INFO("Worker thread processing request from client " + to_string(fd));
             RequestRouter router;
             string response = router.processRequest(request, fd);
             
             if (!response.empty()) {
+                LOG_INFO("Worker thread sending response to client " + to_string(fd));
                 this->queueMessage(fd, response + "\n");
+            } else {
+                LOG_INFO("Worker thread: no response generated for client " + to_string(fd));
             }
             
             // Update ping time
