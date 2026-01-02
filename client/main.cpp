@@ -11,10 +11,12 @@
 #include <thread>
 #include <chrono>
 
-#ifdef __linux__
-#include <GL/gl.h>
+#ifdef _WIN32
+    #include <GL/gl.h>
+#elif __APPLE__
+    #include <OpenGL/gl.h>
 #else
-#include <OpenGL/gl.h>
+    #include <GL/gl.h>
 #endif
 
 static void glfw_error_callback(int error, const char* description) {

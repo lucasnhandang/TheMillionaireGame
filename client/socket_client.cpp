@@ -1,11 +1,25 @@
 #include "socket_client.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/select.h>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <windows.h>
+    #include <io.h>
+    #pragma comment(lib, "ws2_32.lib")
+    #define close closesocket
+    #define EAGAIN WSAEWOULDBLOCK
+    #define EWOULDBLOCK WSAEWOULDBLOCK
+    #define EINPROGRESS WSAEINPROGRESS
+#else
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <netdb.h>
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <sys/select.h>
+#endif
+
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -24,6 +38,15 @@ bool SocketClient::connect() {
         return true;
     }
     
+#ifdef _WIN32
+    // Initialize Winsock
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed" << std::endl;
+        return false;
+    }
+#endif
+    
     // Create socket
     sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd_ < 0) {
@@ -32,8 +55,13 @@ bool SocketClient::connect() {
     }
     
     // Set socket to non-blocking for timeout
+#ifdef _WIN32
+    u_long mode = 1;
+    ioctlsocket(sockfd_, FIONBIO, &mode);
+#else
     int flags = fcntl(sockfd_, F_GETFL, 0);
     fcntl(sockfd_, F_SETFL, flags | O_NONBLOCK);
+#endif
     
     // Setup server address
     struct sockaddr_in serverAddr;
@@ -81,8 +109,13 @@ bool SocketClient::connect() {
     }
     
     // Set back to blocking
-    flags = fcntl(sockfd_, F_GETFL, 0);
+#ifdef _WIN32
+    mode = 0;
+    ioctlsocket(sockfd_, FIONBIO, &mode);
+#else
+    int flags = fcntl(sockfd_, F_GETFL, 0);
     fcntl(sockfd_, F_SETFL, flags & ~O_NONBLOCK);
+#endif
     
     connected_ = true;
     running_ = true;
@@ -105,6 +138,10 @@ void SocketClient::disconnect() {
     if (receiveThread_.joinable()) {
         receiveThread_.join();
     }
+    
+#ifdef _WIN32
+    WSACleanup();
+#endif
 }
 
 bool SocketClient::sendRequest(const std::string& requestType, const std::string& data) {
@@ -154,7 +191,11 @@ void SocketClient::receiveLoop() {
                 // Connection closed or error
                 break;
             }
+#ifdef _WIN32
+            Sleep(10); // 10ms
+#else
             usleep(10000); // 10ms
+#endif
             continue;
         }
         

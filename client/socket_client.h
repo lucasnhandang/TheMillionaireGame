@@ -8,8 +8,21 @@
 #include <queue>
 #include <atomic>
 #include <map>
-#include <netdb.h>
-#include <errno.h>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <windows.h>
+    #define close closesocket
+    #define errno WSAGetLastError()
+#else
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <netdb.h>
+    #include <unistd.h>
+    #include <errno.h>
+#endif
 
 class SocketClient {
 public:
