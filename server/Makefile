@@ -2,7 +2,7 @@
 # Network Programming Capstone Project
 
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g
+CXXFLAGS = -std=c++11 -Wall -Wextra -pthread -g -I.
 LDFLAGS = -pthread
 
 # Directories
@@ -93,7 +93,17 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/request_handlers/%.cpp
 
 # Clean build artifacts
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(OBJ_DIR) $(BIN_DIR)
+	@echo "Clean complete."
+
+# Deep clean - remove all object files individually
+deepclean: clean
+	@echo "Performing deep clean..."
+	@find . -name "*.o" -type f -delete 2>/dev/null || true
+	@find . -name "*.a" -type f -delete 2>/dev/null || true
+	@find . -name "*.so" -type f -delete 2>/dev/null || true
+	@echo "Deep clean complete."
 
 # Run tests
 test: $(TEST_EXE)
@@ -108,5 +118,5 @@ run-example: $(EXAMPLE_EXE)
 	./$(EXAMPLE_EXE)
 
 # Phony targets
-.PHONY: all clean test run run-example directories
+.PHONY: all clean deepclean test run run-example directories
 
