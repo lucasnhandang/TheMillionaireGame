@@ -77,31 +77,24 @@ bool ClientCore::isConnected() const {
 
 bool ClientCore::sendMessage(const string& message) {
     if (!isConnected()) {
-        cerr << "[DEBUG] Cannot send: not connected" << endl;
         return false;
     }
     
     string msg = message + "\n";
-    cerr << "[DEBUG] Sending " << msg.length() << " bytes to server" << endl;
     ssize_t sent = send(socket_fd_, msg.c_str(), msg.length(), 0);
     
     if (sent < 0) {
-        cerr << "[DEBUG] Error sending message: " << strerror(errno) << endl;
         connected_ = false;
         return false;
     }
     
-    cerr << "[DEBUG] Sent " << sent << " bytes (expected " << msg.length() << ")" << endl;
     return sent == static_cast<ssize_t>(msg.length());
 }
 
 string ClientCore::receiveMessage(int timeoutSeconds) {
     if (!isConnected()) {
-        cerr << "[DEBUG] receiveMessage: not connected" << endl;
         return "";
     }
-    
-    cerr << "[DEBUG] receiveMessage: timeout=" << timeoutSeconds << " seconds" << endl;
     
     // Use select() for proper timeout handling
     if (timeoutSeconds > 0) {
@@ -117,22 +110,18 @@ string ClientCore::receiveMessage(int timeoutSeconds) {
         int select_result = select(socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout);
         
         if (select_result < 0) {
-            cerr << "[DEBUG] select() error: " << strerror(errno) << endl;
+            // Error occurred
             return "";
         } else if (select_result == 0) {
-            cerr << "[DEBUG] select() timeout" << endl;
+            // Timeout - normal, no need to log
             return "";
         } else if (!FD_ISSET(socket_fd_, &read_fds)) {
-            cerr << "[DEBUG] socket not ready for reading" << endl;
+            // Socket not ready
             return "";
         }
-        
-        cerr << "[DEBUG] Data available, reading line..." << endl;
     }
     
-    string result = readLine();
-    cerr << "[DEBUG] readLine() returned: " << (result.empty() ? "(empty)" : result.substr(0, 50) + "...") << endl;
-    return result;
+    return readLine();
 }
 
 string ClientCore::readLine() {

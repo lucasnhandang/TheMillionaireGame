@@ -27,15 +27,9 @@ string ProtocolHandler::buildRequest(const string& requestType,
 }
 
 string ProtocolHandler::sendRequestAndReceive(const string& request) {
-    // Debug: print request being sent
-    cerr << "[DEBUG] Sending request: " << request.substr(0, 100) << "..." << endl;
-    
     if (!client_->sendMessage(request)) {
-        cerr << "[DEBUG] Failed to send message" << endl;
         return "";
     }
-    
-    cerr << "[DEBUG] Message sent, waiting for response..." << endl;
     
     // Receive response (may need to skip notifications)
     string message;
@@ -46,35 +40,28 @@ string ProtocolHandler::sendRequestAndReceive(const string& request) {
         message = client_->receiveMessage(5); // 5 second timeout per attempt
         
         if (message.empty()) {
-            cerr << "[DEBUG] Empty message received (attempt " << (attempts + 1) << ")" << endl;
             attempts++;
             if (attempts >= maxAttempts) {
-                cerr << "[DEBUG] Timeout waiting for response after " << maxAttempts << " attempts" << endl;
+                // Timeout after max attempts
                 return "";
             }
             continue;
         }
         
-        cerr << "[DEBUG] Received message: " << message.substr(0, 100) << "..." << endl;
-        
         // Check if this is a response (has responseCode) or notification (has type)
         if (isResponse(message)) {
-            cerr << "[DEBUG] This is a response, returning it" << endl;
             return message; // This is the response we want
         } else if (isNotification(message)) {
-            cerr << "[DEBUG] This is a notification (type: " << getNotificationType(message) << "), skipping..." << endl;
             // This is a notification, skip it and wait for response
             // In production, handle notification properly
             attempts++;
             continue;
         } else {
-            cerr << "[DEBUG] Unknown message format, returning it anyway" << endl;
             // Unknown format, return it anyway
             return message;
         }
     }
     
-    cerr << "[DEBUG] Timeout waiting for response" << endl;
     return ""; // Timeout waiting for response
 }
 
