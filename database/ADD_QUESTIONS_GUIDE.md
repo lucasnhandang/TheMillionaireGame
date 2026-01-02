@@ -2,20 +2,28 @@
 
 ## Cách 1: Thêm bằng SQL Script (Khuyến nghị)
 
-### Bước 1: Đảm bảo Database đã được tạo
+### Bước 1: Setup PostgreSQL (Nếu chưa có user)
 
+Nếu gặp lỗi "role does not exist", xem `SETUP_DATABASE.md` để setup database.
+
+**Cách nhanh nhất:**
 ```bash
-# Tạo database (nếu chưa có)
-createdb millionaire_game
+# Tạo database với user postgres
+sudo -u postgres createdb millionaire_game
 
 # Tạo schema
-psql millionaire_game < schema.sql
+sudo -u postgres psql millionaire_game < schema.sql
 ```
 
 ### Bước 2: Thêm câu hỏi mẫu
 
 ```bash
 cd database
+sudo -u postgres psql millionaire_game < add_sample_questions.sql
+```
+
+**Hoặc nếu đã có user:**
+```bash
 psql millionaire_game < add_sample_questions.sql
 ```
 
