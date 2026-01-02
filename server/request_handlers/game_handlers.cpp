@@ -19,8 +19,14 @@ namespace GameHandlers {
 string buildQuestionInfoData(const Question& q, int game_id, const ClientSession& session) {
     ostringstream data;
     data << "{\"gameId\":" << game_id
+         << ",\"questionId\":" << q.id
          << ",\"questionNumber\":" << session.current_question_number
+         << ",\"totalQuestions\":15"
          << ",\"question\":\"" << q.question_text << "\""
+         << ",\"prize\":" << session.current_prize
+         << ",\"totalScore\":" << session.total_score
+         << ",\"timeLimit\":30"
+         << ",\"timeRemaining\":30"
          << ",\"options\":["
          << "{\"label\":\"A\",\"text\":\"" << q.option_a << "\"},"
          << "{\"label\":\"B\",\"text\":\"" << q.option_b << "\"},"

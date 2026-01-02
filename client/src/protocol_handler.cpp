@@ -516,8 +516,47 @@ ProtocolHandler::QuestionInfo ProtocolHandler::parseQuestionInfo(const string& m
     info.gameId = JsonParser::extractInt(data, "gameId");
     info.totalScore = JsonParser::extractInt(data, "totalScore");
     
-    // Parse options array (simplified)
-    // Full implementation would parse the options array properly
+    // Parse options array
+    size_t optionsPos = data.find("\"options\":[");
+    if (optionsPos != string::npos) {
+        size_t start = data.find("[", optionsPos);
+        size_t end = data.find("]", start);
+        if (start != string::npos && end != string::npos) {
+            string optionsStr = data.substr(start + 1, end - start - 1);
+            // Parse each option: {"label":"A","text":"..."}
+            size_t pos = 0;
+            while (pos < optionsStr.length()) {
+                size_t labelPos = optionsStr.find("\"label\":\"", pos);
+                size_t textPos = optionsStr.find("\"text\":\"", pos);
+                if (labelPos != string::npos && textPos != string::npos) {
+                    // Extract label
+                    size_t labelStart = labelPos + 9; // "label":" length
+                    size_t labelEnd = optionsStr.find("\"", labelStart);
+                    if (labelEnd != string::npos) {
+                        string label = optionsStr.substr(labelStart, labelEnd - labelStart);
+                        info.optionLabels.push_back(label);
+                    }
+                    // Extract text
+                    size_t textStart = textPos + 8; // "text":" length
+                    size_t textEnd = optionsStr.find("\"", textStart);
+                    if (textEnd != string::npos) {
+                        string text = optionsStr.substr(textStart, textEnd - textStart);
+                        info.optionTexts.push_back(text);
+                    }
+                    pos = textEnd + 1;
+                } else {
+                    break;
+                }
+                // Find next option
+                size_t nextOption = optionsStr.find("},{", pos);
+                if (nextOption != string::npos) {
+                    pos = nextOption + 3;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
     
     return info;
 }
