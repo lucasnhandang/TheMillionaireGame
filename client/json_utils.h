@@ -2,6 +2,7 @@
 #define JSON_UTILS_H
 
 #include <string>
+#include <map>
 
 namespace MillionaireGame {
 

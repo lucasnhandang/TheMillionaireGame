@@ -3,7 +3,7 @@
 #include <iostream>
 
 ProtocolHandler::ProtocolHandler(SocketClient* client)
-    : client_(client), currentGameId(0), currentQuestionNumber(0) {
+    : currentGameId(0), currentQuestionNumber(0), client_(client) {
 }
 
 std::string ProtocolHandler::buildDataJson(const std::map<std::string, std::string>& strings,
