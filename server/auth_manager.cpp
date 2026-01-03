@@ -50,7 +50,20 @@ bool AuthManager::validateToken(const string& token, int client_fd) {
 }
 
 string AuthManager::requireAuth(const string& request, ClientSession& session, int client_fd) {
-    string token_from_request = JsonUtils::extractString(request, "authToken");
+    // Try to extract authToken from data field first
+    string token_from_request;
+    
+    // Look for "data":{...} and extract authToken from there
+    size_t dataPos = request.find("\"data\":");
+    if (dataPos != string::npos) {
+        string dataSection = request.substr(dataPos);
+        token_from_request = JsonUtils::extractString(dataSection, "authToken");
+    }
+    
+    // Fallback: try top-level (for backward compatibility)
+    if (token_from_request.empty()) {
+        token_from_request = JsonUtils::extractString(request, "authToken");
+    }
     
     if (token_from_request.empty()) {
         return "";
