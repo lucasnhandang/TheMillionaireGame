@@ -201,7 +201,13 @@ int main(int argc, char *argv[]) {
     
     // Connect to server
     std::cout << "Đang kết nối đến server " << host.toStdString() << ":" << port << "..." << std::endl;
-    network_thread->connectToServer(host, port);
+    if (!network_thread->connectToServer(host, port)) {
+        QMessageBox::critical(nullptr, "Lỗi", "Không thể khởi tạo network thread!");
+        return 1;
+    }
+    
+    // Wait a bit for connection to establish
+    QThread::msleep(500);
     
     // Show login page
     stack->setCurrentIndex(login_index);

@@ -27,7 +27,9 @@ public:
     bool isConnected() const;
 
     // Protocol handler access
-    ProtocolHandler* getProtocolHandler() { return protocol_; }
+    ProtocolHandler* getProtocolHandler() { 
+        return protocol_; 
+    }
 
 signals:
     // Connection signals

@@ -1,5 +1,6 @@
 #include "network_thread.h"
 #include <QDebug>
+#include <QThread>
 #include <iostream>
 
 namespace MillionaireGame {
@@ -46,6 +47,7 @@ bool NetworkThread::isConnected() const {
 }
 
 void NetworkThread::run() {
+    // Initialize client and protocol first
     if (!client_) {
         client_ = new ClientCore();
     }
@@ -85,7 +87,7 @@ void NetworkThread::run() {
 }
 
 void NetworkThread::listenForNotifications() {
-    while (should_listen_ && client_ && client_->isConnected()) {
+    while (should_listen_ && client_ && client_->isConnected() && protocol_) {
         std::string message = client_->receiveMessage(1);
         if (!message.empty()) {
             if (protocol_->isNotification(message)) {

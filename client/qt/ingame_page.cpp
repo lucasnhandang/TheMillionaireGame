@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QThread>
 #include <QStringList>
+#include <QDebug>
 #include <cmath>
 
 namespace MillionaireGame {
@@ -63,13 +64,31 @@ InGamePage::InGamePage(NetworkThread* networkThread, const QString& authToken, Q
     answer_verification_timer_->setSingleShot(true);
     connect(answer_verification_timer_, &QTimer::timeout, this, &InGamePage::onAnswerVerificationTimeout);
     
-    // Start game
-    if (network_thread_ && network_thread_->getProtocolHandler()) {
+    // Start game - wait for protocol handler to be ready
+    if (network_thread_) {
+        // Wait a bit for network thread to initialize
+        QThread::msleep(200);
+        
         QThread* start_thread = QThread::create([this]() {
-            ProtocolHandler* protocol = network_thread_->getProtocolHandler();
+            // Retry getting protocol handler
+            ProtocolHandler* protocol = nullptr;
+            for (int i = 0; i < 10; i++) {
+                protocol = network_thread_->getProtocolHandler();
+                if (protocol) break;
+                QThread::msleep(100);
+            }
+            
+            if (!protocol) {
+                qDebug() << "Error: Protocol handler not available";
+                return;
+            }
+            
             auto response = protocol->startGame(auth_token_.toStdString(), false);
             if (response.success) {
+                qDebug() << "Game started successfully";
                 // Wait for QUESTION_INFO notification
+            } else {
+                qDebug() << "Failed to start game:" << QString::fromStdString(response.message);
             }
         });
         connect(start_thread, &QThread::finished, start_thread, &QThread::deleteLater);
@@ -673,7 +692,12 @@ void InGamePage::hideLifelineDisplay() {
 
 void InGamePage::onQuestionReceived(const QString& questionJson) {
     std::string json = questionJson.toStdString();
-    ProtocolHandler::QuestionInfo question = network_thread_->getProtocolHandler()->parseQuestionInfo(json);
+    ProtocolHandler* protocol = network_thread_->getProtocolHandler();
+    if (!protocol) {
+        qDebug() << "Error: Protocol handler not available when receiving question";
+        return;
+    }
+    ProtocolHandler::QuestionInfo question = protocol->parseQuestionInfo(json);
     displayQuestion(question);
 }
 
