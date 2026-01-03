@@ -27,6 +27,7 @@ string buildQuestionInfoData(const Question& q, int game_id, const ClientSession
          << ",\"totalScore\":" << session.total_score
          << ",\"timeLimit\":30"
          << ",\"timeRemaining\":30"
+         << ",\"correctAnswer\":" << q.correct_answer
          << ",\"options\":["
          << "{\"label\":\"A\",\"text\":\"" << q.option_a << "\"},"
          << "{\"label\":\"B\",\"text\":\"" << q.option_b << "\"},"

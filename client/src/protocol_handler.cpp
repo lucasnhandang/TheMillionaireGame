@@ -515,6 +515,7 @@ ProtocolHandler::QuestionInfo ProtocolHandler::parseQuestionInfo(const string& m
     info.timeRemaining = JsonParser::extractInt(data, "timeRemaining");
     info.gameId = JsonParser::extractInt(data, "gameId");
     info.totalScore = JsonParser::extractInt(data, "totalScore");
+    info.correct_answer = JsonParser::extractInt(data, "correctAnswer", -1);
     
     // Parse options array
     size_t optionsPos = data.find("\"options\":[");

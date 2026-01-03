@@ -161,6 +161,7 @@ public:
         std::vector<std::pair<int, std::string>> options; // index, label, text
         std::vector<std::string> optionLabels;
         std::vector<std::string> optionTexts;
+        int correct_answer; // 0=A, 1=B, 2=C, 3=D
         long long prize;
         int totalQuestions;
         std::vector<std::string> lifelines;
