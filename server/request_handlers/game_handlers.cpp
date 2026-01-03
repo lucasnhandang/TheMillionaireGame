@@ -68,12 +68,17 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
     NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
     
     // Load and send first question
+    LOG_INFO("Loading question for level " + to_string(session.current_level));
     Question q = Database::getInstance().getRandomQuestion(session.current_level);
     if (q.id > 0) {
+        LOG_INFO("Question loaded: ID=" + to_string(q.id) + ", Level=" + to_string(q.level));
         string question_data = buildQuestionInfoData(q, game_id, session);
+        LOG_INFO("Sending QUESTION_INFO notification to client " + to_string(client_fd));
         NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+        LOG_INFO("QUESTION_INFO notification sent");
     } else {
         LOG_WARNING("No question found for level " + to_string(session.current_level));
+        LOG_WARNING("Database connected: " + string(Database::getInstance().isConnected() ? "yes" : "no"));
     }
     
     return StreamUtils::createSuccessResponse(200, data);

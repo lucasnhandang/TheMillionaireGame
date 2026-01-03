@@ -105,6 +105,7 @@ vector<Question> Database::getQuestions(int level, int limit) {
           << "correct_answer, level FROM questions WHERE level = " << level
           << " ORDER BY RANDOM() LIMIT " << limit;
     
+    LOG_INFO("Executing query: " + query.str());
     PGresult* res = PQexec((PGconn*)conn_, query.str().c_str());
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -115,6 +116,7 @@ vector<Question> Database::getQuestions(int level, int limit) {
     }
     
     int rows = PQntuples(res);
+    LOG_INFO("Query returned " + to_string(rows) + " rows for level " + to_string(level));
     for (int i = 0; i < rows; i++) {
         Question q;
         q.id = atoi(PQgetvalue(res, i, 0));
