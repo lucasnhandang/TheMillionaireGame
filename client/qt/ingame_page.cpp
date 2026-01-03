@@ -64,35 +64,38 @@ InGamePage::InGamePage(NetworkThread* networkThread, const QString& authToken, Q
     answer_verification_timer_->setSingleShot(true);
     connect(answer_verification_timer_, &QTimer::timeout, this, &InGamePage::onAnswerVerificationTimeout);
     
-    // Start game - wait for protocol handler to be ready
+    // Start game - protocol should be ready now (initialized in NetworkThread constructor)
     if (network_thread_) {
-        // Wait a bit for network thread to initialize
-        QThread::msleep(200);
-        
         QThread* start_thread = QThread::create([this]() {
-            // Retry getting protocol handler
-            ProtocolHandler* protocol = nullptr;
-            for (int i = 0; i < 10; i++) {
-                protocol = network_thread_->getProtocolHandler();
-                if (protocol) break;
-                QThread::msleep(100);
-            }
-            
+            ProtocolHandler* protocol = network_thread_->getProtocolHandler();
             if (!protocol) {
                 qDebug() << "Error: Protocol handler not available";
+                QMessageBox::critical(this, "Lỗi", "Không thể kết nối đến server!");
                 return;
             }
             
-            auto response = protocol->startGame(auth_token_.toStdString(), false);
-            if (response.success) {
-                qDebug() << "Game started successfully";
-                // Wait for QUESTION_INFO notification
-            } else {
-                qDebug() << "Failed to start game:" << QString::fromStdString(response.message);
+            try {
+                auto response = protocol->startGame(auth_token_.toStdString(), false);
+                if (response.success) {
+                    qDebug() << "Game started successfully, gameId:" << response.responseCode;
+                    // Wait for QUESTION_INFO notification via signal
+                } else {
+                    qDebug() << "Failed to start game:" << QString::fromStdString(response.message);
+                    QMetaObject::invokeMethod(this, [this, msg = QString::fromStdString(response.message)]() {
+                        QMessageBox::warning(this, "Lỗi", "Không thể bắt đầu game: " + msg);
+                    }, Qt::QueuedConnection);
+                }
+            } catch (const std::exception& e) {
+                qDebug() << "Exception in startGame:" << e.what();
+                QMetaObject::invokeMethod(this, [this, msg = QString::fromStdString(e.what())]() {
+                    QMessageBox::critical(this, "Lỗi", "Exception: " + msg);
+                }, Qt::QueuedConnection);
             }
         });
         connect(start_thread, &QThread::finished, start_thread, &QThread::deleteLater);
         start_thread->start();
+    } else {
+        QMessageBox::critical(this, "Lỗi", "Network thread không tồn tại!");
     }
 }
 
@@ -387,20 +390,31 @@ void InGamePage::onAnswerVerificationTimeout() {
 }
 
 void InGamePage::submitAnswer(int answerIndex) {
-    if (!network_thread_ || !network_thread_->getProtocolHandler()) {
+    if (!network_thread_) {
+        qDebug() << "Error: Network thread is null";
         return;
     }
     
-    QThread* answer_thread = QThread::create([this, answerIndex]() {
-        ProtocolHandler* protocol = network_thread_->getProtocolHandler();
-        auto response = protocol->answerQuestion(
-            auth_token_.toStdString(),
-            current_game_id_,
-            current_question_number_,
-            answerIndex
-        );
-        
-        // The response will come via answerResponseReceived signal
+    ProtocolHandler* protocol = network_thread_->getProtocolHandler();
+    if (!protocol) {
+        qDebug() << "Error: Protocol handler is null";
+        return;
+    }
+    
+    QThread* answer_thread = QThread::create([this, answerIndex, protocol]() {
+        try {
+            auto response = protocol->answerQuestion(
+                auth_token_.toStdString(),
+                current_game_id_,
+                current_question_number_,
+                answerIndex
+            );
+            
+            qDebug() << "Answer submitted, correct:" << response.correct;
+            // The response will come via answerResponseReceived signal
+        } catch (const std::exception& e) {
+            qDebug() << "Exception in submitAnswer:" << e.what();
+        }
     });
     connect(answer_thread, &QThread::finished, answer_thread, &QThread::deleteLater);
     answer_thread->start();

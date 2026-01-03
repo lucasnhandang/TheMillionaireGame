@@ -8,15 +8,26 @@ namespace MillionaireGame {
 NetworkThread::NetworkThread(QObject* parent)
     : QThread(parent), client_(nullptr), protocol_(nullptr),
       port_(8080), should_connect_(false), should_listen_(false) {
+    // Initialize client and protocol early (in main thread)
+    // This ensures they're available even before thread starts
+    client_ = new ClientCore();
+    protocol_ = new ProtocolHandler(client_);
 }
 
 NetworkThread::~NetworkThread() {
     disconnectFromServer();
-    if (client_) {
-        delete client_;
+    // Wait for thread to finish
+    if (isRunning()) {
+        wait(3000); // Wait max 3 seconds
     }
+    // Delete in reverse order
     if (protocol_) {
         delete protocol_;
+        protocol_ = nullptr;
+    }
+    if (client_) {
+        delete client_;
+        client_ = nullptr;
     }
 }
 
@@ -47,7 +58,8 @@ bool NetworkThread::isConnected() const {
 }
 
 void NetworkThread::run() {
-    // Initialize client and protocol first
+    // Client and protocol should already be initialized in constructor
+    // But double-check just in case
     if (!client_) {
         client_ = new ClientCore();
     }

@@ -201,6 +201,11 @@ int main(int argc, char *argv[]) {
     
     // Connect to server
     std::cout << "Đang kết nối đến server " << host.toStdString() << ":" << port << "..." << std::endl;
+    
+    // Protocol should be initialized in NetworkThread constructor
+    // Wait a bit to ensure it's ready
+    QThread::msleep(100);
+    
     if (!network_thread->connectToServer(host, port)) {
         QMessageBox::critical(nullptr, "Lỗi", "Không thể khởi tạo network thread!");
         return 1;
