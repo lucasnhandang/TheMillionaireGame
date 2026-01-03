@@ -66,16 +66,29 @@ InGamePage::InGamePage(NetworkThread* networkThread, const QString& authToken, Q
     
     // Start game - protocol should be ready now (initialized in NetworkThread constructor)
     if (network_thread_) {
+        // Debug: Check authToken
+        qDebug() << "Starting game with authToken:" << auth_token_;
+        if (auth_token_.isEmpty()) {
+            qDebug() << "ERROR: authToken is empty!";
+            QMessageBox::critical(this, "Lỗi", "AuthToken không hợp lệ! Vui lòng đăng nhập lại.");
+            return;
+        }
+        
         QThread* start_thread = QThread::create([this]() {
             ProtocolHandler* protocol = network_thread_->getProtocolHandler();
             if (!protocol) {
                 qDebug() << "Error: Protocol handler not available";
-                QMessageBox::critical(this, "Lỗi", "Không thể kết nối đến server!");
+                QMetaObject::invokeMethod(this, [this]() {
+                    QMessageBox::critical(this, "Lỗi", "Không thể kết nối đến server!");
+                }, Qt::QueuedConnection);
                 return;
             }
             
+            QString token = auth_token_; // Capture authToken in lambda
+            qDebug() << "Calling startGame with token:" << token;
+            
             try {
-                auto response = protocol->startGame(auth_token_.toStdString(), false);
+                auto response = protocol->startGame(token.toStdString(), false);
                 if (response.success) {
                     qDebug() << "Game started successfully, gameId:" << response.responseCode;
                     // Wait for QUESTION_INFO notification via signal
