@@ -1,0 +1,96 @@
+# Build directories
+bin/
+obj/
+build/
+
+# Object files
+*.o
+*.obj
+
+# Libraries
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+client
+server
+
+# Server logs
+server.log
+*.log
+
+# ImGui settings
+imgui.ini
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Finder thumbnails
+._*
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.atrashes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.*.sw?
+
+# Cursor terminal files
+.cursor/
+
+# Core dumps
+core
+core.*
+
+# Compiled Python files (if any scripts)
+*.pyc
+__pycache__/
+
+# Database files (if storing locally)
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files with sensitive data (keep .example files)
+# Uncomment if you want to ignore actual config
+# config.json
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# CMake build files (if used)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.bak
+
+# Test output
+test_results/
+coverage/
+
+# Documentation build output
+docs/_build/
+*.pdf
+
