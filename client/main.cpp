@@ -13,6 +13,8 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include <cmath>
+#include <algorithm>
 
 #ifdef _WIN32
     #include <GL/gl.h>
@@ -769,18 +771,19 @@ int main(int argc, char** argv) {
                         float radius = 24.0f;
                         ImDrawList* draw_list = ImGui::GetWindowDrawList();
                         float pct = state.timeRemaining / 30.0f;
+                        constexpr float kPi = 3.14159265358979323846f;
                         draw_list->AddCircleFilled(center, radius, IM_COL32(30, 30, 30, 255), 64);
                         draw_list->AddCircle(center, radius, IM_COL32(80, 80, 80, 255), 64, 2.0f);
                         // Arc progress
                         int segments = 48;
                         for (int i = 0; i < segments; ++i) {
-                            float a0 = (-IM_PI/2) + (i / (float)segments) * 2*IM_PI;
-                            float a1 = (-IM_PI/2) + ((i+1) / (float)segments) * 2*IM_PI;
+                            float a0 = (-kPi/2) + (i / (float)segments) * 2*kPi;
+                            float a1 = (-kPi/2) + ((i+1) / (float)segments) * 2*kPi;
                             if ((i+1) / (float)segments > pct) break;
                             draw_list->AddTriangleFilled(
                                 center,
-                                center + ImVec2(cosf(a0)*radius, sinf(a0)*radius),
-                                center + ImVec2(cosf(a1)*radius, sinf(a1)*radius),
+                                center + ImVec2((float)std::cos(a0)*radius, (float)std::sin(a0)*radius),
+                                center + ImVec2((float)std::cos(a1)*radius, (float)std::sin(a1)*radius),
                                 IM_COL32(255, 165, 0, 200));
                         }
                         // Number
