@@ -782,8 +782,8 @@ int main(int argc, char** argv) {
                             if ((i+1) / (float)segments > pct) break;
                             draw_list->AddTriangleFilled(
                                 center,
-                                center + ImVec2((float)std::cos(a0)*radius, (float)std::sin(a0)*radius),
-                                center + ImVec2((float)std::cos(a1)*radius, (float)std::sin(a1)*radius),
+                                ImVec2(center.x + (float)std::cos(a0)*radius, center.y + (float)std::sin(a0)*radius),
+                                ImVec2(center.x + (float)std::cos(a1)*radius, center.y + (float)std::sin(a1)*radius),
                                 IM_COL32(255, 165, 0, 200));
                         }
                         // Number
