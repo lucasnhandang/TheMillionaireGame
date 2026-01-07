@@ -17,8 +17,6 @@ build/
 # Executables
 *.exe
 *.out
-client
-server
 
 # Server logs
 server.log
