@@ -64,10 +64,42 @@ static string buildQuestionInfoData(const Question& q, int game_id, const Client
 }
 
 string handleStart(const string& request, ClientSession& session, int client_fd) {
-    // Check database only - database is source of truth
+    // Check both session state and database - both must be consistent
+    // According to PROTOCOL.md: "If user has an active game (in progress), returns error 405"
+    
+    // First check session state
+    if (session.in_game) {
+        // Session says user is in game, verify with database
+        GameSession active_game = Database::getInstance().getActiveGameSession(session.username);
+        if (active_game.id > 0 && active_game.id == session.game_id) {
+            // Both session and database agree - user is in active game
+            return StreamUtils::createErrorResponse(405, "Already in a game");
+        } else {
+            // Session state is inconsistent with database - reset session
+            // This can happen if game ended but session wasn't updated
+            LOG_WARNING("Session in_game=true but no active game in database for user " + session.username + ", resetting session");
+            session.in_game = false;
+            session.game_id = 0;
+        }
+    }
+    
+    // Check database for active game (even if session.in_game is false)
+    // This handles cases where database has stale "active" game
     GameSession active_game = Database::getInstance().getActiveGameSession(session.username);
     if (active_game.id > 0) {
-        return StreamUtils::createErrorResponse(405, "Already in a game");
+        // Database has active game but session doesn't - this is inconsistent
+        // According to PROTOCOL.md, if previous game ended, state should be cleared
+        // If we find an active game, it means game didn't end properly
+        // We should end it first, then allow new game
+        LOG_WARNING("Found active game in database (id=" + to_string(active_game.id) + 
+                 ") but session not in game for user " + session.username + 
+                 ", ending stale game");
+        
+        // End the stale game with status "lost" (safest default)
+        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(active_game.current_question_number);
+        Database::getInstance().endGame(active_game.id, "lost", active_game.total_score, safe_checkpoint_prize);
+        
+        // Now allow new game to start
     }
 
     bool override_saved = JsonUtils::extractBool(request, "overrideSavedGame", false);
