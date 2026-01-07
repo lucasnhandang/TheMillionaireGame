@@ -49,14 +49,14 @@ public:
     std::vector<int> getTimedOutGames();
 
 private:
-    GameTimer() : question_timeout_seconds_(60) {}
+    GameTimer() : question_timeout_seconds_(30) {}
     ~GameTimer() = default;
     GameTimer(const GameTimer&) = delete;
     GameTimer& operator=(const GameTimer&) = delete;
     
     std::mutex timers_mutex_;
     std::unordered_map<int, time_t> timer_start_times_;  // game_id -> start time
-    int question_timeout_seconds_;  // Default 60 seconds per question
+    int question_timeout_seconds_;  // Default 30 seconds per question
 };
 
 } // namespace MillionaireGame

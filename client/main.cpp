@@ -6,6 +6,7 @@
 #include "protocol_handler.h"
 #include "json_utils.h"
 #include "game_event.h"
+#include "texture_loader.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@ struct GameState {
     bool inGame = false;
     bool waitingForQuestion = false;
     bool showResultMessage = false;
+    bool showResultScreen = false;
     
     // Login/Register
     char username[256] = "";
@@ -41,6 +43,15 @@ struct GameState {
     std::string errorMessage;
     std::string resultMessage;
     float resultMessageTime = 0.0f;
+
+    // Home screen
+    bool onHome = false;
+
+    // Image textures (optional)
+    GLuint texLogo = 0; int texLogoW = 0, texLogoH = 0; bool logoLoaded = false;
+    GLuint tex5050 = 0; int tex5050W = 0, tex5050H = 0; bool t5050Loaded = false;
+    GLuint texPhone = 0; int texPhoneW = 0, texPhoneH = 0; bool tPhoneLoaded = false;
+    GLuint texAudience = 0; int texAudienceW = 0, texAudienceH = 0; bool tAudienceLoaded = false;
     
     // Game
     std::string question;
@@ -53,6 +64,15 @@ struct GameState {
     bool timerRunning = false;
     int timerThreadId = 0;  // Unique ID for each timer thread to prevent multiple timers
     std::vector<bool> availableLifelines = {true, true, true}; // 50/50, Phone, Audience
+
+    // Reveal sequence
+    std::chrono::steady_clock::time_point revealStart;
+    bool revealActive = false;
+    int answersRevealed = 0;       // 0..4
+    bool timerStartedForThisQuestion = false;
+
+    // Final result
+    long long finalPrize = 0;
     
     // Prize ladder
     const int PRIZE_LADDER[15] = {
@@ -183,6 +203,7 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 
                 // Reset all game state
                 state.inGame = true;
+                state.onHome = false;
                 state.waitingForQuestion = true;
                 state.availableLifelines = {true, true, true};
                 state.totalScore = 0;
@@ -193,6 +214,8 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.options.clear();
                 state.errorMessage.clear();
                 state.timerRunning = false;
+                state.timerStartedForThisQuestion = false;
+                state.revealActive = false;
                 break;
             }
             
@@ -238,6 +261,10 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.selectedAnswer = -1;
                 state.inGame = true;
                 state.waitingForQuestion = false;
+                state.revealActive = true;
+                state.answersRevealed = 0;
+                state.timerStartedForThisQuestion = false;
+                state.revealStart = std::chrono::steady_clock::now();
                 
                 // CRITICAL: Update protocol handler's question number so answerQuestion sends correct value
                 if (protocol) {
@@ -248,11 +275,7 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                           << ", waitingForQuestion=" << state.waitingForQuestion 
                           << ", questionNumber=" << state.currentQuestionNumber << std::endl;
                 
-                // Start new timer thread for this question
-                state.timerRunning = true;
-                int newTimerId = state.timerThreadId;
-                std::cerr << "[DEBUG] Starting timer thread #" << newTimerId << " for question " << state.currentQuestionNumber << std::endl;
-                std::thread(updateTimer, std::ref(state), protocol, newTimerId).detach();
+                // Do not start timer yet. We will start after reveal is completed (all options shown).
                 break;
             }
             
@@ -270,6 +293,7 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.timerRunning = false;
                 state.inGame = false;
                 state.waitingForQuestion = false;
+                state.onHome = false;
                 
                 if (isWinner) {
                     state.resultMessage = "🎉 Congratulations! You WON! Prize: " + std::to_string(finalPrize) + " VND";
@@ -278,9 +302,10 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 } else if (status == "quit") {
                     state.resultMessage = "You gave up. Prize taken: " + std::to_string(finalPrize) + " VND";
                 }
-                
+                state.finalPrize = finalPrize;
                 state.showResultMessage = true;
                 state.resultMessageTime = 5.0f;
+                state.showResultScreen = true;
                 break;
             }
             
@@ -425,11 +450,13 @@ int main(int argc, char** argv) {
                         state.loggedIn = true;
                         state.errorMessage.clear();
                         state.username[0] = '\0'; // Clear for demo
+                        state.onHome = true;
                     } else if (protocol) {
                         ProtocolHandler::LoginResponse response = protocol->login(state.username, state.password);
                         if (response.responseCode == 200) {
                             state.loggedIn = true;
                             state.errorMessage.clear();
+                            state.onHome = true;
                         } else {
                             state.errorMessage = "Login failed: " + response.message;
                         }
@@ -469,12 +496,14 @@ int main(int argc, char** argv) {
                             state.errorMessage = "Registration successful! Please login.";
                             state.showRegister = false;
                             state.showLogin = true;
+                            state.onHome = false;
                         } else if (protocol) {
                             int code = protocol->registerUser(state.username, state.password);
                             if (code == 201) {
                                 state.errorMessage = "Registration successful! Please login.";
                                 state.showRegister = false;
                                 state.showLogin = true;
+                                state.onHome = false;
                             } else {
                                 state.errorMessage = "Registration failed";
                             }
@@ -491,10 +520,125 @@ int main(int argc, char** argv) {
                 ImGui::End();
             }
         } else {
-            // Main game window
+            // Load textures once (if present)
+            static bool texturesChecked = false;
+            if (!texturesChecked) {
+                texturesChecked = true;
+                state.logoLoaded = LoadTextureFromAny({
+                    "client/assets/millionaire_logo.png",
+                    "assets/millionaire_logo.png",
+                    "millionaire_logo.png"
+                }, &state.texLogo, &state.texLogoW, &state.texLogoH);
+
+                state.t5050Loaded = LoadTextureFromAny({
+                    "client/assets/lifeline_5050.png",
+                    "assets/lifeline_5050.png"
+                }, &state.tex5050, &state.tex5050W, &state.tex5050H);
+                state.tPhoneLoaded = LoadTextureFromAny({
+                    "client/assets/lifeline_phone.png",
+                    "assets/lifeline_phone.png"
+                }, &state.texPhone, &state.texPhoneW, &state.texPhoneH);
+                state.tAudienceLoaded = LoadTextureFromAny({
+                    "client/assets/lifeline_audience.png",
+                    "assets/lifeline_audience.png"
+                }, &state.texAudience, &state.texAudienceW, &state.texAudienceH);
+            }
+
+            // Main window full screen
             ImGui::Begin("Who Wants to be a Millionaire", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
             ImGui::SetWindowPos(ImVec2(0, 0));
             ImGui::SetWindowSize(ImVec2(1280, 800));
+            
+            // If result screen requested
+            if (state.showResultScreen) {
+                ImGui::SetCursorPos(ImVec2(0, 0));
+                ImGui::BeginChild("ResultScreen", ImVec2(1280, 800), false);
+                ImGui::SetCursorPos(ImVec2(200, 120));
+                ImGui::SetWindowFontScale(1.8f);
+                ImGui::Text("Game Result");
+                ImGui::SetWindowFontScale(1.0f);
+
+                ImGui::SetCursorPos(ImVec2(200, 180));
+                ImGui::Separator();
+
+                ImGui::SetCursorPos(ImVec2(200, 240));
+                ImGui::SetWindowFontScale(1.6f);
+                ImGui::Text("Total Winnings:");
+                ImGui::SetWindowFontScale(2.0f);
+                ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "%lld VND", state.finalPrize);
+                ImGui::SetWindowFontScale(1.0f);
+
+                ImGui::SetCursorPos(ImVec2(200, 380));
+                if (ImGui::Button("Back to Home", ImVec2(250, 50))) {
+                    state.showResultScreen = false;
+                    state.onHome = true;
+                    state.inGame = false;
+                }
+                ImGui::EndChild();
+                ImGui::End();
+                goto frame_end; // render result screen only
+            }
+
+            if (state.onHome && !state.inGame) {
+                // Homepage layout: Logo left, menu right
+                ImGui::BeginChild("HomeLeft", ImVec2(700, 800), false);
+                ImGui::SetCursorPos(ImVec2(120, 120));
+                if (state.logoLoaded) {
+                    ImGui::Image(ImTextureRef((ImTextureID)(intptr_t)state.texLogo), ImVec2((float)state.texLogoW, (float)state.texLogoH));
+                } else {
+                    ImGui::SetWindowFontScale(2.5f);
+                    ImGui::Text("MILLIONAIRE");
+                    ImGui::SetWindowFontScale(1.0f);
+                    ImGui::TextDisabled("(Place millionaire_logo.png in client/assets/)");
+                }
+                ImGui::EndChild();
+
+                ImGui::SameLine();
+
+                ImGui::BeginChild("HomeRight", ImVec2(580, 800), false);
+                ImGui::SetCursorPos(ImVec2(150, 180));
+                if (ImGui::Button("Play Game", ImVec2(280, 48))) {
+                    if (demoMode) {
+                        state.inGame = false; // start via button below to trigger protocol flow
+                    }
+                    if (demoMode) {
+                        // Start local demo game
+                        state.inGame = true;
+                        state.onHome = false;
+                        state.currentQuestionNumber = 1;
+                        state.question = "Demo Question: What is the capital of Vietnam?";
+                        state.options = {"Hanoi", "Ho Chi Minh City", "Da Nang", "Hue"};
+                        state.timeRemaining = 30;
+                        state.currentPrize = 1000000;
+                        state.waitingForQuestion = false;
+                        state.revealActive = true;
+                        state.answersRevealed = 0;
+                        state.revealStart = std::chrono::steady_clock::now();
+                    } else if (protocol) {
+                        int code = protocol->startGame(false);
+                        if (code == 200) {
+                            state.inGame = true;
+                            state.onHome = false;
+                            state.waitingForQuestion = true;
+                            state.errorMessage.clear();
+                        } else {
+                            state.errorMessage = "Failed to start game (code " + std::to_string(code) + ")";
+                        }
+                    }
+                }
+                ImGui::SetCursorPos(ImVec2(150, 240));
+                ImGui::Button("Leaderboard", ImVec2(280, 48));
+                ImGui::SetCursorPos(ImVec2(150, 300));
+                ImGui::Button("Settings", ImVec2(280, 48));
+                ImGui::SetCursorPos(ImVec2(150, 360));
+                ImGui::Button("Instructions", ImVec2(280, 48));
+                ImGui::SetCursorPos(ImVec2(150, 420));
+                ImGui::Button("Friends", ImVec2(280, 48));
+                ImGui::EndChild();
+
+                ImGui::End();
+                goto frame_end;
+            }
             
             // Left panel - Prize ladder
             ImGui::BeginChild("PrizeLadder", ImVec2(200, 700), true);
@@ -507,7 +651,7 @@ int main(int argc, char** argv) {
                 
                 // Current question takes priority over checkpoint color
                 if (isCurrent) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f)); // Green
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.6f, 0.0f, 1.0f)); // Orange
                     pushCount++;
                 } else if (isCheckpoint) {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
@@ -536,12 +680,16 @@ int main(int argc, char** argv) {
                     if (demoMode) {
                         // Demo mode - fake game start
                         state.inGame = true;
+                        state.onHome = false;
                         state.currentQuestionNumber = 1;
                         state.question = "Demo Question: What is the capital of Vietnam?";
                         state.options = {"Hanoi", "Ho Chi Minh City", "Da Nang", "Hue"};
                         state.timeRemaining = 30;
                         state.currentPrize = 1000000;
                         state.errorMessage.clear();
+                        state.revealActive = true;
+                        state.answersRevealed = 0;
+                        state.revealStart = std::chrono::steady_clock::now();
                     } else if (protocol) {
                         std::cerr << "[DEBUG] Starting new game..." << std::endl;
                         int code = protocol->startGame(false);
@@ -551,6 +699,7 @@ int main(int argc, char** argv) {
                             // Game started - switch to game screen immediately
                             state.errorMessage.clear();
                             state.inGame = true;
+                            state.onHome = false;
                             state.waitingForQuestion = true;
                             // Notification handler will update state when GAME_START/QUESTION_INFO arrive
                         } else if (code == 412) {
@@ -584,6 +733,26 @@ int main(int argc, char** argv) {
                     ImGui::Text("Waiting for question...");
                 } else {
                     ImGui::Text("Question %d of 15", state.currentQuestionNumber);
+
+                    // Walk Away (top-left of question panel)
+                    ImGui::SameLine();
+                    ImGui::SetCursorPosX(10.0f);
+                    if (ImGui::Button("WALK AWAY", ImVec2(120, 30))) {
+                        if (demoMode) {
+                            int prevIndex = std::max(0, state.currentQuestionNumber - 2);
+                            state.finalPrize = prevIndex >= 0 ? state.PRIZE_LADDER[prevIndex] : 0;
+                            state.inGame = false;
+                            state.showResultScreen = true;
+                            state.resultMessage = "You walked away!";
+                            state.showResultMessage = true;
+                            state.resultMessageTime = 3.0f;
+                        } else if (protocol) {
+                            int code = protocol->giveUp();
+                            if (code != 200) {
+                                state.errorMessage = "Error giving up (code " + std::to_string(code) + ")";
+                            }
+                        }
+                    }
                     
                     // Timer with color coding
                     if (state.timeRemaining <= 10) {
@@ -591,7 +760,57 @@ int main(int argc, char** argv) {
                     } else if (state.timeRemaining <= 20) {
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.7f, 0.0f, 1.0f)); // Orange
                     }
-                    ImGui::Text("Time: %d seconds", state.timeRemaining);
+
+                    // Draw circular timer
+                    {
+                        ImGui::SameLine();
+                        ImVec2 center = ImGui::GetCursorScreenPos();
+                        center.x += 40; center.y += 28;
+                        float radius = 24.0f;
+                        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                        float pct = state.timeRemaining / 30.0f;
+                        draw_list->AddCircleFilled(center, radius, IM_COL32(30, 30, 30, 255), 64);
+                        draw_list->AddCircle(center, radius, IM_COL32(80, 80, 80, 255), 64, 2.0f);
+                        // Arc progress
+                        int segments = 48;
+                        for (int i = 0; i < segments; ++i) {
+                            float a0 = (-IM_PI/2) + (i / (float)segments) * 2*IM_PI;
+                            float a1 = (-IM_PI/2) + ((i+1) / (float)segments) * 2*IM_PI;
+                            if ((i+1) / (float)segments > pct) break;
+                            draw_list->AddTriangleFilled(
+                                center,
+                                center + ImVec2(cosf(a0)*radius, sinf(a0)*radius),
+                                center + ImVec2(cosf(a1)*radius, sinf(a1)*radius),
+                                IM_COL32(255, 165, 0, 200));
+                        }
+                        // Number
+                        char tbuf[8]; snprintf(tbuf, sizeof(tbuf), "%d", state.timeRemaining);
+                        ImVec2 ts = ImGui::CalcTextSize(tbuf);
+                        draw_list->AddText(ImVec2(center.x - ts.x*0.5f, center.y - ts.y*0.5f), IM_COL32(255,255,255,255), tbuf);
+                        ImGui::Dummy(ImVec2(80, 56));
+                    }
+
+                    // Start timer after reveal completes
+                    if (state.revealActive) {
+                        float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - state.revealStart).count();
+                        int answersToShow = 0;
+                        if (elapsed >= 1.0f) {
+                            answersToShow = (int)((elapsed - 1.0f) / 0.5f) + 1;
+                            if (answersToShow > 4) answersToShow = 4;
+                        }
+                        if (answersToShow != state.answersRevealed) {
+                            state.answersRevealed = answersToShow;
+                        }
+                        if (state.answersRevealed >= 4 && !state.timerStartedForThisQuestion) {
+                            state.timerRunning = true;
+                            state.timerThreadId++;
+                            state.timerStartedForThisQuestion = true;
+                            int newTimerId = state.timerThreadId;
+                            std::thread(updateTimer, std::ref(state), protocol, newTimerId).detach();
+                        }
+                        if (state.answersRevealed >= 4) state.revealActive = false;
+                    }
+
                     if (state.timeRemaining <= 20) {
                         ImGui::PopStyleColor();
                     }
@@ -603,8 +822,10 @@ int main(int argc, char** argv) {
                     ImGui::TextWrapped("%s", state.question.c_str());
                     ImGui::Separator();
                     
-                    // Answer buttons
-                    for (size_t i = 0; i < state.options.size(); i++) {
+                    // Answer buttons with reveal
+                    size_t maxToShow = state.revealActive ? (size_t)state.answersRevealed : state.options.size();
+                    if (maxToShow > state.options.size()) maxToShow = state.options.size();
+                    for (size_t i = 0; i < maxToShow; i++) {
                         char label[512];
                         snprintf(label, sizeof(label), "%c. %s", 'A' + (int)i, state.options[i].c_str());
                         
@@ -625,6 +846,9 @@ int main(int argc, char** argv) {
                         if (wasSelected) {
                             ImGui::PopStyleColor(3);
                         }
+                    }
+                    if (state.revealActive) {
+                        ImGui::TextDisabled("Revealing options...");
                     }
                     
                     ImGui::Spacing();
@@ -715,7 +939,13 @@ int main(int argc, char** argv) {
                     ImGui::Text("Lifelines:");
                     
                     if (state.availableLifelines[0]) {
-                        if (ImGui::Button("50/50", ImVec2(150, 30))) {
+                        bool used = false;
+                        if (state.t5050Loaded) {
+                            if (ImGui::ImageButton("##ll5050", ImTextureRef((ImTextureID)(intptr_t)state.tex5050), ImVec2(48, 48))) used = true;
+                        } else {
+                            if (ImGui::Button("50/50", ImVec2(150, 30))) used = true;
+                        }
+                        if (used) {
                             if (demoMode) {
                                 state.errorMessage = "50/50 used! (Demo - removes 2 wrong answers)";
                                 state.availableLifelines[0] = false;
@@ -732,7 +962,13 @@ int main(int argc, char** argv) {
                     
                     ImGui::SameLine();
                     if (state.availableLifelines[1]) {
-                        if (ImGui::Button("Phone Friend", ImVec2(150, 30))) {
+                        bool used = false;
+                        if (state.tPhoneLoaded) {
+                            if (ImGui::ImageButton("##llphone", ImTextureRef((ImTextureID)(intptr_t)state.texPhone), ImVec2(48, 48))) used = true;
+                        } else {
+                            if (ImGui::Button("Phone Friend", ImVec2(150, 30))) used = true;
+                        }
+                        if (used) {
                             if (demoMode) {
                                 state.errorMessage = "Friend says: I think it's A! (Demo)";
                                 state.availableLifelines[1] = false;
@@ -749,7 +985,13 @@ int main(int argc, char** argv) {
                     
                     ImGui::SameLine();
                     if (state.availableLifelines[2]) {
-                        if (ImGui::Button("Ask Audience", ImVec2(150, 30))) {
+                        bool used = false;
+                        if (state.tAudienceLoaded) {
+                            if (ImGui::ImageButton("##llaud", ImTextureRef((ImTextureID)(intptr_t)state.texAudience), ImVec2(48, 48))) used = true;
+                        } else {
+                            if (ImGui::Button("Ask Audience", ImVec2(150, 30))) used = true;
+                        }
+                        if (used) {
                             if (demoMode) {
                                 state.errorMessage = "Audience poll: A: 65%, B: 15%, C: 10%, D: 10% (Demo)";
                                 state.availableLifelines[2] = false;
@@ -767,6 +1009,15 @@ int main(int argc, char** argv) {
                     if (!state.errorMessage.empty()) {
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", state.errorMessage.c_str());
                     }
+
+                    // Bottom bar with prize
+                    ImGui::SetCursorPosY(660);
+                    ImGui::Separator();
+                    ImGui::SetCursorPosY(670);
+                    ImGui::SetCursorPosX(280);
+                    ImGui::SetWindowFontScale(1.4f);
+                    ImGui::TextColored(ImVec4(0.9f, 0.75f, 0.2f, 1.0f), "%d VND", state.currentPrize);
+                    ImGui::SetWindowFontScale(1.0f);
                 }
             }
             
@@ -775,6 +1026,7 @@ int main(int argc, char** argv) {
             ImGui::End();
         }
         
+frame_end:
         // Toast notification for result messages
         if (state.showResultMessage && state.resultMessageTime > 0.0f) {
             ImGuiIO& io = ImGui::GetIO();

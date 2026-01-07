@@ -218,7 +218,7 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
     int points_earned = ScoringSystem::getInstance().calculateQuestionScore(time_remaining, lifelines_used);
 
     // Record answer in database
-    int response_time = 60 - time_remaining;  // Calculate response time (60 second timer)
+    int response_time = 30 - time_remaining;  // Calculate response time (30 second timer)
     Database::getInstance().addGameAnswer(game_id, question_number, answer_index, correct, response_time);
     
     if (correct) {

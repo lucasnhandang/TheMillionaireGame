@@ -22,7 +22,7 @@ IMGUI_DIR = ../imgui
 GLFW_DIR = ../glfw
 
 # Source files
-CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp
+CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp texture_loader.cpp
 IMGUI_SRC = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp \
             $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 IMGUI_BACKEND_SRC = $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
