@@ -1297,8 +1297,9 @@ int main(int argc, char** argv) {
                     // No question data yet - show waiting message
                     ImGui::Text("Waiting for question...");
                 }
+            }
                 
-                ImGui::EndChild();
+            ImGui::EndChild();
             
             ImGui::End();
         }
