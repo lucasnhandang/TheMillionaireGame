@@ -12,7 +12,7 @@ class ResultScreen : public QWidget
 public:
     explicit ResultScreen(QWidget *parent = nullptr);
 
-    void showResult(long long finalPrize, int totalScore, bool isWinner);
+    void showResult(long long finalPrize, int totalScore, bool isWinner, int questionNumber = 0, bool isWalkAway = false);
 
 signals:
     void backToHomeClicked();
