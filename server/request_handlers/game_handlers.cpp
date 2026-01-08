@@ -318,9 +318,13 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             
             // Get next random question for the new level
             Question next_question = QuestionManager::getInstance().getRandomQuestion(next_level);
-            if (next_question.id > 0) {
-                Database::getInstance().addGameQuestion(game_id, session.current_question_number, next_question.id);
+            if (next_question.id == 0) {
+                LOG_ERROR("Failed to get next question for level " + to_string(next_level) + ", question_number " + to_string(session.current_question_number));
+                return StreamUtils::createErrorResponse(500, "Failed to get next question");
             }
+            
+            // Add question to game_questions table
+            Database::getInstance().addGameQuestion(game_id, session.current_question_number, next_question.id);
             
             // Update game session in database
             GameSession db_session;
@@ -345,11 +349,10 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
                          ",\"currentPrize\":" + to_string(session.current_prize) +
                          ",\"gameOver\":false,\"isWinner\":false}";
             
-            // Send QUESTION_INFO notification with next question
-            if (next_question.id > 0) {
-                string question_data = buildQuestionInfoData(next_question, game_id, session);
-                NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
-            }
+            // Send QUESTION_INFO notification with next question (guaranteed to have valid question)
+            string question_data = buildQuestionInfoData(next_question, game_id, session);
+            NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+            LOG_INFO("Sent QUESTION_INFO for question_number=" + to_string(session.current_question_number));
             
             return StreamUtils::createSuccessResponse(200, data);
         }
