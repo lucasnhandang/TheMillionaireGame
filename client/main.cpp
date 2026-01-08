@@ -1301,7 +1301,7 @@ int main(int argc, char** argv) {
                 ImGui::EndChild();
             
             ImGui::End();
-        }
+            }
         
 frame_end:
         // Toast notification for result messages
