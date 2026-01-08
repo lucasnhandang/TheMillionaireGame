@@ -27,7 +27,11 @@ static bool file_exists(const char* path) {
 bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
 {
 	if (!filename || !out_texture || !out_width || !out_height) return false;
-	if (!file_exists(filename)) return false;
+	if (!file_exists(filename)) {
+		fprintf(stderr, "[TEXTURE] File not found: %s\n", filename);
+		return false;
+	}
+	fprintf(stderr, "[TEXTURE] Loading texture from: %s\n", filename);
 
 #if !TEXTURE_LOADER_HAVE_STB
     // stb_image not available: gracefully fail so caller can fallback to text buttons.
@@ -64,8 +68,13 @@ bool LoadTextureFromAny(const std::initializer_list<std::string>& candidates,
                         GLuint* out_texture, int* out_width, int* out_height)
 {
 	for (const auto& p : candidates) {
-		if (LoadTextureFromFile(p.c_str(), out_texture, out_width, out_height)) return true;
+		fprintf(stderr, "[TEXTURE] Trying path: %s\n", p.c_str());
+		if (LoadTextureFromFile(p.c_str(), out_texture, out_width, out_height)) {
+			fprintf(stderr, "[TEXTURE] Successfully loaded from: %s\n", p.c_str());
+			return true;
+		}
 	}
+	fprintf(stderr, "[TEXTURE] Failed to load texture from all candidate paths\n");
 	return false;
 }
 
