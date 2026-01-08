@@ -258,8 +258,12 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 }
                 
                 std::cerr << "[DEBUG] Question loaded: " << newQuestion << std::endl;
-                std::cerr << "[DEBUG] Options: " << newOptions[0] << ", " << newOptions[1] 
-                          << ", " << newOptions[2] << ", " << newOptions[3] << std::endl;
+                std::cerr << "[DEBUG] Question empty? " << (newQuestion.empty() ? "YES" : "NO") << std::endl;
+                std::cerr << "[DEBUG] Options count: " << newOptions.size() << std::endl;
+                if (newOptions.size() >= 4) {
+                    std::cerr << "[DEBUG] Options: " << newOptions[0] << ", " << newOptions[1] 
+                              << ", " << newOptions[2] << ", " << newOptions[3] << std::endl;
+                }
                 
                 // Stop any existing timer first by incrementing the timer ID
                 state.timerRunning = false;
@@ -283,7 +287,7 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.options = newOptions;
                 state.selectedAnswer = -1;
                 state.inGame = true;
-                state.waitingForQuestion = false;
+                state.waitingForQuestion = false;  // CRITICAL: Set to false so question is displayed
                 state.revealActive = true;
                 state.answersRevealed = 0;
                 state.timerStartedForThisQuestion = false;
@@ -846,6 +850,10 @@ int main(int argc, char** argv) {
                 // Game in progress
                 if (state.waitingForQuestion) {
                     ImGui::Text("Waiting for question...");
+                    ImGui::Text("(Debug: questionNumber=%d, questionEmpty=%s, inGame=%d)", 
+                                state.currentQuestionNumber, 
+                                state.question.empty() ? "YES" : "NO",
+                                state.inGame ? 1 : 0);
                 } else {
                     ImGui::Text("Question %d of 15", state.currentQuestionNumber);
 
@@ -935,7 +943,12 @@ int main(int argc, char** argv) {
                     ImGui::Text("Score: %d points", state.totalScore);
                     ImGui::Separator();
                     
-                    ImGui::TextWrapped("%s", state.question.c_str());
+                    // Display question (even if empty, to debug)
+                    if (state.question.empty()) {
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[DEBUG] Question is empty!");
+                    } else {
+                        ImGui::TextWrapped("%s", state.question.c_str());
+                    }
                     ImGui::Separator();
                     
                     // Answer buttons with reveal
