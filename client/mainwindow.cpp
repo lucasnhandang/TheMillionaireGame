@@ -276,7 +276,7 @@ void MainWindow::processGameEvents()
                 
                 // Update game screen
                 gameScreen_->updateQuestion(QString::fromStdString(question), options, questionNumber);
-                gameScreen_->updatePrize(prize);
+                gameScreen_->updateScore(totalScore);  // BONUS: Update score display
                 gameScreen_->updateTimer(30);
                 gameScreen_->resetForNewQuestion();
                 
@@ -288,13 +288,20 @@ void MainWindow::processGameEvents()
                 long long finalPrize = MillionaireGame::JsonUtils::extractInt(event.data, "finalPrize", 0);
                 int totalScore = MillionaireGame::JsonUtils::extractInt(event.data, "totalScore", 0);
                 bool isWinner = MillionaireGame::JsonUtils::extractBool(event.data, "isWinner", false);
+                int finalQuestionNumber = MillionaireGame::JsonUtils::extractInt(event.data, "finalQuestionNumber", gameState_->currentQuestionNumber);
+                
+                // Determine if it's walk away (status = "quit")
+                bool isWalkAway = (status == "quit");
                 
                 gameState_->finalPrize = finalPrize;
                 gameState_->totalScore = totalScore;
                 gameState_->inGame = false;
                 
+                // Update score display before showing result
+                gameScreen_->updateScore(totalScore);
+                
                 onGameEnd();
-                resultScreen_->showResult(finalPrize, totalScore, isWinner);
+                resultScreen_->showResult(finalPrize, totalScore, isWinner, finalQuestionNumber, isWalkAway);
                 onShowResult();
                 break;
             }
