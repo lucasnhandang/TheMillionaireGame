@@ -1377,5 +1377,4 @@ frame_end:
     
     return 0;
 }
-}
 
