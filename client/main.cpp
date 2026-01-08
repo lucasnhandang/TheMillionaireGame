@@ -1293,7 +1293,6 @@ int main(int argc, char** argv) {
                     ImGui::SetWindowFontScale(1.4f);
                     ImGui::TextColored(ImVec4(0.9f, 0.75f, 0.2f, 1.0f), "%d VND", state.currentPrize);
                     ImGui::SetWindowFontScale(1.0f);
-                    }
                 } else {
                     // No question data yet - show waiting message
                     ImGui::Text("Waiting for question...");
