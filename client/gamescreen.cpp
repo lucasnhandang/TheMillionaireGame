@@ -1,4 +1,5 @@
 #include "gamescreen.h"
+#include "ui_gamescreen.h"  // Generated from gamescreen.ui
 #include "protocol_handler.h"
 #include "game_event.h"
 #include <QVBoxLayout>
@@ -8,7 +9,6 @@
 #include <QLabel>
 #include <QTimer>
 #include <QTime>
-#include <QProgressBar>
 #include <QPainter>
 #include <QFont>
 #include <QMap>
@@ -18,6 +18,7 @@
 
 GameScreen::GameScreen(QWidget *parent)
     : QWidget(parent)
+    , ui(new Ui::GameScreen)
     , protocol_(nullptr)
     , gameState_(nullptr)
     , demoMode_(false)
@@ -26,263 +27,77 @@ GameScreen::GameScreen(QWidget *parent)
     , timeRemaining_(30)
     , timerRunning_(false)
     , answersRevealed_(0)
+    , totalScore_(0)
     , lifeline5050Available_(true)
     , lifelinePhoneAvailable_(true)
     , lifelineAudienceAvailable_(true)
     , lifelineProcessing_(false)
 {
+    ui->setupUi(this);  // Load UI from .ui file
     setupUI();
+}
+
+GameScreen::~GameScreen()
+{
+    delete ui;
 }
 
 void GameScreen::setupUI()
 {
-    QHBoxLayout* mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(10);
+    // Get widget pointers from UI
+    // Prize labels (for highlighting)
+    prizeLabel1_ = findChild<QLabel*>("prizeLabel1");
+    prizeLabel2_ = findChild<QLabel*>("prizeLabel2");
+    prizeLabel3_ = findChild<QLabel*>("prizeLabel3");
+    prizeLabel4_ = findChild<QLabel*>("prizeLabel4");
+    prizeLabel5_ = findChild<QLabel*>("prizeLabel5");
+    prizeLabel6_ = findChild<QLabel*>("prizeLabel6");
+    prizeLabel7_ = findChild<QLabel*>("prizeLabel7");
+    prizeLabel8_ = findChild<QLabel*>("prizeLabel8");
+    prizeLabel9_ = findChild<QLabel*>("prizeLabel9");
+    prizeLabel10_ = findChild<QLabel*>("prizeLabel10");
+    prizeLabel11_ = findChild<QLabel*>("prizeLabel11");
+    prizeLabel12_ = findChild<QLabel*>("prizeLabel12");
+    prizeLabel13_ = findChild<QLabel*>("prizeLabel13");
+    prizeLabel14_ = findChild<QLabel*>("prizeLabel14");
+    prizeLabel15_ = findChild<QLabel*>("prizeLabel15");
     
-    // Left panel - Prize ladder
-    QWidget* prizePanel = new QWidget(this);
-    prizePanel->setFixedWidth(200);
-    prizePanel->setStyleSheet("background-color: #1A1A2E; border-radius: 10px; padding: 10px;");
-    QVBoxLayout* prizeLayout = new QVBoxLayout(prizePanel);
-    
-    QLabel* prizeTitle = new QLabel("Prize Ladder", this);
-    prizeTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: white;");
-    prizeTitle->setAlignment(Qt::AlignCenter);
-    prizeLayout->addWidget(prizeTitle);
-    
-    prizeLadderWidget_ = new QWidget(this);
-    prizeLadderWidget_->setStyleSheet("background-color: transparent;");
-    QVBoxLayout* ladderLayout = new QVBoxLayout(prizeLadderWidget_);
-    ladderLayout->setSpacing(5);
-    
-    const int PRIZE_LADDER[15] = {
-        1000000, 2000000, 3000000, 5000000, 10000000,
-        20000000, 30000000, 50000000, 100000000, 200000000,
-        300000000, 500000000, 1000000000, 2000000000, 1000000000
+    // Store in list for easy access
+    prizeLabels_ = {
+        prizeLabel1_, prizeLabel2_, prizeLabel3_, prizeLabel4_, prizeLabel5_,
+        prizeLabel6_, prizeLabel7_, prizeLabel8_, prizeLabel9_, prizeLabel10_,
+        prizeLabel11_, prizeLabel12_, prizeLabel13_, prizeLabel14_, prizeLabel15_
     };
     
-    for (int i = 14; i >= 0; i--) {
-        QLabel* prizeLabel = new QLabel(QString("Q%1: %2 VND").arg(i + 1).arg(PRIZE_LADDER[i]), this);
-        bool isCheckpoint = (i == 4 || i == 9 || i == 14);
-        QString color = isCheckpoint ? "#FFD700" : "white";
-        prizeLabel->setStyleSheet(QString("color: %1; font-size: 12px; padding: 3px;").arg(color));
-        ladderLayout->addWidget(prizeLabel);
-    }
+    // Main widgets
+    questionLabel_ = ui->questionLabel;
+    timerLabel_ = ui->timerLabel;
+    scoreLabel_ = ui->scoreLabel;  // BONUS: Score display
     
-    prizeLayout->addWidget(prizeLadderWidget_);
-    mainLayout->addWidget(prizePanel);
-    
-    // Center panel - Question and answers
-    QWidget* questionPanel = new QWidget(this);
-    questionPanel->setStyleSheet("background-color: #16213E; border-radius: 10px; padding: 20px;");
-    QVBoxLayout* questionLayout = new QVBoxLayout(questionPanel);
-    
-    // Top bar with lifelines and timer
-    QHBoxLayout* topBarLayout = new QHBoxLayout();
-    
-    walkAwayButton_ = new QPushButton("WALK AWAY", this);
-    walkAwayButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #F44336;"
-        "  color: white;"
-        "  font-size: 14px;"
-        "  font-weight: bold;"
-        "  padding: 10px 20px;"
-        "  border-radius: 5px;"
-        "}"
-        "QPushButton:hover { background-color: #D32F2F; }"
-    );
-    connect(walkAwayButton_, &QPushButton::clicked, this, &GameScreen::onWalkAwayClicked);
-    topBarLayout->addWidget(walkAwayButton_);
-    
-    topBarLayout->addStretch();
-    
-    // Progress bar and question number
-    progressBar_ = new QProgressBar(this);
-    progressBar_->setRange(0, 15);
-    progressBar_->setValue(0);
-    progressBar_->setStyleSheet(
-        "QProgressBar {"
-        "  border: 2px solid #1E88E5;"
-        "  border-radius: 5px;"
-        "  text-align: center;"
-        "  height: 20px;"
-        "}"
-        "QProgressBar::chunk {"
-        "  background-color: #1E88E5;"
-        "}"
-    );
-    topBarLayout->addWidget(progressBar_);
-    
-    questionNumberLabel_ = new QLabel("Q1", this);
-    questionNumberLabel_->setStyleSheet(
-        "background-color: #1E88E5;"
-        "color: white;"
-        "font-size: 16px;"
-        "font-weight: bold;"
-        "padding: 5px 15px;"
-        "border-radius: 15px;"
-    );
-    questionNumberLabel_->setAlignment(Qt::AlignCenter);
-    topBarLayout->addWidget(questionNumberLabel_);
-    
-    topBarLayout->addStretch();
-    
-    // Timer
-    timerLabel_ = new QLabel("30", this);
-    timerLabel_->setStyleSheet(
-        "background-color: #4CAF50;"
-        "color: white;"
-        "font-size: 24px;"
-        "font-weight: bold;"
-        "padding: 10px 20px;"
-        "border-radius: 20px;"
-        "min-width: 60px;"
-    );
-    timerLabel_->setAlignment(Qt::AlignCenter);
-    topBarLayout->addWidget(timerLabel_);
-    
-    // Lifelines
-    lifeline5050Button_ = new QPushButton("50:50", this);
-    lifeline5050Button_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #FF9800;"
-        "  color: white;"
-        "  font-size: 12px;"
-        "  font-weight: bold;"
-        "  padding: 8px 15px;"
-        "  border-radius: 5px;"
-        "}"
-        "QPushButton:hover { background-color: #F57C00; }"
-        "QPushButton:disabled { background-color: #555555; color: #888888; }"
-    );
-    connect(lifeline5050Button_, &QPushButton::clicked, this, &GameScreen::onLifeline5050Clicked);
-    topBarLayout->addWidget(lifeline5050Button_);
-    
-    lifelinePhoneButton_ = new QPushButton("Phone", this);
-    lifelinePhoneButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #FF9800;"
-        "  color: white;"
-        "  font-size: 12px;"
-        "  font-weight: bold;"
-        "  padding: 8px 15px;"
-        "  border-radius: 5px;"
-        "}"
-        "QPushButton:hover { background-color: #F57C00; }"
-        "QPushButton:disabled { background-color: #555555; color: #888888; }"
-    );
-    connect(lifelinePhoneButton_, &QPushButton::clicked, this, &GameScreen::onLifelinePhoneClicked);
-    topBarLayout->addWidget(lifelinePhoneButton_);
-    
-    lifelineAudienceButton_ = new QPushButton("Audience", this);
-    lifelineAudienceButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #FF9800;"
-        "  color: white;"
-        "  font-size: 12px;"
-        "  font-weight: bold;"
-        "  padding: 8px 15px;"
-        "  border-radius: 5px;"
-        "}"
-        "QPushButton:hover { background-color: #F57C00; }"
-        "QPushButton:disabled { background-color: #555555; color: #888888; }"
-    );
-    connect(lifelineAudienceButton_, &QPushButton::clicked, this, &GameScreen::onLifelineAudienceClicked);
-    topBarLayout->addWidget(lifelineAudienceButton_);
-    
-    questionLayout->addLayout(topBarLayout);
-    questionLayout->addSpacing(20);
-    
-    // Question label
-    questionLabel_ = new QLabel("Waiting for question...", this);
-    questionLabel_->setStyleSheet(
-        "background-color: #0F3460;"
-        "color: white;"
-        "font-size: 20px;"
-        "padding: 20px;"
-        "border-radius: 10px;"
-        "min-height: 100px;"
-    );
-    questionLabel_->setAlignment(Qt::AlignCenter);
-    questionLabel_->setWordWrap(true);
-    questionLayout->addWidget(questionLabel_);
-    
-    questionLayout->addSpacing(20);
-    
-    // Answer buttons
-    answerButtonA_ = new QPushButton("A.", this);
-    answerButtonB_ = new QPushButton("B.", this);
-    answerButtonC_ = new QPushButton("C.", this);
-    answerButtonD_ = new QPushButton("D.", this);
-    
+    // Buttons
+    walkAwayButton_ = ui->walkAwayButton;
+    answerButtonA_ = ui->answerButtonA;
+    answerButtonB_ = ui->answerButtonB;
+    answerButtonC_ = ui->answerButtonC;
+    answerButtonD_ = ui->answerButtonD;
     answerButtons_ = {answerButtonA_, answerButtonB_, answerButtonC_, answerButtonD_};
     
-    QString answerButtonStyle = 
-        "QPushButton {"
-        "  background-color: #1E88E5;"
-        "  color: white;"
-        "  font-size: 16px;"
-        "  padding: 15px 20px;"
-        "  border-radius: 8px;"
-        "  text-align: left;"
-        "  min-height: 60px;"
-        "}"
-        "QPushButton:hover { background-color: #1976D2; }"
-        "QPushButton:disabled { background-color: #555555; color: #888888; }";
+    submitButton_ = ui->submitButton;
     
-    for (int i = 0; i < 4; i++) {
-        answerButtons_[i]->setStyleSheet(answerButtonStyle);
-        answerButtons_[i]->setEnabled(false);
-        answerButtons_[i]->setVisible(false);
-        connect(answerButtons_[i], &QPushButton::clicked, this, [this, i]() {
-            selectedAnswer_ = i;
-            updateAnswerButtons();
-        });
-        questionLayout->addWidget(answerButtons_[i]);
-    }
+    // Lifelines - note: lifelinAskButton in UI maps to lifelineAudienceButton_
+    lifeline5050Button_ = ui->lifeline5050Button;
+    lifelinePhoneButton_ = ui->lifelinePhoneButton;
+    lifelineAudienceButton_ = findChild<QPushButton*>("lifelinAskButton");  // Map UI name to code
     
-    questionLayout->addSpacing(20);
+    // Result labels
+    lifelineResultLabel_ = ui->lifelineResultLabel;
+    audiencePollWidget_ = ui->audiencePollWidget;
     
-    // Submit button
-    QPushButton* submitButton = new QPushButton("Submit Answer", this);
-    submitButton->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #4CAF50;"
-        "  color: white;"
-        "  font-size: 18px;"
-        "  font-weight: bold;"
-        "  padding: 15px 50px;"
-        "  border-radius: 8px;"
-        "}"
-        "QPushButton:hover { background-color: #45A049; }"
-        "QPushButton:disabled { background-color: #555555; }"
-    );
-    connect(submitButton, &QPushButton::clicked, this, &GameScreen::onAnswerButtonClicked);
-    questionLayout->addWidget(submitButton, 0, Qt::AlignCenter);
+    // Setup connections
+    setupConnections();
     
-    questionLayout->addSpacing(20);
-    
-    // Lifeline result label
-    lifelineResultLabel_ = new QLabel(this);
-    lifelineResultLabel_->setStyleSheet("color: #FFD700; font-size: 16px;");
-    lifelineResultLabel_->setAlignment(Qt::AlignCenter);
-    lifelineResultLabel_->setWordWrap(true);
-    lifelineResultLabel_->setVisible(false);
-    questionLayout->addWidget(lifelineResultLabel_);
-    
-    // Prize label at bottom
-    prizeLabel_ = new QLabel("0 VND", this);
-    prizeLabel_->setStyleSheet(
-        "color: #FFD700;"
-        "font-size: 24px;"
-        "font-weight: bold;"
-    );
-    prizeLabel_->setAlignment(Qt::AlignCenter);
-    questionLayout->addWidget(prizeLabel_);
-    
-    mainLayout->addWidget(questionPanel, 1);
+    // Setup initial visibility
+    setupInitialVisibility();
     
     // Timers
     countdownTimer_ = new QTimer(this);
@@ -293,7 +108,59 @@ void GameScreen::setupUI()
     revealTimer_->setInterval(500);
     connect(revealTimer_, &QTimer::timeout, this, &GameScreen::onRevealTimeout);
     
-    setStyleSheet("background-color: #0D1B2A; color: white;");
+    // Initialize score display
+    if (scoreLabel_) {
+        scoreLabel_->setText("Score: 0");
+    }
+}
+
+void GameScreen::setupConnections()
+{
+    // Connect button signals
+    connect(walkAwayButton_, &QPushButton::clicked, this, &GameScreen::onWalkAwayClicked);
+    connect(submitButton_, &QPushButton::clicked, this, &GameScreen::onAnswerButtonClicked);
+    
+    // Connect lifeline buttons
+    if (lifeline5050Button_) {
+        connect(lifeline5050Button_, &QPushButton::clicked, this, &GameScreen::onLifeline5050Clicked);
+    }
+    if (lifelinePhoneButton_) {
+        connect(lifelinePhoneButton_, &QPushButton::clicked, this, &GameScreen::onLifelinePhoneClicked);
+    }
+    if (lifelineAudienceButton_) {
+        connect(lifelineAudienceButton_, &QPushButton::clicked, this, &GameScreen::onLifelineAudienceClicked);
+    }
+    
+    // Connect answer buttons
+    for (int i = 0; i < 4; i++) {
+        if (answerButtons_[i]) {
+            connect(answerButtons_[i], &QPushButton::clicked, this, [this, i]() {
+                selectedAnswer_ = i;
+                updateAnswerButtons();
+            });
+        }
+    }
+}
+
+void GameScreen::setupInitialVisibility()
+{
+    // Hide answer buttons initially
+    for (auto* btn : answerButtons_) {
+        if (btn) {
+            btn->hide();
+            btn->setEnabled(false);
+        }
+    }
+    
+    // Hide lifeline result label
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->hide();
+    }
+    
+    // Hide audience poll widget
+    if (audiencePollWidget_) {
+        audiencePollWidget_->hide();
+    }
 }
 
 void GameScreen::setProtocolHandler(ProtocolHandler* protocol)
@@ -318,17 +185,20 @@ void GameScreen::updateQuestion(const QString& question, const QStringList& opti
     currentQuestionNumber_ = questionNumber;
     selectedAnswer_ = -1;
     
-    questionLabel_->setText(question);
-    questionNumberLabel_->setText(QString("Q%1").arg(questionNumber));
-    progressBar_->setValue(questionNumber);
+    if (questionLabel_) {
+        questionLabel_->setText(question);
+    }
+    
+    // Highlight prize ladder for current question
+    highlightPrizeLadder(questionNumber);
     
     // Reset answer buttons
     answersRevealed_ = 0;
     for (int i = 0; i < 4; i++) {
-        if (i < options.size()) {
+        if (answerButtons_[i] && i < options.size()) {
             answerButtons_[i]->setText(QString("%1. %2").arg(QChar('A' + i)).arg(options[i]));
             answerButtons_[i]->setEnabled(false);
-            answerButtons_[i]->setVisible(false);
+            answerButtons_[i]->hide();
         }
     }
     
@@ -339,51 +209,92 @@ void GameScreen::updateQuestion(const QString& question, const QStringList& opti
 void GameScreen::updateTimer(int seconds)
 {
     timeRemaining_ = seconds;
-    timerLabel_->setText(QString::number(seconds));
-    
-    // Update color based on time
-    if (seconds <= 10) {
-        timerLabel_->setStyleSheet(
-            "background-color: #F44336;"
-            "color: white;"
-            "font-size: 24px;"
-            "font-weight: bold;"
-            "padding: 10px 20px;"
-            "border-radius: 20px;"
-            "min-width: 60px;"
-        );
-    } else if (seconds <= 20) {
-        timerLabel_->setStyleSheet(
-            "background-color: #FF9800;"
-            "color: white;"
-            "font-size: 24px;"
-            "font-weight: bold;"
-            "padding: 10px 20px;"
-            "border-radius: 20px;"
-            "min-width: 60px;"
-        );
-    } else {
-        timerLabel_->setStyleSheet(
-            "background-color: #4CAF50;"
-            "color: white;"
-            "font-size: 24px;"
-            "font-weight: bold;"
-            "padding: 10px 20px;"
-            "border-radius: 20px;"
-            "min-width: 60px;"
-        );
+    if (timerLabel_) {
+        timerLabel_->setText(QString::number(seconds));
+        
+        // Update color based on time
+        if (seconds <= 10) {
+            timerLabel_->setStyleSheet(
+                "background-color: #001844;"
+                "color: #F44336;"
+                "font-size: 24px;"
+                "font-weight: bold;"
+                "padding: 10px 20px;"
+                "border-radius: 30px;"
+                "min-width: 20px;"
+            );
+        } else if (seconds <= 20) {
+            timerLabel_->setStyleSheet(
+                "background-color: #001844;"
+                "color: #FF9800;"
+                "font-size: 24px;"
+                "font-weight: bold;"
+                "padding: 10px 20px;"
+                "border-radius: 30px;"
+                "min-width: 20px;"
+            );
+        } else {
+            timerLabel_->setStyleSheet(
+                "background-color: #001844;"
+                "color: white;"
+                "font-size: 24px;"
+                "font-weight: bold;"
+                "padding: 10px 20px;"
+                "border-radius: 30px;"
+                "min-width: 20px;"
+            );
+        }
     }
 }
 
-void GameScreen::updatePrize(int prize)
+void GameScreen::highlightPrizeLadder(int questionNumber)
 {
-    prizeLabel_->setText(QString("%1 VND").arg(prize));
+    // Reset all labels to default style
+    for (int i = 0; i < 15; i++) {
+        QLabel* label = prizeLabels_[i];
+        if (!label) continue;
+        
+        int questionNum = i + 1;  // Q1 to Q15
+        bool isCheckpoint = (questionNum == 5 || questionNum == 10 || questionNum == 15);
+        
+        if (questionNum == questionNumber) {
+            // Highlight current question with gradient (bôi vàng)
+            label->setStyleSheet(
+                "color: #FFD700;"
+                "font-size: 20px;"
+                "padding: 3px;"
+                "font-weight: bold;"
+                "background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+                "    stop:0 rgba(255, 215, 0, 0.3),"
+                "    stop:1 rgba(255, 215, 0, 0.1));"
+                "border: 1px solid #FFD700;"
+                "border-radius: 5px;"
+            );
+        } else if (isCheckpoint) {
+            // Checkpoint style (vàng mặc định)
+            label->setStyleSheet(
+                "color: #FFD700;"
+                "font-size: 20px;"
+                "padding: 3px;"
+                "font-weight: bold;"
+                "background: transparent;"
+            );
+        } else {
+            // Default style (trắng)
+            label->setStyleSheet(
+                "color: white;"
+                "font-size: 20px;"
+                "padding: 3px;"
+                "background: transparent;"
+            );
+        }
+    }
 }
 
 void GameScreen::updateLifeline5050(const QList<int>& remainingIndices)
 {
     for (int i = 0; i < 4; i++) {
-        if (!remainingIndices.contains(i)) {
+        if (answerButtons_[i] && !remainingIndices.contains(i)) {
             answerButtons_[i]->setEnabled(false);
             answerButtons_[i]->setStyleSheet(
                 "QPushButton {"
@@ -399,9 +310,13 @@ void GameScreen::updateLifeline5050(const QList<int>& remainingIndices)
         }
     }
     lifeline5050Available_ = false;
-    lifeline5050Button_->setEnabled(false);
-    lifelineResultLabel_->setText("50/50: Two wrong answers eliminated!");
-    lifelineResultLabel_->setVisible(true);
+    if (lifeline5050Button_) {
+        lifeline5050Button_->setEnabled(false);
+    }
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->setText("50/50: Two wrong answers eliminated!");
+        lifelineResultLabel_->show();
+    }
 }
 
 void GameScreen::updateLifelinePhone(const QString& suggestion)
@@ -415,7 +330,9 @@ void GameScreen::updateLifelinePhone(const QString& suggestion)
 void GameScreen::updateLifelineAudience(const QMap<QChar, int>& poll)
 {
     lifelineAudienceAvailable_ = false;
-    lifelineAudienceButton_->setEnabled(false);
+    if (lifelineAudienceButton_) {
+        lifelineAudienceButton_->setEnabled(false);
+    }
     
     QString pollText = "Audience Poll Results:\n";
     QList<QChar> labels = {'A', 'B', 'C', 'D'};
@@ -424,8 +341,10 @@ void GameScreen::updateLifelineAudience(const QMap<QChar, int>& poll)
         pollText += QString("%1: %2%\n").arg(label).arg(percent);
     }
     
-    lifelineResultLabel_->setText(pollText);
-    lifelineResultLabel_->setVisible(true);
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->setText(pollText);
+        lifelineResultLabel_->show();
+    }
 }
 
 void GameScreen::showLifelineLoading(const QString& message)
@@ -457,29 +376,24 @@ void GameScreen::resetLifelines()
     lifelineType_.clear();
     
     // Reset lifeline UI
-    lifeline5050Button_->setEnabled(true);
-    lifelinePhoneButton_->setEnabled(true);
-    lifelineAudienceButton_->setEnabled(true);
+    if (lifeline5050Button_) {
+        lifeline5050Button_->setEnabled(true);
+    }
+    if (lifelinePhoneButton_) {
+        lifelinePhoneButton_->setEnabled(true);
+    }
+    if (lifelineAudienceButton_) {
+        lifelineAudienceButton_->setEnabled(true);
+    }
     
-    // Reset button styles to active state
-    QString activeStyle = 
-        "QPushButton {"
-        "  background-color: #FF9800;"
-        "  color: white;"
-        "  font-size: 12px;"
-        "  font-weight: bold;"
-        "  padding: 8px 15px;"
-        "  border-radius: 5px;"
-        "}"
-        "QPushButton:hover { background-color: #F57C00; }";
-    
-    lifeline5050Button_->setStyleSheet(activeStyle);
-    lifelinePhoneButton_->setStyleSheet(activeStyle);
-    lifelineAudienceButton_->setStyleSheet(activeStyle);
+    // Reset button styles to active state (if they have icons, don't override)
+    // The UI file already has styles, so we just need to enable them
     
     // Hide lifeline result
-    lifelineResultLabel_->setVisible(false);
-    lifelineResultLabel_->clear();
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->hide();
+        lifelineResultLabel_->clear();
+    }
 }
 
 void GameScreen::updateAnswerButtons()
@@ -544,8 +458,10 @@ void GameScreen::onTimerTimeout()
 void GameScreen::onRevealTimeout()
 {
     if (answersRevealed_ < 4 && answersRevealed_ < currentOptions_.size()) {
-        answerButtons_[answersRevealed_]->setVisible(true);
-        answerButtons_[answersRevealed_]->setEnabled(true);
+        if (answerButtons_[answersRevealed_]) {
+            answerButtons_[answersRevealed_]->show();
+            answerButtons_[answersRevealed_]->setEnabled(true);
+        }
         answersRevealed_++;
         
         if (answersRevealed_ >= 4 || answersRevealed_ >= currentOptions_.size()) {

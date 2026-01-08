@@ -252,7 +252,7 @@ void MainWindow::processGameEvents()
                 
                 // Update game screen
                 gameScreen_->updateQuestion(QString::fromStdString(question), options, questionNumber);
-                gameScreen_->updatePrize(prize);
+                gameScreen_->updateScore(totalScore);  // BONUS: Update score display
                 gameScreen_->updateTimer(30);
                 gameScreen_->resetForNewQuestion();
                 
@@ -268,6 +268,9 @@ void MainWindow::processGameEvents()
                 gameState_->finalPrize = finalPrize;
                 gameState_->totalScore = totalScore;
                 gameState_->inGame = false;
+                
+                // Update score display before showing result
+                gameScreen_->updateScore(totalScore);
                 
                 onGameEnd();
                 resultScreen_->showResult(finalPrize, totalScore, isWinner);

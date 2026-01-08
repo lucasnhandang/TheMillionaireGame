@@ -1,18 +1,1099 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>GameScreen</class>
+ <widget class="QWidget" name="GameScreen">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>1280</width>
+    <height>800</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1280</width>
+    <height>800</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">  background-color: #0D1B2A;</string>
+  </property>
+  <widget class="QLabel" name="prizeLabel15">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>90</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: #FFD700;
+     font-size: 20px;
+     padding: 3px;
+     font-weight: bold;
+	background: transparent;</string>
+   </property>
+   <property name="text">
+    <string>15      $1 MILLION</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel14">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>130</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>14      $500,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel13">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>170</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>13      $250,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel10">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>290</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: #FFD700;
+     font-size: 20px;
+     padding: 3px;
+     font-weight: bold;
+	background: transparent;</string>
+   </property>
+   <property name="text">
+    <string>10      $32,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel12">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>210</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>12      $125,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel11">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>250</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>11      $64,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel6">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>450</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  6      $2,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel5">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>490</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: #FFD700;
+     font-size: 20px;
+     padding: 3px;
+     font-weight: bold;
+	background: transparent;</string>
+   </property>
+   <property name="text">
+    <string>  5      $1,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel7">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>410</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  7      $4,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel9">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>330</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  9      $16,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel4">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>530</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  4      $500</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel8">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>370</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  8      $8,000</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel2">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>610</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  2      $200</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel1">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>650</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  1      $100</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="prizeLabel3">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>570</y>
+     <width>241</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Copperplate Gothic</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     padding: 3px;
+ background:transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>  3      $300</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="walkAwayButton">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>20</y>
+     <width>131</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Cascadia Code</family>
+     <pointsize>-1</pointsize>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #F44336;
+       color: white;
+       font-size: 14px;
+       font-weight: bold;
+       padding: 10px 20px;
+       border-radius: 5px;
+       border: none;
+     }
+     QPushButton:hover {
+       background-color: #D32F2F;
+     }</string>
+   </property>
+   <property name="text">
+    <string>WALK AWAY</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="timerLabel">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>120</y>
+     <width>81</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     background-color: #001844;
+     color: white;
+     font-size: 24px;
+     font-weight: bold;
+     padding: 10px 20px;
+     border-radius: 30px;
+     min-width: 20px;</string>
+   </property>
+   <property name="text">
+    <string>30</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="scoreLabel">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>80</y>
+     <width>121</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 16px;
+     font-weight: bold;
+	background: transparent;</string>
+   </property>
+   <property name="text">
+    <string>Score: 0</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="lifeline5050Button">
+   <property name="geometry">
+    <rect>
+     <x>940</x>
+     <y>20</y>
+     <width>101</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #FF9800;
+       color: white;
+       font-size: 12px;
+       font-weight: bold;
+       padding: 8px 15px;
+       border-radius: 5px;
+       border: none;
+       min-width: 60px;
+       min-height: 40px;
+		background: transparent;
+     }
+     QPushButton:hover {
+       background-color: #F57C00;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>assets/lifeline_5050.png</normaloff>assets/lifeline_5050.png</iconset>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>100</width>
+     <height>100</height>
+    </size>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="lifelinePhoneButton">
+   <property name="geometry">
+    <rect>
+     <x>1050</x>
+     <y>20</y>
+     <width>101</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #FF9800;
+       color: white;
+       font-size: 12px;
+       font-weight: bold;
+       padding: 8px 15px;
+       border-radius: 5px;
+       border: none;
+       min-width: 60px;
+       min-height: 40px;
+		background: transparent;
+     }
+     QPushButton:hover {
+       background-color: #F57C00;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>assets/lifeline_phone.png</normaloff>assets/lifeline_phone.png</iconset>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>100</width>
+     <height>100</height>
+    </size>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="lifelinAskButton">
+   <property name="geometry">
+    <rect>
+     <x>1160</x>
+     <y>20</y>
+     <width>101</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #FF9800;
+       color: white;
+       font-size: 12px;
+       font-weight: bold;
+       padding: 8px 15px;
+       border-radius: 5px;
+       border: none;
+       min-width: 60px;
+       min-height: 40px;
+		background: transparent;
+     }
+     QPushButton:hover {
+       background-color: #F57C00;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>assets/lifeline_audience.png</normaloff>assets/lifeline_audience.png</iconset>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>100</width>
+     <height>100</height>
+    </size>
+   </property>
+  </widget>
+  <widget class="QWidget" name="prizePanel" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>271</width>
+     <height>801</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 #0A0E1A,
+    stop:0.2 #1A1A2E,
+    stop:0.5 #16213E,
+    stop:0.8 #0F1B2E,
+    stop:1 #0A0E1A);
+border-radius: 10px;
+padding: 10px;
+border: 1px solid rgba(255, 255, 255, 0.1);</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="questionPanel">
+   <property name="geometry">
+    <rect>
+     <x>270</x>
+     <y>290</y>
+     <width>1011</width>
+     <height>131</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>assets/quespan.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="questionLabel">
+   <property name="geometry">
+    <rect>
+     <x>350</x>
+     <y>300</y>
+     <width>851</width>
+     <height>101</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: white;
+     font-size: 20px;
+     font-weight: bold;
+     padding: 20px;
+     background-color: #0F3460;
+     border-radius: 10px;
+     min-height: 50px;
+	background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string>Waiting for questions ..</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="answerA">
+   <property name="geometry">
+    <rect>
+     <x>270</x>
+     <y>470</y>
+     <width>511</width>
+     <height>91</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>assets/quespan.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="answerB">
+   <property name="geometry">
+    <rect>
+     <x>770</x>
+     <y>470</y>
+     <width>511</width>
+     <height>91</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>assets/quespan.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="answerC">
+   <property name="geometry">
+    <rect>
+     <x>270</x>
+     <y>570</y>
+     <width>511</width>
+     <height>91</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>assets/quespan.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="answerD">
+   <property name="geometry">
+    <rect>
+     <x>770</x>
+     <y>570</y>
+     <width>511</width>
+     <height>91</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background: transparent;
+</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>assets/quespan.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="answerButtonA">
+   <property name="geometry">
+    <rect>
+     <x>310</x>
+     <y>490</y>
+     <width>431</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #1E88E5;
+       color: white;
+       font-size: 24px;
+       font-weight: bold;
+       padding: 15px 30px;
+       border-radius: 10px;
+       min-height: 20px;
+       text-align: left;
+	background: transparent;
+
+     }
+     QPushButton:hover {
+       background-color: #1976D2;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string>A</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="answerButtonB">
+   <property name="geometry">
+    <rect>
+     <x>810</x>
+     <y>490</y>
+     <width>431</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #1E88E5;
+       color: white;
+       font-size: 24px;
+       font-weight: bold;
+       padding: 15px 30px;
+       border-radius: 10px;
+       min-height: 20px;
+       text-align: left;
+	background: transparent;
+
+     }
+     QPushButton:hover {
+       background-color: #1976D2;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string>B</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="answerButtonC">
+   <property name="geometry">
+    <rect>
+     <x>310</x>
+     <y>590</y>
+     <width>431</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #1E88E5;
+       color: white;
+       font-size: 24px;
+       font-weight: bold;
+       padding: 15px 30px;
+       border-radius: 10px;
+       min-height: 20px;
+       text-align: left;
+	background: transparent;
+
+     }
+     QPushButton:hover {
+       background-color: #1976D2;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string>C</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="answerButtonD">
+   <property name="geometry">
+    <rect>
+     <x>810</x>
+     <y>590</y>
+     <width>431</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #1E88E5;
+       color: white;
+       font-size: 24px;
+       font-weight: bold;
+       padding: 15px 30px;
+       border-radius: 10px;
+       min-height: 20px;
+       text-align: left;
+	background: transparent;
+
+     }
+     QPushButton:hover {
+       background-color: #1976D2;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+       color: #888888;
+     }</string>
+   </property>
+   <property name="text">
+    <string>D</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="submitButton">
+   <property name="geometry">
+    <rect>
+     <x>690</x>
+     <y>690</y>
+     <width>161</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     QPushButton {
+       background-color: #4CAF50;
+       color: white;
+       font-size: 18px;
+       font-weight: bold;
+       padding: 15px 50px;
+       border-radius: 8px;
+       border: none;
+     }
+     QPushButton:hover {
+       background-color: #45A049;
+     }
+     QPushButton:disabled {
+       background-color: #555555;
+     }</string>
+   </property>
+   <property name="text">
+    <string>Submit</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lifelineResultLabel">
+   <property name="geometry">
+    <rect>
+     <x>950</x>
+     <y>110</y>
+     <width>311</width>
+     <height>161</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     color: #FFD700;
+     font-size: 16px;
+     font-weight: bold;
+     padding: 10px;
+     background-color: rgba(255, 215, 0, 0.1);
+     border-radius: 5px;</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QWidget" name="audiencePollWidget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>439</x>
+     <y>20</y>
+     <width>481</width>
+     <height>251</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">     background-color: rgba(255, 255, 255, 0.1);
+     border-radius: 5px;
+     padding: 10px;</string>
+   </property>
+  </widget>
+  <zorder>prizePanel</zorder>
+  <zorder>prizeLabel14</zorder>
+  <zorder>prizeLabel13</zorder>
+  <zorder>prizeLabel10</zorder>
+  <zorder>prizeLabel12</zorder>
+  <zorder>prizeLabel11</zorder>
+  <zorder>prizeLabel6</zorder>
+  <zorder>prizeLabel5</zorder>
+  <zorder>prizeLabel7</zorder>
+  <zorder>prizeLabel9</zorder>
+  <zorder>prizeLabel4</zorder>
+  <zorder>prizeLabel8</zorder>
+  <zorder>prizeLabel2</zorder>
+  <zorder>prizeLabel1</zorder>
+  <zorder>prizeLabel3</zorder>
+  <zorder>horizontalSpacer</zorder>
+  <zorder>walkAwayButton</zorder>
+  <zorder>horizontalSpacer_2</zorder>
+  <zorder>timerLabel</zorder>
+  <zorder>horizontalSpacer_3</zorder>
+  <zorder>scoreLabel</zorder>
+  <zorder>lifeline5050Button</zorder>
+  <zorder>lifelinePhoneButton</zorder>
+  <zorder>lifelinAskButton</zorder>
+  <zorder>prizeLabel15</zorder>
+  <zorder>questionPanel</zorder>
+  <zorder>questionLabel</zorder>
+  <zorder>answerA</zorder>
+  <zorder>answerB</zorder>
+  <zorder>answerC</zorder>
+  <zorder>answerD</zorder>
+  <zorder>answerButtonA</zorder>
+  <zorder>answerButtonB</zorder>
+  <zorder>answerButtonC</zorder>
+  <zorder>answerButtonD</zorder>
+  <zorder>submitButton</zorder>
+  <zorder>lifelineResultLabel</zorder>
+  <zorder>audiencePollWidget</zorder>
  </widget>
  <resources/>
  <connections/>

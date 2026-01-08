@@ -14,6 +14,11 @@
 #include <QChar>
 #include <QStringList>
 
+// Forward declaration for UI class (generated from .ui file)
+namespace Ui {
+    class GameScreen;
+}
+
 class ProtocolHandler;
 class GameState;
 
@@ -23,6 +28,7 @@ class GameScreen : public QWidget
 
 public:
     explicit GameScreen(QWidget *parent = nullptr);
+    ~GameScreen();
 
     void setProtocolHandler(ProtocolHandler* protocol);
     void setGameState(GameState* gameState);
@@ -56,21 +62,39 @@ private slots:
 
 private:
     void setupUI();
+    void setupConnections();  // Connect signals and slots
+    void setupInitialVisibility();  // Set initial visibility for widgets
     void setupPrizeLadder();
     void updateAnswerButtons();
     void updateLifelineButtons();
     void startTimer();
     void stopTimer();
     void revealNextOption();
+    void highlightPrizeLadder(int questionNumber);  // Highlight current question in prize ladder
 
-    // UI Components
-    QLabel* prizeLadderLabel_;
-    QWidget* prizeLadderWidget_;
+    Ui::GameScreen* ui;  // UI loaded from .ui file
+
+    // UI Components (loaded from UI)
+    QLabel* prizeLabel1_;
+    QLabel* prizeLabel2_;
+    QLabel* prizeLabel3_;
+    QLabel* prizeLabel4_;
+    QLabel* prizeLabel5_;
+    QLabel* prizeLabel6_;
+    QLabel* prizeLabel7_;
+    QLabel* prizeLabel8_;
+    QLabel* prizeLabel9_;
+    QLabel* prizeLabel10_;
+    QLabel* prizeLabel11_;
+    QLabel* prizeLabel12_;
+    QLabel* prizeLabel13_;
+    QLabel* prizeLabel14_;
+    QLabel* prizeLabel15_;
+    QList<QLabel*> prizeLabels_;  // For easy access
+    
     QLabel* questionLabel_;
     QLabel* timerLabel_;
-    QProgressBar* progressBar_;
-    QLabel* prizeLabel_;
-    QLabel* questionNumberLabel_;
+    QLabel* scoreLabel_;  // BONUS: Score display
     
     QPushButton* answerButtonA_;
     QPushButton* answerButtonB_;
@@ -80,8 +104,9 @@ private:
     
     QPushButton* lifeline5050Button_;
     QPushButton* lifelinePhoneButton_;
-    QPushButton* lifelineAudienceButton_;
+    QPushButton* lifelineAudienceButton_;  // Maps to lifelinAskButton in UI
     QPushButton* walkAwayButton_;
+    QPushButton* submitButton_;
     
     QLabel* lifelineResultLabel_;
     QWidget* audiencePollWidget_;
@@ -97,6 +122,7 @@ private:
     int selectedAnswer_;
     int timeRemaining_;
     bool timerRunning_;
+    int totalScore_;  // BONUS: Track total score
     
     QTimer* countdownTimer_;
     QTimer* revealTimer_;

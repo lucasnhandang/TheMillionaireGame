@@ -143,6 +143,7 @@ set(QT_WIDGETS_HEADERS
 # UI files
 set(QT_UI_FILES
     loginscreen.ui
+    gamescreen.ui
 )
 
 # Executable
