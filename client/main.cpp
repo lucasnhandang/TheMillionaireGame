@@ -314,15 +314,30 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 
                 std::string status = MillionaireGame::JsonUtils::extractString(event.data, "status");
                 long long finalPrize = MillionaireGame::JsonUtils::extractInt(event.data, "finalPrize", 0);
+                int totalScore = MillionaireGame::JsonUtils::extractInt(event.data, "totalScore", 0);
                 bool isWinner = MillionaireGame::JsonUtils::extractBool(event.data, "isWinner", false);
                 
                 std::cerr << "[DEBUG] Game ended: status=" << status << ", finalPrize=" << finalPrize 
-                          << ", isWinner=" << isWinner << std::endl;
+                          << ", totalScore=" << totalScore << ", isWinner=" << isWinner << std::endl;
                 
+                // CRITICAL: Clear all game state to prepare for next game
                 state.timerRunning = false;
+                state.timerStartedForThisQuestion = false;
+                state.timerPaused = false;
                 state.inGame = false;
                 state.waitingForQuestion = false;
                 state.onHome = false;
+                state.question.clear();
+                state.options.clear();
+                state.currentQuestionNumber = 0;
+                state.selectedAnswer = -1;
+                state.lifeline5050Remaining.clear();
+                state.lifelinePhoneSuggestion.clear();
+                state.lifelineAudiencePoll.clear();
+                state.lifelineType.clear();
+                state.lifelineProcessing = false;
+                state.lifelineLoadingMessage.clear();
+                state.availableLifelines = {true, true, true};
                 
                 if (isWinner) {
                     state.resultMessage = "🎉 Congratulations! You WON! Prize: " + std::to_string(finalPrize) + " VND";
@@ -332,6 +347,7 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                     state.resultMessage = "You gave up. Prize taken: " + std::to_string(finalPrize) + " VND";
                 }
                 state.finalPrize = finalPrize;
+                state.totalScore = totalScore;  // Store total score for display
                 state.showResultMessage = true;
                 state.resultMessageTime = 5.0f;
                 state.showResultScreen = true;
@@ -685,6 +701,13 @@ int main(int argc, char** argv) {
                 ImGui::Text("Total Winnings:");
                 ImGui::SetWindowFontScale(2.0f);
                 ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "%lld VND", state.finalPrize);
+                ImGui::SetWindowFontScale(1.0f);
+                
+                ImGui::SetCursorPos(ImVec2(200, 300));
+                ImGui::SetWindowFontScale(1.6f);
+                ImGui::Text("Total Score:");
+                ImGui::SetWindowFontScale(2.0f);
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%d points", state.totalScore);
                 ImGui::SetWindowFontScale(1.0f);
 
                 ImGui::SetCursorPos(ImVec2(200, 380));

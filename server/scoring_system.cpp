@@ -9,11 +9,9 @@ ScoringSystem& ScoringSystem::getInstance() {
 }
 
 int ScoringSystem::calculateQuestionScore(int time_remaining, int lifelines_used) {
-    // Base score is time remaining (max 60 seconds)
-    // Each lifeline used reduces score by 5 points
-    int base_score = std::max(0, time_remaining);
-    int lifeline_penalty = lifelines_used * 5;
-    return std::max(0, base_score - lifeline_penalty);
+    // Score is simply the time remaining for this question
+    // No penalty for lifelines used
+    return std::max(0, time_remaining);
 }
 
 int ScoringSystem::calculateTotalScore(const std::vector<int>& question_scores) {

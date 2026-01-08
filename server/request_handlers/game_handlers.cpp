@@ -229,8 +229,8 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
     
     // time_remaining already calculated above in timeout check
     if (time_remaining < 0) time_remaining = 0;
-    int lifelines_used = session.used_lifelines.size();
-    int points_earned = ScoringSystem::getInstance().calculateQuestionScore(time_remaining, lifelines_used);
+    // Points earned = time remaining (no penalty for lifelines)
+    int points_earned = time_remaining;
 
     // Record answer in database
     int response_time = 30 - time_remaining;  // Calculate response time (30 second timer)
