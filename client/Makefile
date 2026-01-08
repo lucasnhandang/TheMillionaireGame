@@ -7,10 +7,10 @@ UNAME_S := $(shell uname -s)
 # Platform-specific settings
 ifeq ($(UNAME_S),Darwin)  # macOS
     CXX = clang++
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -DTEXTURE_LOADER_ENABLE_STB $(GLFW_CFLAGS)
+    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends $(GLFW_CFLAGS)
     LDFLAGS = -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 else  # Linux
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -DTEXTURE_LOADER_ENABLE_STB -I./third_party $(GLFW_CFLAGS)
+    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends $(GLFW_CFLAGS)
     LDFLAGS = -pthread -lGL -lGLU -lX11 -lXrandr -lXinerama -lXcursor -ldl -lrt
 endif
 
@@ -22,7 +22,7 @@ IMGUI_DIR = ../imgui
 GLFW_DIR = ../glfw
 
 # Source files
-CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp texture_loader.cpp stb_image_impl.cpp
+CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp texture_loader.cpp
 IMGUI_SRC = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp \
             $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 IMGUI_BACKEND_SRC = $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
