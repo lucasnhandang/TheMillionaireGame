@@ -30,23 +30,38 @@ make
 1. Kiểm tra Qt5 đã được cài đặt:
    ```bash
    qmake --version
-   which qmake
    ```
 
-2. Nếu qmake không có, cài đặt:
+2. Tìm file Qt5Config.cmake:
    ```bash
-   sudo apt-get install qtbase5-dev qt5-qmake
+   find /usr -name "Qt5Config.cmake" 2>/dev/null
    ```
 
-3. Nếu qmake có nhưng CMake không tìm thấy, chỉ định đường dẫn:
+3. Sau khi tìm thấy file (ví dụ: `/usr/lib/x86_64-linux-gnu/cmake/Qt5/Qt5Config.cmake`), 
+   chạy cmake với đường dẫn thư mục chứa Qt5Config.cmake:
    ```bash
-   export CMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5:$CMAKE_PREFIX_PATH
+   # Ví dụ nếu tìm thấy tại /usr/lib/x86_64-linux-gnu/cmake/Qt5/Qt5Config.cmake
+   cmake -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5 ..
+   ```
+   
+   HOẶC set biến môi trường:
+   ```bash
+   export CMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5
    cmake ..
    ```
 
-4. Hoặc build với đường dẫn Qt cụ thể:
+4. Nếu vẫn không tìm thấy, thử:
    ```bash
-   cmake -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5 ..
+   # Tìm tất cả thư mục chứa Qt5
+   find /usr -type d -name "Qt5" 2>/dev/null | grep cmake
+   
+   # Sau đó thử với từng đường dẫn tìm được
+   cmake -DCMAKE_PREFIX_PATH=<đường_dẫn_tìm_được> ..
+   ```
+
+5. Nếu qmake không có, cài đặt:
+   ```bash
+   sudo apt-get install qtbase5-dev qt5-qmake
    ```
 
 Executable sẽ được tạo tại `build/MillionaireGameClient`

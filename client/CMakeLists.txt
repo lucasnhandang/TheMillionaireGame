@@ -5,40 +5,96 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find Qt5 - try multiple methods for Linux compatibility
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} $ENV{QT_DIR} /usr/lib/x86_64-linux-gnu/cmake/Qt5 /usr/lib/qt5)
+# First, try to get Qt path from qmake
+find_program(QMAKE_EXECUTABLE NAMES qmake qmake5 PATHS
+    /usr/bin
+    /usr/lib/x86_64-linux-gnu/qt5/bin
+    /usr/lib/qt5/bin
+    $ENV{QT_DIR}/bin
+    /opt/qt5/bin
+)
 
-# Try to find Qt5 using different methods
+if(QMAKE_EXECUTABLE)
+    execute_process(
+        COMMAND ${QMAKE_EXECUTABLE} -query QT_INSTALL_PREFIX
+        OUTPUT_VARIABLE QT_INSTALL_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    execute_process(
+        COMMAND ${QMAKE_EXECUTABLE} -query QT_INSTALL_LIBS
+        OUTPUT_VARIABLE QT_INSTALL_LIBS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    if(QT_INSTALL_PREFIX)
+        # Common locations for Qt5Config.cmake
+        set(CMAKE_PREFIX_PATH 
+            ${CMAKE_PREFIX_PATH}
+            ${QT_INSTALL_PREFIX}
+            ${QT_INSTALL_PREFIX}/lib/cmake
+            ${QT_INSTALL_PREFIX}/lib/x86_64-linux-gnu/cmake/Qt5
+            ${QT_INSTALL_PREFIX}/lib64/cmake
+        )
+        message(STATUS "Found Qt installation at: ${QT_INSTALL_PREFIX}")
+    endif()
+    
+    if(QT_INSTALL_LIBS)
+        set(CMAKE_PREFIX_PATH 
+            ${CMAKE_PREFIX_PATH}
+            ${QT_INSTALL_LIBS}/cmake
+            ${QT_INSTALL_LIBS}/cmake/Qt5
+        )
+    endif()
+endif()
+
+# Add common Linux Qt5 paths
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH}
+    /usr/lib/x86_64-linux-gnu
+    /usr/lib/x86_64-linux-gnu/cmake/Qt5
+    /usr/lib/x86_64-linux-gnu/qt5
+    /usr/lib/x86_64-linux-gnu/qt5/lib/cmake/Qt5
+    /usr/lib/qt5
+    /usr/lib/qt5/lib/cmake/Qt5
+    $ENV{QT_DIR}
+    $ENV{CMAKE_PREFIX_PATH}
+)
+
+# Try to find Qt5
 find_package(Qt5 QUIET COMPONENTS Core Widgets Gui)
 
 if(NOT Qt5_FOUND)
-    # If Qt5 not found, try alternative paths
-    message(STATUS "Qt5 not found in standard paths, trying alternatives...")
+    # Last resort: try to find Qt5Config.cmake directly
+    message(STATUS "Qt5 not found in standard paths, searching for Qt5Config.cmake...")
     
-    # Check if qmake is available and get Qt path from it
-    find_program(QMAKE_EXECUTABLE NAMES qmake qmake5 PATHS
-        /usr/bin
-        /usr/lib/qt5/bin
-        $ENV{QT_DIR}/bin
-        /opt/qt5/bin
+    file(GLOB_RECURSE QT5_CONFIG_FILE 
+        "/usr/lib/*/cmake/Qt5/Qt5Config.cmake"
+        "/usr/lib/*/Qt5Config.cmake"
     )
     
-    if(QMAKE_EXECUTABLE)
-        execute_process(
-            COMMAND ${QMAKE_EXECUTABLE} -query QT_INSTALL_PREFIX
-            OUTPUT_VARIABLE QT_INSTALL_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QT_INSTALL_PREFIX})
-        message(STATUS "Found Qt at: ${QT_INSTALL_PREFIX}")
+    if(QT5_CONFIG_FILE)
+        get_filename_component(QT5_CONFIG_DIR ${QT5_CONFIG_FILE} DIRECTORY)
+        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QT5_CONFIG_DIR}/..)
+        message(STATUS "Found Qt5Config.cmake at: ${QT5_CONFIG_FILE}")
+        message(STATUS "Adding to CMAKE_PREFIX_PATH: ${QT5_CONFIG_DIR}/..")
     endif()
     
     find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
 endif()
 
 if(NOT Qt5_FOUND)
-    message(FATAL_ERROR "Qt5 not found! Please install Qt5 development packages:\n"
-        "  sudo apt-get install qtbase5-dev qt5-qmake\n"
-        "  sudo apt-get install libqt5widgets5 libqt5core5a libqt5gui5")
+    message(FATAL_ERROR "\n"
+        "========================================\n"
+        "Qt5 not found!\n"
+        "========================================\n\n"
+        "Please run these commands to find Qt5Config.cmake:\n"
+        "  find /usr -name 'Qt5Config.cmake' 2>/dev/null\n\n"
+        "Then set CMAKE_PREFIX_PATH:\n"
+        "  cmake -DCMAKE_PREFIX_PATH=<path_to_Qt5Config.cmake's_directory>/.. ..\n\n"
+        "Or install Qt5 development packages:\n"
+        "  sudo apt-get install qtbase5-dev\n")
 endif()
 
 message(STATUS "Found Qt5 version: ${Qt5_VERSION}")
