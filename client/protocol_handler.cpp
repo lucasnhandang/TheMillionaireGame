@@ -1,11 +1,20 @@
 #include "protocol_handler.h"
+#include "game_event.h"
 #include <chrono>
 #include <thread>
 #include <sstream>
 #include <iostream>
 
 ProtocolHandler::ProtocolHandler(SocketClient* client)
-    : currentGameId(0), currentQuestionNumber(0), client_(client) {
+    : currentGameId(0), currentQuestionNumber(0), client_(client), eventQueue_(new GameEventQueue()) {
+}
+
+ProtocolHandler::~ProtocolHandler() {
+    delete eventQueue_;
+}
+
+GameEventQueue* ProtocolHandler::getEventQueue() const {
+    return eventQueue_;
 }
 
 ProtocolHandler::LoginResponse ProtocolHandler::login(const std::string& username, const std::string& password) {

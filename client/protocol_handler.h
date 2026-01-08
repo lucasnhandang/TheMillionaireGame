@@ -8,9 +8,12 @@
 #include <vector>
 #include <functional>
 
+class GameEventQueue;
+
 class ProtocolHandler {
 public:
     ProtocolHandler(SocketClient* client);
+    ~ProtocolHandler();
     
     // Authentication
     struct LoginResponse {
@@ -173,8 +176,13 @@ public:
     // Wait for response
     SocketClient::Message waitForResponse(int timeoutMs = 5000);
     
+    // Accessors for Qt integration
+    SocketClient* getClient() const { return client_; }
+    class GameEventQueue* getEventQueue() const;
+    
 private:
     SocketClient* client_;
+    class GameEventQueue* eventQueue_;
     std::string buildDataJson(const std::map<std::string, std::string>& strings,
                               const std::map<std::string, int>& ints = {},
                               const std::map<std::string, bool>& bools = {});
