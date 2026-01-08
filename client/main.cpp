@@ -871,13 +871,11 @@ int main(int argc, char** argv) {
                 }
             } else {
                 // Game in progress
-                if (state.waitingForQuestion) {
+                // Check if we have question data - if yes, display it even if waitingForQuestion is true
+                if (state.waitingForQuestion && state.question.empty()) {
                     ImGui::Text("Waiting for question...");
-                    ImGui::Text("(Debug: questionNumber=%d, questionEmpty=%s, inGame=%d)", 
-                                state.currentQuestionNumber, 
-                                state.question.empty() ? "YES" : "NO",
-                                state.inGame ? 1 : 0);
-                } else {
+                } else if (!state.question.empty() || state.currentQuestionNumber > 0) {
+                    // We have question data, display it
                     ImGui::Text("Question %d of 15", state.currentQuestionNumber);
 
                     // Walk Away (top-left of question panel)
@@ -966,10 +964,8 @@ int main(int argc, char** argv) {
                     ImGui::Text("Score: %d points", state.totalScore);
                     ImGui::Separator();
                     
-                    // Display question (even if empty, to debug)
-                    if (state.question.empty()) {
-                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[DEBUG] Question is empty!");
-                    } else {
+                    // Display question
+                    if (!state.question.empty()) {
                         ImGui::TextWrapped("%s", state.question.c_str());
                     }
                     ImGui::Separator();
