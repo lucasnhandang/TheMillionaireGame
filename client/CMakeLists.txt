@@ -63,7 +63,7 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH}
 )
 
 # Try to find Qt5
-find_package(Qt5 QUIET COMPONENTS Core Widgets Gui)
+    find_package(Qt5 QUIET COMPONENTS Core Widgets Gui REQUIRED)
 
 if(NOT Qt5_FOUND)
     # Last resort: try to find Qt5Config.cmake directly
@@ -81,7 +81,7 @@ if(NOT Qt5_FOUND)
         message(STATUS "Adding to CMAKE_PREFIX_PATH: ${QT5_CONFIG_DIR}/..")
     endif()
     
-    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
+    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui REQUIRED)
 endif()
 
 if(NOT Qt5_FOUND)
@@ -152,7 +152,6 @@ target_link_libraries(${PROJECT_NAME}
     Qt5::Core
     Qt5::Widgets
     Qt5::Gui
-    Qt5::Network
 )
 
 # Linux-specific libraries for sockets
