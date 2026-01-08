@@ -5,11 +5,13 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QStringList>
+#include <iostream>
 
 HomeScreen::HomeScreen(QWidget *parent)
     : QWidget(parent)
     , protocol_(nullptr)
     , demoMode_(false)
+    , userRole_("user")
 {
     setupUI();
     loadLogo();
@@ -17,8 +19,33 @@ HomeScreen::HomeScreen(QWidget *parent)
 
 void HomeScreen::setupUI()
 {
-    QHBoxLayout* mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(50, 50, 50, 50);
+    QVBoxLayout* rootLayout = new QVBoxLayout(this);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+    
+    // Admin badge at top right
+    adminBadge_ = new QLabel("ADMIN", this);
+    adminBadge_->setStyleSheet(
+        "background-color: #9C27B0;"
+        "color: white;"
+        "font-size: 12px;"
+        "font-weight: bold;"
+        "padding: 5px 15px;"
+        "border-radius: 12px;"
+    );
+    adminBadge_->setAlignment(Qt::AlignCenter);
+    adminBadge_->setFixedSize(80, 24);
+    adminBadge_->setVisible(false);  // Hidden by default
+    
+    QHBoxLayout* badgeLayout = new QHBoxLayout();
+    badgeLayout->setContentsMargins(0, 10, 15, 0);
+    badgeLayout->addStretch();
+    badgeLayout->addWidget(adminBadge_);
+    rootLayout->addLayout(badgeLayout);
+    
+    // Main content area
+    QHBoxLayout* mainLayout = new QHBoxLayout();
+    mainLayout->setContentsMargins(50, 20, 50, 50);
     mainLayout->setSpacing(50);
     
     // Left side - Logo
@@ -152,6 +179,26 @@ void HomeScreen::setupUI()
     connect(friendsButton_, &QPushButton::clicked, this, &HomeScreen::friendsClicked);
     rightLayout->addWidget(friendsButton_);
     
+    // Admin Panel button (hidden by default)
+    adminPanelButton_ = new QPushButton("Admin Panel", this);
+    adminPanelButton_->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #9C27B0;"
+        "  color: white;"
+        "  font-size: 18px;"
+        "  padding: 15px 80px;"
+        "  border-radius: 10px;"
+        "  border: none;"
+        "  min-width: 280px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #7B1FA2;"
+        "}"
+    );
+    connect(adminPanelButton_, &QPushButton::clicked, this, &HomeScreen::adminPanelClicked);
+    adminPanelButton_->setVisible(false);  // Hidden by default
+    rightLayout->addWidget(adminPanelButton_);
+    
     errorLabel_ = new QLabel(this);
     errorLabel_->setStyleSheet("color: #F44336; font-size: 14px;");
     errorLabel_->setAlignment(Qt::AlignCenter);
@@ -161,6 +208,8 @@ void HomeScreen::setupUI()
     
     rightPanel->setLayout(rightLayout);
     mainLayout->addWidget(rightPanel, 1);
+    
+    rootLayout->addLayout(mainLayout);
     
     setStyleSheet("background-color: #0D1B2A; color: white;");
 }
@@ -201,6 +250,19 @@ void HomeScreen::setDemoMode(bool demoMode)
 void HomeScreen::setUsername(const QString& username)
 {
     usernameLabel_->setText(QString("Welcome, %1!").arg(username));
+}
+
+void HomeScreen::setUserRole(const QString& role)
+{
+    userRole_ = role;
+    
+    // Show/hide admin elements based on role
+    bool isAdmin = (role.toLower() == "admin");
+    std::cerr << "[DEBUG] HomeScreen::setUserRole - role: '" << role.toStdString() 
+              << "', isAdmin: " << (isAdmin ? "true" : "false") << std::endl;
+    
+    adminBadge_->setVisible(isAdmin);
+    adminPanelButton_->setVisible(isAdmin);
 }
 
 void HomeScreen::showError(const QString& message)

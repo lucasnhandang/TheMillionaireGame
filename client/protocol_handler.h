@@ -161,6 +161,39 @@ public:
     int deleteQuestion(int questionId);
     int banUser(const std::string& username, const std::string& reason);
     
+    struct QuestionDetail {
+        int responseCode;
+        int questionId;
+        std::string question;
+        std::vector<std::string> options;
+        int correctAnswer;
+        int level;
+        std::string lifeline_5050_info;
+        std::string lifeline_ask_info;
+        std::string lifeline_call_info;
+    };
+    QuestionDetail getQuestionDetail(int questionId);
+    
+    // User management
+    struct UserListEntry {
+        std::string username;
+        std::string role;
+        bool isBanned;
+        int totalGames;
+        long long highestPrize;
+    };
+    struct ViewUsersResponse {
+        int responseCode;
+        std::vector<UserListEntry> users;
+        int total;
+        int page;
+        int limit;
+    };
+    ViewUsersResponse viewUsers(int page = 1, int limit = 10);
+    
+    int promoteUser(const std::string& username);
+    int revokeAdmin(const std::string& username);
+    
     // Game state
     int currentGameId;
     int currentQuestionNumber;

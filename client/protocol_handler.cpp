@@ -45,9 +45,11 @@ ProtocolHandler::LoginResponse ProtocolHandler::login(const std::string& usernam
     response.message = MillionaireGame::JsonUtils::extractString(msg.data, "message");
     
     if (response.responseCode == 200) {
+        std::cerr << "[DEBUG] ProtocolHandler - Full login response: " << msg.data << std::endl;
         response.authToken = MillionaireGame::JsonUtils::extractString(msg.data, "authToken");
         response.username = MillionaireGame::JsonUtils::extractString(msg.data, "username");
         response.role = MillionaireGame::JsonUtils::extractString(msg.data, "role");
+        std::cerr << "[DEBUG] ProtocolHandler - Extracted role: '" << response.role << "'" << std::endl;
         
         this->authToken = response.authToken;
         this->username = response.username;
@@ -748,10 +750,59 @@ ProtocolHandler::ViewQuestionsResponse ProtocolHandler::viewQuestions(int page, 
     }
     
     response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
-    response.total = MillionaireGame::JsonUtils::extractInt(msg.data, "total", 0);
-    response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
     
-    // TODO: Parse questions array from JSON
+    if (response.responseCode == 200) {
+        // Basic metadata
+        response.total = MillionaireGame::JsonUtils::extractInt(msg.data, "total", 0);
+        response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
+        
+        // Parse questions array from JSON (similar approach as viewUsers)
+        size_t questions_start = msg.data.find("\"questions\"");
+        if (questions_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", questions_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                while (pos < msg.data.length()) {
+                    // Skip whitespace
+                    while (pos < msg.data.length() &&
+                           (msg.data[pos] == ' ' || msg.data[pos] == '\t' || msg.data[pos] == '\n')) {
+                        pos++;
+                    }
+                    if (pos >= msg.data.length() || msg.data[pos] == ']') {
+                        break;
+                    }
+                    
+                    // Find object
+                    if (msg.data[pos] == '{') {
+                        size_t obj_end = msg.data.find("}", pos);
+                        if (obj_end != std::string::npos) {
+                            std::string question_obj = msg.data.substr(pos, obj_end - pos + 1);
+                            
+                            QuestionInfo q;
+                            q.questionId = MillionaireGame::JsonUtils::extractInt(question_obj, "questionId", -1);
+                            q.question = MillionaireGame::JsonUtils::extractString(question_obj, "question");
+                            q.level = MillionaireGame::JsonUtils::extractInt(question_obj, "level", 0);
+                            
+                            if (q.questionId != -1) {
+                                response.questions.push_back(q);
+                            }
+                            
+                            pos = obj_end + 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Skip comma / whitespace between objects
+                    while (pos < msg.data.length() &&
+                           (msg.data[pos] == ',' || msg.data[pos] == ' ' ||
+                            msg.data[pos] == '\t' || msg.data[pos] == '\n')) {
+                        pos++;
+                    }
+                }
+            }
+        }
+    }
     
     return response;
 }
@@ -786,6 +837,165 @@ int ProtocolHandler::banUser(const std::string& username, const std::string& rea
     std::string data = buildDataJson(strings);
     
     if (!client_->sendRequest("BAN_USER", data)) {
+        return 503;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        return 504;
+    }
+    
+    return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+}
+
+ProtocolHandler::QuestionDetail ProtocolHandler::getQuestionDetail(int questionId) {
+    QuestionDetail detail;
+    detail.responseCode = 500;
+    detail.questionId = questionId;
+    
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    
+    std::map<std::string, int> ints;
+    ints["questionId"] = questionId;
+    
+    std::string data = buildDataJson(strings, ints);
+    
+    if (!client_->sendRequest("GET_QUESTION", data)) {
+        detail.responseCode = 503;
+        return detail;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        detail.responseCode = 504;
+        return detail;
+    }
+    
+    detail.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (detail.responseCode != 200) {
+        return detail;
+    }
+    
+    // Parse fields
+    detail.questionId = MillionaireGame::JsonUtils::extractInt(msg.data, "questionId", questionId);
+    detail.question = MillionaireGame::JsonUtils::extractString(msg.data, "question");
+    
+    detail.options.clear();
+    detail.options.push_back(MillionaireGame::JsonUtils::extractString(msg.data, "optionA"));
+    detail.options.push_back(MillionaireGame::JsonUtils::extractString(msg.data, "optionB"));
+    detail.options.push_back(MillionaireGame::JsonUtils::extractString(msg.data, "optionC"));
+    detail.options.push_back(MillionaireGame::JsonUtils::extractString(msg.data, "optionD"));
+    
+    detail.correctAnswer = MillionaireGame::JsonUtils::extractInt(msg.data, "correctAnswer", 0);
+    detail.level = MillionaireGame::JsonUtils::extractInt(msg.data, "level", 0);
+    
+    detail.lifeline_5050_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_5050_info");
+    detail.lifeline_ask_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_ask_info");
+    detail.lifeline_call_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_call_info");
+    
+    return detail;
+}
+
+ProtocolHandler::ViewUsersResponse ProtocolHandler::viewUsers(int page, int limit) {
+    ViewUsersResponse response;
+    response.responseCode = 500;
+    
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    
+    std::map<std::string, int> ints;
+    ints["page"] = page;
+    ints["limit"] = limit;
+    
+    std::string data = buildDataJson(strings, ints);
+    
+    if (!client_->sendRequest("VIEW_USERS", data)) {
+        response.responseCode = 503;
+        return response;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        response.responseCode = 504;
+        return response;
+    }
+    
+    response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    
+    if (response.responseCode == 200) {
+        response.total = MillionaireGame::JsonUtils::extractInt(msg.data, "total", 0);
+        response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
+        response.limit = MillionaireGame::JsonUtils::extractInt(msg.data, "limit", 10);
+        
+        // Parse users array
+        size_t users_start = msg.data.find("\"users\"");
+        if (users_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", users_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                while (pos < msg.data.length()) {
+                    // Skip whitespace
+                    while (pos < msg.data.length() && (msg.data[pos] == ' ' || msg.data[pos] == '\t' || msg.data[pos] == '\n')) pos++;
+                    if (pos >= msg.data.length() || msg.data[pos] == ']') break;
+                    
+                    // Find object
+                    if (msg.data[pos] == '{') {
+                        size_t obj_end = msg.data.find("}", pos);
+                        if (obj_end != std::string::npos) {
+                            std::string user_obj = msg.data.substr(pos, obj_end - pos + 1);
+                            
+                            UserListEntry user;
+                            user.username = MillionaireGame::JsonUtils::extractString(user_obj, "username");
+                            user.role = MillionaireGame::JsonUtils::extractString(user_obj, "role");
+                            user.isBanned = MillionaireGame::JsonUtils::extractBool(user_obj, "isBanned", false);
+                            user.totalGames = MillionaireGame::JsonUtils::extractInt(user_obj, "totalGames", 0);
+                            user.highestPrize = MillionaireGame::JsonUtils::extractLongLong(user_obj, "highestPrize", 0);
+                            
+                            response.users.push_back(user);
+                            pos = obj_end + 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Skip comma
+                    while (pos < msg.data.length() && (msg.data[pos] == ',' || msg.data[pos] == ' ' || msg.data[pos] == '\t' || msg.data[pos] == '\n')) pos++;
+                }
+            }
+        }
+    }
+    
+    return response;
+}
+
+int ProtocolHandler::promoteUser(const std::string& username) {
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    strings["username"] = username;
+    
+    std::string data = buildDataJson(strings);
+    
+    if (!client_->sendRequest("PROMOTE_USER", data)) {
+        return 503;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        return 504;
+    }
+    
+    return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+}
+
+int ProtocolHandler::revokeAdmin(const std::string& username) {
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    strings["username"] = username;
+    
+    std::string data = buildDataJson(strings);
+    
+    if (!client_->sendRequest("REVOKE_ADMIN", data)) {
         return 503;
     }
     

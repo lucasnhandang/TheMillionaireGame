@@ -19,7 +19,7 @@ int main(int argc, char** argv)
             demoMode = true;
             std::cout << "Running in DEMO MODE (no server connection)" << std::endl;
         } else {
-            host = argv[1];
+        host = argv[1];
         }
     }
     if (argc > 2 && !demoMode) {
@@ -43,8 +43,8 @@ int main(int argc, char** argv)
         }
         protocol = new ProtocolHandler(client);
         window.setProtocolHandler(protocol);
-    }
-    
+                }
+                
     window.show();
     
     int result = app.exec();
@@ -52,13 +52,13 @@ int main(int argc, char** argv)
     // Cleanup
     if (!demoMode) {
         if (protocol) {
-            protocol->logout();
-            delete protocol;
-        }
+        protocol->logout();
+        delete protocol;
+    }
         if (client) {
-            client->disconnect();
-            delete client;
-        }
+        client->disconnect();
+        delete client;
+    }
     }
     
     return result;

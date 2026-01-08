@@ -18,6 +18,7 @@ public:
     void setProtocolHandler(ProtocolHandler* protocol);
     void setDemoMode(bool demoMode);
     void setUsername(const QString& username);
+    void setUserRole(const QString& role);  // Set user role (admin/user)
     void showError(const QString& message);
 
 signals:
@@ -26,6 +27,7 @@ signals:
     void settingsClicked();
     void instructionsClicked();
     void friendsClicked();
+    void adminPanelClicked();
 
 private slots:
     void onPlayGameClicked();
@@ -42,11 +44,14 @@ private:
     QPushButton* settingsButton_;
     QPushButton* instructionsButton_;
     QPushButton* friendsButton_;
+    QPushButton* adminPanelButton_;  // Admin panel button
     QLabel* errorLabel_;
     QLabel* usernameLabel_;
+    QLabel* adminBadge_;  // Admin badge
     
     ProtocolHandler* protocol_;
     bool demoMode_;
+    QString userRole_;  // Store user role
     QPixmap logoPixmap_;
 };
 

@@ -59,6 +59,34 @@ int extractInt(const string& json, const string& key, int default_value) {
     }
 }
 
+long long extractLongLong(const string& json, const string& key, long long default_value) {
+    string search_key = "\"" + key + "\"";
+    size_t pos = json.find(search_key);
+    if (pos == string::npos) return default_value;
+    
+    pos = json.find(':', pos);
+    if (pos == string::npos) return default_value;
+    pos++;
+    
+    while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t')) {
+        pos++;
+    }
+    
+    if (pos >= json.length()) return default_value;
+    
+    size_t end = pos;
+    while (end < json.length() && json[end] != ',' && json[end] != '}' && json[end] != ']' && json[end] != ' ') {
+        end++;
+    }
+    
+    string value_str = json.substr(pos, end - pos);
+    try {
+        return stoll(value_str);
+    } catch (...) {
+        return default_value;
+    }
+}
+
 bool extractBool(const string& json, const string& key, bool default_value) {
     string search_key = "\"" + key + "\"";
     size_t pos = json.find(search_key);

@@ -24,6 +24,12 @@ namespace JsonUtils {
     int extractInt(const std::string& json, const std::string& key, int default_value = 0);
     
     /**
+     * Extract long long value from JSON
+     * Looks for "key":value pattern
+     */
+    long long extractLongLong(const std::string& json, const std::string& key, long long default_value = 0);
+    
+    /**
      * Extract boolean value from JSON
      * Looks for "key":true/false pattern
      */

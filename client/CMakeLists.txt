@@ -130,6 +130,9 @@ set(QT_WIDGETS_SRC
     homescreen.cpp
     gamescreen.cpp
     resultscreen.cpp
+    adminpanelscreen.cpp
+    addquestiondialog.cpp
+    editquestiondialog.cpp
 )
 
 set(QT_WIDGETS_HEADERS
@@ -138,6 +141,9 @@ set(QT_WIDGETS_HEADERS
     homescreen.h
     gamescreen.h
     resultscreen.h
+    adminpanelscreen.h
+    addquestiondialog.h
+    editquestiondialog.h
 )
 
 # Executable

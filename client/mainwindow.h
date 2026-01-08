@@ -11,6 +11,7 @@ class LoginScreen;
 class HomeScreen;
 class GameScreen;
 class ResultScreen;
+class AdminPanelScreen;
 class GameState;
 
 class MainWindow : public QMainWindow
@@ -25,11 +26,12 @@ public:
     void setDemoMode(bool demoMode);
 
 private slots:
-    void onLoginSuccess();
+    void onLoginSuccess(const QString& username, const QString& role);
     void onGameStart();
     void onGameEnd();
     void onShowResult();
     void onBackToHome();
+    void onAdminPanelClicked();
     void processGameEvents();
 
 private:
@@ -43,10 +45,12 @@ private:
     HomeScreen* homeScreen_;
     GameScreen* gameScreen_;
     ResultScreen* resultScreen_;
+    AdminPanelScreen* adminPanelScreen_;
     
     ProtocolHandler* protocol_;
     std::unique_ptr<GameState> gameState_;
     bool demoMode_;
+    QString userRole_;  // Store user role from login
     QTimer* eventProcessTimer_;
 };
 

@@ -21,7 +21,7 @@ public:
     void clearFields();
 
 signals:
-    void loginSuccess();
+    void loginSuccess(const QString& username, const QString& role);
     void switchToRegister();
 
 private slots:

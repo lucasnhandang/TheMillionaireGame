@@ -3,6 +3,7 @@
 #include "homescreen.h"
 #include "gamescreen.h"
 #include "resultscreen.h"
+#include "adminpanelscreen.h"
 #include "protocol_handler.h"
 #include "game_event.h"
 #include "gamestate.h"
@@ -23,8 +24,10 @@ MainWindow::MainWindow(QWidget *parent)
     , homeScreen_(nullptr)
     , gameScreen_(nullptr)
     , resultScreen_(nullptr)
+    , adminPanelScreen_(nullptr)
     , protocol_(nullptr)
     , demoMode_(false)
+    , userRole_("user")
     , eventProcessTimer_(nullptr)
 {
     gameState_ = std::make_unique<GameState>();
@@ -52,12 +55,14 @@ void MainWindow::setupUI()
     homeScreen_ = new HomeScreen(this);
     gameScreen_ = new GameScreen(this);
     resultScreen_ = new ResultScreen(this);
+    adminPanelScreen_ = new AdminPanelScreen(this);
     
     // Add screens to stacked widget
     stackedWidget_->addWidget(loginScreen_);
     stackedWidget_->addWidget(homeScreen_);
     stackedWidget_->addWidget(gameScreen_);
     stackedWidget_->addWidget(resultScreen_);
+    stackedWidget_->addWidget(adminPanelScreen_);
     
     // Show login screen initially
     stackedWidget_->setCurrentWidget(loginScreen_);
@@ -75,6 +80,7 @@ void MainWindow::setupConnections()
     
     // Home screen
     connect(homeScreen_, &HomeScreen::playGameClicked, this, &MainWindow::onGameStart);
+    connect(homeScreen_, &HomeScreen::adminPanelClicked, this, &MainWindow::onAdminPanelClicked);
     
     // Game screen
     connect(gameScreen_, &GameScreen::answerSubmitted, this, [this](int answerIndex) {
@@ -102,6 +108,9 @@ void MainWindow::setupConnections()
     
     // Result screen
     connect(resultScreen_, &ResultScreen::backToHomeClicked, this, &MainWindow::onBackToHome);
+    
+    // Admin panel screen
+    connect(adminPanelScreen_, &AdminPanelScreen::backToHome, this, &MainWindow::onBackToHome);
 }
 
 void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
@@ -110,6 +119,7 @@ void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
     loginScreen_->setProtocolHandler(protocol);
     homeScreen_->setProtocolHandler(protocol);
     gameScreen_->setProtocolHandler(protocol);
+    adminPanelScreen_->setProtocolHandler(protocol);
     
     setupNotificationHandler();
 }
@@ -120,6 +130,7 @@ void MainWindow::setDemoMode(bool demoMode)
     loginScreen_->setDemoMode(demoMode);
     homeScreen_->setDemoMode(demoMode);
     gameScreen_->setDemoMode(demoMode);
+    adminPanelScreen_->setDemoMode(demoMode);
 }
 
 void MainWindow::setupNotificationHandler()
@@ -364,10 +375,18 @@ void MainWindow::processGameEvents()
     }
 }
 
-void MainWindow::onLoginSuccess()
+void MainWindow::onLoginSuccess(const QString& username, const QString& role)
 {
+    std::cerr << "[DEBUG] onLoginSuccess called - username: " << username.toStdString() 
+              << ", role: " << role.toStdString() << std::endl;
+    
     stackedWidget_->setCurrentWidget(homeScreen_);
-    homeScreen_->setUsername(QString::fromStdString(gameState_->username));
+    homeScreen_->setUsername(username);
+    homeScreen_->setUserRole(role);
+    
+    // Store username and role
+    gameState_->username = username.toStdString();
+    userRole_ = role;
     gameState_->loggedIn = true;
     gameState_->onHome = true;
 }
@@ -399,4 +418,11 @@ void MainWindow::onBackToHome()
     gameState_->inGame = false;
     // Reset lifelines when returning to home (prepare for next game)
     gameScreen_->resetLifelines();
+}
+
+void MainWindow::onAdminPanelClicked()
+{
+    stackedWidget_->setCurrentWidget(adminPanelScreen_);
+    // Load users tab by default
+    adminPanelScreen_->loadUsers(1);
 }

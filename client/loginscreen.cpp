@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QMessageBox>
+#include <iostream>
 
 LoginScreen::LoginScreen(QWidget *parent)
     : QWidget(parent)
@@ -183,7 +184,7 @@ void LoginScreen::onLoginClicked()
     }
     
     if (demoMode_) {
-        emit loginSuccess();
+        emit loginSuccess(username, "admin");  // Demo mode = admin for testing
         return;
     }
     
@@ -193,8 +194,12 @@ void LoginScreen::onLoginClicked()
     }
     
     ProtocolHandler::LoginResponse response = protocol_->login(username.toStdString(), password.toStdString());
+    std::cerr << "[DEBUG] LoginScreen - response code: " << response.responseCode 
+              << ", role from response: '" << response.role << "'" << std::endl;
     if (response.responseCode == 200) {
-        emit loginSuccess();
+        QString role = QString::fromStdString(response.role);
+        std::cerr << "[DEBUG] LoginScreen - emitting loginSuccess with role: '" << role.toStdString() << "'" << std::endl;
+        emit loginSuccess(username, role);
     } else {
         showError(QString::fromStdString(response.message));
     }
