@@ -447,8 +447,17 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 if (state.timerPaused) {
                     state.timeRemaining = timeRemaining;
                     state.timerPaused = false;
-                    // Restart timer if it was running
-                    if (state.timerRunning) {
+                    // Always restart timer after lifeline (timer should be running during question)
+                    state.timerRunning = true;
+                    state.timerThreadId++;
+                    int newTimerId = state.timerThreadId;
+                    std::thread(updateTimer, std::ref(state), protocol, newTimerId).detach();
+                    std::cerr << "[DEBUG] Timer resumed after lifeline: " << timeRemaining << "s remaining" << std::endl;
+                } else {
+                    // Timer was not paused, but we should still update timeRemaining and ensure timer is running
+                    state.timeRemaining = timeRemaining;
+                    if (!state.timerRunning) {
+                        state.timerRunning = true;
                         state.timerThreadId++;
                         int newTimerId = state.timerThreadId;
                         std::thread(updateTimer, std::ref(state), protocol, newTimerId).detach();
@@ -871,10 +880,8 @@ int main(int argc, char** argv) {
                 }
             } else {
                 // Game in progress
-                // Check if we have question data - if yes, display it even if waitingForQuestion is true
-                if (state.waitingForQuestion && state.question.empty()) {
-                    ImGui::Text("Waiting for question...");
-                } else if (!state.question.empty() || state.currentQuestionNumber > 0) {
+                // Display question if we have question data, otherwise show waiting message
+                if (!state.question.empty() && state.currentQuestionNumber > 0) {
                     // We have question data, display it
                     ImGui::Text("Question %d of 15", state.currentQuestionNumber);
 
@@ -1286,10 +1293,13 @@ int main(int argc, char** argv) {
                     ImGui::SetWindowFontScale(1.4f);
                     ImGui::TextColored(ImVec4(0.9f, 0.75f, 0.2f, 1.0f), "%d VND", state.currentPrize);
                     ImGui::SetWindowFontScale(1.0f);
+                    }
+                } else {
+                    // No question data yet - show waiting message
+                    ImGui::Text("Waiting for question...");
                 }
-            }
-            
-            ImGui::EndChild();
+                
+                ImGui::EndChild();
             
             ImGui::End();
         }
