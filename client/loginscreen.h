@@ -6,6 +6,11 @@
 #include <QPushButton>
 #include <QLabel>
 
+// Forward declaration for UI class (generated from .ui file)
+namespace Ui {
+    class LoginScreen;
+}
+
 class ProtocolHandler;
 
 class LoginScreen : public QWidget
@@ -14,6 +19,7 @@ class LoginScreen : public QWidget
 
 public:
     explicit LoginScreen(QWidget *parent = nullptr);
+    ~LoginScreen();
 
     void setProtocolHandler(ProtocolHandler* protocol);
     void setDemoMode(bool demoMode);
@@ -32,7 +38,11 @@ private slots:
 
 private:
     void setupUI();
+    void setupConnections();  // Connect signals and slots
+    void setInitialVisibility();  // Set initial visibility state for widgets
 
+    Ui::LoginScreen* ui;  // UI loaded from .ui file
+    
     QLineEdit* usernameEdit_;
     QLineEdit* passwordEdit_;
     QLineEdit* confirmPasswordEdit_;

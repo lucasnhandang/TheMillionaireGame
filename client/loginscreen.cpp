@@ -1,4 +1,5 @@
 #include "loginscreen.h"
+#include "ui_loginscreen.h"  // Generated from loginscreen.ui
 #include "protocol_handler.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -8,144 +9,81 @@
 
 LoginScreen::LoginScreen(QWidget *parent)
     : QWidget(parent)
+    , ui(new Ui::LoginScreen)
     , protocol_(nullptr)
     , demoMode_(false)
     , showingLogin_(true)
 {
-    setupUI();
+    ui->setupUi(this);  // Load UI from .ui file
+    
+    // Get widget pointers from UI
+    usernameEdit_ = ui->usernameEdit;
+    passwordEdit_ = ui->passwordEdit;
+    confirmPasswordEdit_ = ui->confirmPasswordEdit;
+    loginButton_ = ui->loginButton;
+    registerButton_ = ui->registerButton;
+    switchToRegisterButton_ = ui->switchToRegisterButton;
+    errorLabel_ = ui->errorLabel;
+    
+    // Check if switchToLoginButton exists in UI, if not create it
+    // (You may need to add this button to your .ui file)
+    switchToLoginButton_ = findChild<QPushButton*>("switchToLoginButton");
+    if (!switchToLoginButton_) {
+        // Create it if it doesn't exist in UI
+        switchToLoginButton_ = new QPushButton("Switch to Login", this);
+        switchToLoginButton_->setStyleSheet(
+            "QPushButton {"
+            "  background-color: transparent;"
+            "  color: #1E88E5;"
+            "  font-size: 14px;"
+            "  padding: 8px;"
+            "  border: none;"
+            "  text-decoration: underline;"
+            "}"
+        );
+        switchToLoginButton_->setObjectName("switchToLoginButton");
+    }
+    
+    setupConnections();
+    setInitialVisibility();
 }
 
-void LoginScreen::setupUI()
+LoginScreen::~LoginScreen()
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setAlignment(Qt::AlignCenter);
-    
-    QLabel* titleLabel = new QLabel("Who Wants to be a Millionaire", this);
-    titleLabel->setStyleSheet("font-size: 32px; font-weight: bold; color: white; margin-bottom: 20px;");
-    titleLabel->setAlignment(Qt::AlignCenter);
-    mainLayout->addWidget(titleLabel);
-    
-    // Login form
-    QWidget* loginForm = new QWidget(this);
-    QFormLayout* formLayout = new QFormLayout(loginForm);
-    formLayout->setSpacing(15);
-    
-    usernameEdit_ = new QLineEdit(this);
-    usernameEdit_->setPlaceholderText("Enter username");
-    usernameEdit_->setStyleSheet(
-        "QLineEdit {"
-        "  padding: 10px;"
-        "  font-size: 16px;"
-        "  border: 2px solid #1E88E5;"
-        "  border-radius: 5px;"
-        "  background-color: white;"
-        "}"
-    );
-    formLayout->addRow("Username:", usernameEdit_);
-    
-    passwordEdit_ = new QLineEdit(this);
-    passwordEdit_->setPlaceholderText("Enter password");
-    passwordEdit_->setEchoMode(QLineEdit::Password);
-    passwordEdit_->setStyleSheet(
-        "QLineEdit {"
-        "  padding: 10px;"
-        "  font-size: 16px;"
-        "  border: 2px solid #1E88E5;"
-        "  border-radius: 5px;"
-        "  background-color: white;"
-        "}"
-    );
-    formLayout->addRow("Password:", passwordEdit_);
-    
-    confirmPasswordEdit_ = new QLineEdit(this);
-    confirmPasswordEdit_->setPlaceholderText("Confirm password");
-    confirmPasswordEdit_->setEchoMode(QLineEdit::Password);
-    confirmPasswordEdit_->setStyleSheet(
-        "QLineEdit {"
-        "  padding: 10px;"
-        "  font-size: 16px;"
-        "  border: 2px solid #1E88E5;"
-        "  border-radius: 5px;"
-        "  background-color: white;"
-        "}"
-    );
-    confirmPasswordEdit_->setVisible(false);
-    
-    errorLabel_ = new QLabel(this);
-    errorLabel_->setStyleSheet("color: #F44336; font-size: 14px;");
-    errorLabel_->setAlignment(Qt::AlignCenter);
-    errorLabel_->setWordWrap(true);
-    errorLabel_->setVisible(false);
-    
-    loginButton_ = new QPushButton("Login", this);
-    loginButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #1E88E5;"
-        "  color: white;"
-        "  font-size: 18px;"
-        "  padding: 12px 40px;"
-        "  border-radius: 8px;"
-        "  border: none;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #1976D2;"
-        "}"
-    );
-    
-    registerButton_ = new QPushButton("Register", this);
-    registerButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #4CAF50;"
-        "  color: white;"
-        "  font-size: 18px;"
-        "  padding: 12px 40px;"
-        "  border-radius: 8px;"
-        "  border: none;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #45A049;"
-        "}"
-    );
-    registerButton_->setVisible(false);
-    
-    switchToRegisterButton_ = new QPushButton("Switch to Register", this);
-    switchToRegisterButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: transparent;"
-        "  color: #1E88E5;"
-        "  font-size: 14px;"
-        "  padding: 8px;"
-        "  border: none;"
-        "  text-decoration: underline;"
-        "}"
-    );
-    
-    switchToLoginButton_ = new QPushButton("Switch to Login", this);
-    switchToLoginButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: transparent;"
-        "  color: #1E88E5;"
-        "  font-size: 14px;"
-        "  padding: 8px;"
-        "  border: none;"
-        "  text-decoration: underline;"
-        "}"
-    );
-    switchToLoginButton_->setVisible(false);
-    
+    delete ui;
+}
+
+void LoginScreen::setupConnections()
+{
+    // Connect signals and slots
     connect(loginButton_, &QPushButton::clicked, this, &LoginScreen::onLoginClicked);
     connect(registerButton_, &QPushButton::clicked, this, &LoginScreen::onRegisterClicked);
     connect(switchToRegisterButton_, &QPushButton::clicked, this, &LoginScreen::onSwitchToRegisterClicked);
     connect(switchToLoginButton_, &QPushButton::clicked, this, &LoginScreen::onSwitchToLoginClicked);
     
-    mainLayout->addWidget(loginForm, 0, Qt::AlignCenter);
-    mainLayout->addWidget(errorLabel_);
-    mainLayout->addWidget(loginButton_, 0, Qt::AlignCenter);
-    mainLayout->addWidget(registerButton_, 0, Qt::AlignCenter);
-    mainLayout->addWidget(switchToRegisterButton_, 0, Qt::AlignCenter);
-    mainLayout->addWidget(switchToLoginButton_, 0, Qt::AlignCenter);
+    // Set password echo mode (UI file might not have this)
+    if (passwordEdit_) {
+        passwordEdit_->setEchoMode(QLineEdit::Password);
+    }
+    if (confirmPasswordEdit_) {
+        confirmPasswordEdit_->setEchoMode(QLineEdit::Password);
+    }
+}
+
+void LoginScreen::setInitialVisibility()
+{
+    // Initial state: Login mode
+    // Hide register-specific widgets
+    confirmPasswordEdit_->hide();
+    registerButton_->hide();
+    switchToLoginButton_->hide();
     
-    setStyleSheet("background-color: #0D1B2A; color: white;");
+    // Show login-specific widgets (explicit for clarity)
+    loginButton_->show();
+    switchToRegisterButton_->show();
+    
+    // Error label starts hidden
+    errorLabel_->hide();
 }
 
 void LoginScreen::setProtocolHandler(ProtocolHandler* protocol)
