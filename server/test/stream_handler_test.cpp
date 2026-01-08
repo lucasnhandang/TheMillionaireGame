@@ -285,7 +285,7 @@ void testJsonUtils() {
     // Test notification creation
     string notification = StreamUtils::createNotification("GAME_START", "{\"gameId\":123}");
     TEST_ASSERT(!notification.empty(), "Notification created");
-    TEST_ASSERT(notification.find("\"type\":\"GAME_START\"") != string::npos, "Notification has type field");
+    TEST_ASSERT(notification.find("\"notificationType\":\"GAME_START\"") != string::npos, "Notification has notificationType field");
     TEST_ASSERT(notification.find("\"data\":{\"gameId\":123}") != string::npos, "Notification has data field");
     TEST_ASSERT(notification.find("responseCode") == string::npos, "Notification has no responseCode");
 }
@@ -527,20 +527,20 @@ void testNotificationCreation() {
     // Test various notification types
     string game_start = StreamUtils::createNotification("GAME_START", "{\"gameId\":123,\"timestamp\":1705320000}");
     TEST_ASSERT(!game_start.empty(), "GAME_START notification created");
-    TEST_ASSERT(game_start.find("\"type\":\"GAME_START\"") != string::npos, "GAME_START has correct type");
+    TEST_ASSERT(game_start.find("\"notificationType\":\"GAME_START\"") != string::npos, "GAME_START has correct notificationType");
     
     string game_end = StreamUtils::createNotification("GAME_END", "{\"status\":\"won\",\"finalPrize\":1000000}");
     TEST_ASSERT(!game_end.empty(), "GAME_END notification created");
-    TEST_ASSERT(game_end.find("\"type\":\"GAME_END\"") != string::npos, "GAME_END has correct type");
+    TEST_ASSERT(game_end.find("\"notificationType\":\"GAME_END\"") != string::npos, "GAME_END has correct notificationType");
     
     string question_info = StreamUtils::createNotification("QUESTION_INFO", 
         "{\"questionNumber\":1,\"question\":\"What is 2+2?\",\"options\":[\"3\",\"4\",\"5\",\"6\"]}");
     TEST_ASSERT(!question_info.empty(), "QUESTION_INFO notification created");
-    TEST_ASSERT(question_info.find("\"type\":\"QUESTION_INFO\"") != string::npos, "QUESTION_INFO has correct type");
+    TEST_ASSERT(question_info.find("\"notificationType\":\"QUESTION_INFO\"") != string::npos, "QUESTION_INFO has correct notificationType");
     
     string connection = StreamUtils::createNotification("CONNECTION", "{\"serverName\":\"Test Server\"}");
     TEST_ASSERT(!connection.empty(), "CONNECTION notification created");
-    TEST_ASSERT(connection.find("\"type\":\"CONNECTION\"") != string::npos, "CONNECTION has correct type");
+    TEST_ASSERT(connection.find("\"notificationType\":\"CONNECTION\"") != string::npos, "CONNECTION has correct notificationType");
     
     // Verify notification does NOT have responseCode
     TEST_ASSERT(game_start.find("responseCode") == string::npos, "GAME_START has no responseCode");

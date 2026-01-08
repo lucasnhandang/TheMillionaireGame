@@ -173,22 +173,33 @@ void SocketClient::receiveLoop() {
 }
 
 void SocketClient::handleMessage(const std::string& message) {
-    // Determine message type
-    std::string type = "RESPONSE"; // Default
+    // Determine message type using protocol-level classification
+    std::string type = "RESPONSE"; // Default for request responses
     
-    // Check for notification types
-    if (message.find("\"type\":\"QUESTION_INFO\"") != std::string::npos ||
-        message.find("\"notificationType\":\"QUESTION_INFO\"") != std::string::npos) {
-        type = "QUESTION_INFO";
-    } else if (message.find("\"type\":\"GAME_END\"") != std::string::npos ||
-               message.find("\"notificationType\":\"GAME_END\"") != std::string::npos) {
-        type = "GAME_END";
-    } else if (message.find("\"type\":\"LIFELINE_INFO\"") != std::string::npos ||
-               message.find("\"notificationType\":\"LIFELINE_INFO\"") != std::string::npos) {
-        type = "LIFELINE_INFO";
-    } else if (message.find("\"type\":\"GAME_START\"") != std::string::npos ||
-               message.find("\"notificationType\":\"GAME_START\"") != std::string::npos) {
-        type = "GAME_START";
+    // Step 1: Check for notificationType field (server-pushed notifications)
+    size_t noti_type_pos = message.find("\"notificationType\"");
+    if (noti_type_pos != std::string::npos) {
+        // This is a notification - extract the type value
+        size_t value_start = message.find(':', noti_type_pos);
+        if (value_start != std::string::npos) {
+            value_start = message.find('"', value_start);
+            if (value_start != std::string::npos) {
+                value_start++; // Skip opening quote
+                size_t value_end = message.find('"', value_start);
+                if (value_end != std::string::npos) {
+                    type = message.substr(value_start, value_end - value_start);
+                }
+            }
+        }
+    }
+    // Step 2: If no notificationType, check for responseCode (request response)
+    else if (message.find("\"responseCode\"") != std::string::npos) {
+        type = "RESPONSE";
+    }
+    // Step 3: Unknown message type
+    else {
+        type = "UNKNOWN";
+        std::cerr << "[WARNING] handleMessage: Unknown message type, no notificationType or responseCode field" << std::endl;
     }
     
     std::cerr << "[DEBUG] handleMessage: parsed type=" << type << ", message preview=" << message.substr(0, 150) << std::endl;

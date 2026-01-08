@@ -242,15 +242,17 @@ void handleNotifications(SocketClient* client, GameState& state, ProtocolHandler
         if (client->getMessage(msg, 100)) {
             std::cerr << "[DEBUG] Received notification: type=" << msg.type << ", data=" << msg.data.substr(0, 150) << std::endl;
             
-            // Skip RESPONSE messages that have responseCode - they're request responses handled by ProtocolHandler
-            // Only process actual notification types (QUESTION_INFO, GAME_END, LIFELINE_INFO, etc.)
-            if (msg.type == "RESPONSE" && msg.data.find("\"responseCode\"") != std::string::npos) {
-                // This is a request response (LOGIN, REGISTER, etc.), put it back for ProtocolHandler
+            // Simple filter: If msg.type is "RESPONSE", it's a request response for ProtocolHandler
+            // All other types (GAME_START, QUESTION_INFO, etc.) are notifications
+            if (msg.type == "RESPONSE") {
+                // This is a request response, put it back for ProtocolHandler
                 client->putMessageBack(msg);
+                // Yield to give ProtocolHandler a chance to grab the message
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
             
-            // Convert message types to events and push to queue
+            // Convert notification types to events and push to queue
             if (msg.type == "GAME_START") {
                 std::cerr << "[DEBUG] Pushing GAME_START event to queue" << std::endl;
                 eventQueue->push(GameEvent(EVENT_GAME_START, msg.data));

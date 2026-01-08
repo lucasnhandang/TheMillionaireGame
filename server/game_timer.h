@@ -56,7 +56,7 @@ public:
     std::vector<int> getTimedOutGames();
 
 private:
-    GameTimer() : question_timeout_seconds_(30) {}
+    GameTimer() : question_timeout_seconds_(33) {}
     ~GameTimer() = default;
     GameTimer(const GameTimer&) = delete;
     GameTimer& operator=(const GameTimer&) = delete;

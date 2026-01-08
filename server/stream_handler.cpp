@@ -477,7 +477,7 @@ string createRequest(const string& request_type, const string& data) {
 }
 
 string createNotification(const string& type, const string& data) {
-    return "{\"type\":\"" + type + 
+    return "{\"notificationType\":\"" + type + 
            "\",\"data\":" + data + "}";
 }
 

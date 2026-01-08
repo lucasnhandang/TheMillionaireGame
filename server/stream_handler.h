@@ -177,10 +177,10 @@ namespace StreamUtils {
     
     /**
      * Create server notification JSON (server push to client)
-     * Notifications have 'type' field but no 'responseCode'
+     * Notifications have 'notificationType' field (not 'responseCode')
      * @param type Notification type (e.g., "GAME_START", "QUESTION_INFO")
      * @param data JSON data object as string
-     * @return JSON string
+     * @return JSON string with format: {"notificationType":"TYPE","data":{...}}
      */
     std::string createNotification(const std::string& type, const std::string& data);
 }

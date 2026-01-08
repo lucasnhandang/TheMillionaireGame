@@ -260,7 +260,7 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
     int points_earned = time_remaining;
 
     // Record answer in database
-    int response_time = 30 - time_remaining;  // Calculate response time (30 second timer)
+    int response_time = 33 - time_remaining;  // Calculate response time (30 second timer)
     Database::getInstance().addGameAnswer(game_id, question_number, answer_index, correct, response_time);
     
     if (correct) {
@@ -448,7 +448,7 @@ string handleLifeline(const string& request, ClientSession& session, int client_
     // Pause timer - get current remaining time
     int time_remaining = GameTimer::getInstance().getRemainingTime(game_id);
     if (time_remaining < 0) {
-        time_remaining = 30;  // Default if timer not started
+        time_remaining = 33;  // Default if timer not started
     }
     session.timer_paused = true;
     session.paused_time_remaining = time_remaining;

@@ -293,28 +293,17 @@ SocketClient::Message ProtocolHandler::waitForResponse(int timeoutMs) {
             std::cerr << "[DEBUG] waitForResponse got message #" << messageCount << ", type=" << msg.type 
                       << ", data preview=" << msg.data.substr(0, 100) << std::endl;
             
+            // Simple logic: If msg.type == "RESPONSE", it's a request response (has responseCode)
+            // All other types are notifications (have notificationType) - put them back for notification handler
             if (msg.type == "RESPONSE") {
-                if (msg.data.find("\"type\":\"CONNECTION\"") != std::string::npos) {
-                    std::cerr << "[DEBUG] Skipping CONNECTION notification" << std::endl;
-                    continue;
-                }
-                
-                if (msg.data.find("\"type\":\"GAME_START\"") != std::string::npos) {
-                    std::cerr << "[DEBUG] Skipping GAME_START notification" << std::endl;
-                    continue;
-                }
-                
-                if (msg.data.find("\"responseCode\"") != std::string::npos) {
-                    std::cerr << "[DEBUG] Found response with responseCode, returning" << std::endl;
-                    return msg;
-                } else {
-                    std::cerr << "[DEBUG] RESPONSE message without responseCode, putting back for notification handler" << std::endl;
-                    client_->putMessageBack(msg);
-                }
+                std::cerr << "[DEBUG] Found RESPONSE with responseCode, returning" << std::endl;
+                return msg;
             } else {
-                // Non-RESPONSE message (QUESTION_INFO, GAME_END, etc.) - put it back for notification handler
-                std::cerr << "[DEBUG] Non-RESPONSE message type (" << msg.type << "), putting back for notification handler" << std::endl;
+                // This is a notification (GAME_START, QUESTION_INFO, etc.) - put it back for notification handler
+                std::cerr << "[DEBUG] Notification type (" << msg.type << "), putting back for notification handler" << std::endl;
                 client_->putMessageBack(msg);
+                // Yield to give notification handler a chance to grab the message
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
     }
