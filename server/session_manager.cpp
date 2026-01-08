@@ -13,7 +13,9 @@ ClientSession::ClientSession(const string& ip)
       last_ping_time(time(nullptr)), authenticated(false), 
       in_game(false), game_id(0), current_question_number(0),
       current_level(0), current_prize(0), total_score(0), role("user"),
-      timer_paused(false), paused_time_remaining(0) {}
+      timer_paused(false), paused_time_remaining(0) {
+    used_lifelines_per_question.clear();
+}
 
 SessionManager& SessionManager::getInstance() {
     static SessionManager instance;

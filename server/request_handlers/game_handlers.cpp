@@ -38,20 +38,21 @@ static string buildQuestionInfoData(const Question& q, int game_id, const Client
     ss << "\"prize\":" << session.current_prize << ",";
     ss << "\"totalQuestions\":15,";
     
-    // Build lifelines array
+    // Build lifelines array - check per-question usage (allow multiple lifelines per question)
     ss << "\"lifelines\":[";
     bool first = true;
-    if (session.used_lifelines.find("5050") == session.used_lifelines.end()) {
+    auto& used_for_question = session.used_lifelines_per_question[session.current_question_number];
+    if (used_for_question.find("5050") == used_for_question.end()) {
         if (!first) ss << ",";
         ss << "\"5050\"";
         first = false;
     }
-    if (session.used_lifelines.find("PHONE") == session.used_lifelines.end()) {
+    if (used_for_question.find("PHONE") == used_for_question.end()) {
         if (!first) ss << ",";
         ss << "\"PHONE\"";
         first = false;
     }
-    if (session.used_lifelines.find("AUDIENCE") == session.used_lifelines.end()) {
+    if (used_for_question.find("AUDIENCE") == used_for_question.end()) {
         if (!first) ss << ",";
         ss << "\"AUDIENCE\"";
         first = false;
@@ -103,6 +104,7 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
     session.current_prize = ScoringSystem::getInstance().getPrizeForLevel(0, 1);
     session.total_score = 0;
     session.used_lifelines.clear();
+    session.used_lifelines_per_question.clear();  // Clear per-question lifeline tracking
     
     // Start timer for first question
     GameTimer::getInstance().startQuestionTimer(game_id);
@@ -153,18 +155,25 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
 
     // Check timeout
     if (GameTimer::getInstance().isTimeout(game_id)) {
+        // IMMEDIATELY clear game state
+        int old_game_id = game_id;
+        int final_question_num = session.current_question_number;
         session.in_game = false;
-        GameTimer::getInstance().stopTimer(game_id);
+        session.game_id = 0;
+        session.current_question_number = 0;
+        session.used_lifelines.clear();
+        session.used_lifelines_per_question.clear();
+        GameTimer::getInstance().stopTimer(old_game_id);
         
-        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(session.current_question_number);
+        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(final_question_num);
         int safe_checkpoint_score = session.total_score;
         
         // Update game session in database (same as wrong answer)
-        Database::getInstance().endGame(game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
+        Database::getInstance().endGame(old_game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
         
-        string data = "{\"gameId\":" + to_string(game_id) + 
+        string data = "{\"gameId\":" + to_string(old_game_id) + 
                      ",\"correct\":false" +
-                     ",\"questionNumber\":" + to_string(session.current_question_number) +
+                     ",\"questionNumber\":" + to_string(final_question_num) +
                      ",\"timeRemaining\":0" +
                      ",\"pointsEarned\":0" +
                      ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
@@ -174,10 +183,10 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
                      ",\"gameOver\":true,\"isWinner\":false}";
         
         // Send GAME_END notification (same as wrong answer)
-        string game_end_data = "{\"gameId\":" + to_string(game_id) +
-                              ",\"status\":\"lost\"" +
-                              ",\"finalLevel\":" + to_string(session.current_question_number) +
-                              ",\"finalQuestionNumber\":" + to_string(session.current_question_number) +
+        string game_end_data = "{\"gameId\":" + to_string(old_game_id) +
+                                  ",\"status\":\"lost\"" +
+                                  ",\"finalLevel\":" + to_string(final_question_num) +
+                                  ",\"finalQuestionNumber\":" + to_string(final_question_num) +
                               ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
                               ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
                               ",\"finalPrize\":" + to_string(safe_checkpoint_prize) +
@@ -229,7 +238,12 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
         session.current_question_number++;
         
         if (session.current_question_number > 15) {
+            // IMMEDIATELY clear game state
             session.in_game = false;
+            session.game_id = 0;
+            session.current_question_number = 0;
+            session.used_lifelines.clear();
+            session.used_lifelines_per_question.clear();
             GameTimer::getInstance().stopTimer(game_id);
             
             // Update game session in database
@@ -269,6 +283,9 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             session.current_level = next_level;
             session.current_prize = ScoringSystem::getInstance().getPrizeForLevel(next_level, session.current_question_number);
             
+            // Clear lifelines used for previous question (lifelines are per-question)
+            // Note: used_lifelines_per_question will be empty for new question automatically
+            
             // Get next random question for the new level
             Question next_question = QuestionManager::getInstance().getRandomQuestion(next_level);
             if (next_question.id > 0) {
@@ -285,7 +302,8 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             db_session.total_score = session.total_score;
             Database::getInstance().updateGameSession(db_session);
             
-            // Restart timer for next question
+            // Restart timer for next question (reset to 30 seconds)
+            GameTimer::getInstance().stopTimer(game_id);
             GameTimer::getInstance().startQuestionTimer(game_id);
             
             string data = "{\"gameId\":" + to_string(game_id) + 
@@ -306,20 +324,27 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             return StreamUtils::createSuccessResponse(200, data);
         }
     } else {
+        // IMMEDIATELY clear game state
+        int old_game_id = game_id;
+        int final_question_num = session.current_question_number;
         session.in_game = false;
-        GameTimer::getInstance().stopTimer(game_id);
+        session.game_id = 0;
+        session.current_question_number = 0;
+        session.used_lifelines.clear();
+        session.used_lifelines_per_question.clear();
+        GameTimer::getInstance().stopTimer(old_game_id);
         
-        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(session.current_question_number);
+        long long safe_checkpoint_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(final_question_num);
         int safe_checkpoint_score = session.total_score;  // Don't subtract points_earned for wrong answer
         
         int correct_answer = current_question.correct_answer;
         
         // Update game session in database
-        Database::getInstance().endGame(game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
+        Database::getInstance().endGame(old_game_id, "lost", safe_checkpoint_score, safe_checkpoint_prize);
         
-        string data = "{\"gameId\":" + to_string(game_id) + 
+        string data = "{\"gameId\":" + to_string(old_game_id) + 
                      ",\"correct\":false" +
-                     ",\"questionNumber\":" + to_string(session.current_question_number) +
+                     ",\"questionNumber\":" + to_string(final_question_num) +
                      ",\"correctAnswer\":" + to_string(correct_answer) +
                      ",\"pointsEarned\":0" +
                      ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
@@ -329,9 +354,10 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
                      ",\"gameOver\":true,\"isWinner\":false}";
         
         // Send GAME_END notification
-        string game_end_data = "{\"gameId\":" + to_string(game_id) +
+        string game_end_data = "{\"gameId\":" + to_string(old_game_id) +
                               ",\"status\":\"lost\"" +
-                              ",\"finalLevel\":" + to_string(session.current_question_number) +
+                              ",\"finalLevel\":" + to_string(final_question_num) +
+                              ",\"finalQuestionNumber\":" + to_string(final_question_num) +
                               ",\"finalQuestionNumber\":" + to_string(session.current_question_number) +
                               ",\"safeCheckpointPrize\":" + to_string(safe_checkpoint_prize) +
                               ",\"safeCheckpointScore\":" + to_string(safe_checkpoint_score) +
@@ -371,8 +397,10 @@ string handleLifeline(const string& request, ClientSession& session, int client_
         return StreamUtils::createErrorResponse(422, "Invalid lifelineType");
     }
 
-    if (session.used_lifelines.find(lifeline_type) != session.used_lifelines.end()) {
-        return StreamUtils::createErrorResponse(407, "Lifeline already used");
+    // Check if lifeline already used for THIS question (per-question tracking)
+    auto& used_for_question = session.used_lifelines_per_question[session.current_question_number];
+    if (used_for_question.find(lifeline_type) != used_for_question.end()) {
+        return StreamUtils::createErrorResponse(407, "Lifeline already used for this question");
     }
     
     // Get current question from game_questions table (not random)
@@ -406,6 +434,9 @@ string handleLifeline(const string& request, ClientSession& session, int client_
         return StreamUtils::createErrorResponse(500, "Failed to process lifeline");
     }
     
+    // Track lifeline usage per-question (allow multiple lifelines per question)
+    session.used_lifelines_per_question[session.current_question_number].insert(lifeline_type);
+    // Also add to global set for backward compatibility
     session.used_lifelines.insert(lifeline_type);
     
     // Build immediate response (acknowledgment)
@@ -491,22 +522,27 @@ string handleGiveUp(const string& request, ClientSession& session, int client_fd
     int final_question_number = session.current_question_number;
     int total_score = session.total_score;
 
+    // IMMEDIATELY clear game state
+    int old_game_id = game_id;
+    session.in_game = false;
+    session.game_id = 0;
+    session.current_question_number = 0;
+    session.used_lifelines.clear();
+    session.used_lifelines_per_question.clear();
+    
     // Stop timer
-    GameTimer::getInstance().stopTimer(game_id);
+    GameTimer::getInstance().stopTimer(old_game_id);
     
     // End game in database (use 'quit' status as per schema)
-    Database::getInstance().endGame(game_id, "quit", total_score, final_prize);
-    
-    // Update session state
-    session.in_game = false;
+    Database::getInstance().endGame(old_game_id, "quit", total_score, final_prize);
 
     string data = "{\"finalPrize\":" + to_string(final_prize) + 
                  ",\"finalQuestionNumber\":" + to_string(final_question_number) + 
                  ",\"totalScore\":" + to_string(total_score) +
-                 ",\"gameId\":" + to_string(game_id) + "}";
+                 ",\"gameId\":" + to_string(old_game_id) + "}";
     
     // Send GAME_END notification
-    string game_end_data = "{\"gameId\":" + to_string(game_id) +
+    string game_end_data = "{\"gameId\":" + to_string(old_game_id) +
                           ",\"status\":\"quit\"" +
                           ",\"finalLevel\":" + to_string(final_question_number) +
                           ",\"finalQuestionNumber\":" + to_string(final_question_number) +

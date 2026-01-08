@@ -28,7 +28,8 @@ struct ClientSession {
     int current_level;
     int current_prize;
     int total_score;
-    std::set<std::string> used_lifelines;  // Track which lifelines have been used
+    std::set<std::string> used_lifelines;  // Track which lifelines have been used (per-game, deprecated)
+    std::map<int, std::set<std::string>> used_lifelines_per_question;  // Track lifelines per question (question_number -> set of lifelines)
     bool timer_paused;  // Timer pause state for lifelines
     int paused_time_remaining;  // Time remaining when timer was paused
 

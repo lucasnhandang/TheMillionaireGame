@@ -266,10 +266,18 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.timerThreadId++;  // Invalidate old timer threads
                 std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give old timer time to check and exit
                 
+                // Reset lifeline state for new question
+                state.lifeline5050Remaining.clear();
+                state.lifelinePhoneSuggestion.clear();
+                state.lifelineAudiencePoll.clear();
+                state.lifelineType.clear();
+                state.lifelineProcessing = false;
+                state.lifelineLoadingMessage.clear();
+                
                 // Now update all state
                 state.question = newQuestion;
                 state.currentQuestionNumber = newQuestionNumber;
-                state.timeRemaining = newTimeRemaining;
+                state.timeRemaining = 30;  // Always reset to 30s for new question
                 state.currentPrize = newPrize;
                 state.totalScore = newTotalScore;
                 state.options = newOptions;
@@ -279,6 +287,8 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.revealActive = true;
                 state.answersRevealed = 0;
                 state.timerStartedForThisQuestion = false;
+                state.timerPaused = false;
+                state.pausedTimeRemaining = 0;
                 state.revealStart = std::chrono::steady_clock::now();
                 
                 // CRITICAL: Update protocol handler's question number so answerQuestion sends correct value
@@ -932,10 +942,13 @@ int main(int argc, char** argv) {
                     size_t maxToShow = state.revealActive ? (size_t)state.answersRevealed : state.options.size();
                     if (maxToShow > state.options.size()) maxToShow = state.options.size();
                     for (size_t i = 0; i < maxToShow; i++) {
-                        // Check if this option should be hidden (5050 lifeline)
-                        bool shouldHide = false;
+                        char label[512];
+                        snprintf(label, sizeof(label), "%c. %s", 'A' + (int)i, state.options[i].c_str());
+                        
+                        // Check if this option should be disabled (5050 lifeline eliminated it)
+                        bool isDisabled = false;
                         if (!state.lifeline5050Remaining.empty() && state.lifelineType == "5050") {
-                            // Hide if not in remainingOptions
+                            // Disable if not in remainingOptions
                             bool found = false;
                             for (int idx : state.lifeline5050Remaining) {
                                 if (idx == static_cast<int>(i)) {
@@ -943,32 +956,43 @@ int main(int argc, char** argv) {
                                     break;
                                 }
                             }
-                            shouldHide = !found;
+                            isDisabled = !found;
                         }
-                        
-                        if (shouldHide) {
-                            // Hide this option (don't render)
-                            continue;
-                        }
-                        
-                        char label[512];
-                        snprintf(label, sizeof(label), "%c. %s", 'A' + (int)i, state.options[i].c_str());
                         
                         // Check if this button was selected BEFORE rendering
                         bool wasSelected = (state.selectedAnswer == static_cast<int>(i));
                         
-                        if (wasSelected) {
+                        // Apply disabled style (gray) if eliminated by 5050
+                        if (isDisabled) {
+                            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                        } else if (wasSelected) {
                             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
                             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
                             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.0f, 1.0f));
                         }
                         
-                        if (ImGui::Button(label, ImVec2(700, 50))) {
-                            state.selectedAnswer = i;
+                        // Disable button if eliminated
+                        if (isDisabled) {
+                            ImGui::BeginDisabled();
                         }
                         
-                        // Pop using the SAVED state, not current state
-                        if (wasSelected) {
+                        if (ImGui::Button(label, ImVec2(700, 50))) {
+                            if (!isDisabled) {
+                                state.selectedAnswer = i;
+                            }
+                        }
+                        
+                        if (isDisabled) {
+                            ImGui::EndDisabled();
+                        }
+                        
+                        // Pop style colors
+                        if (isDisabled) {
+                            ImGui::PopStyleColor(4);
+                        } else if (wasSelected) {
                             ImGui::PopStyleColor(3);
                         }
                     }
