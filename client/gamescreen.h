@@ -36,7 +36,7 @@ public:
     
     void updateQuestion(const QString& question, const QStringList& options, int questionNumber);
     void updateTimer(int seconds);
-    void updatePrize(int prize);
+    void updateScore(int score);  // BONUS: Update score display
     void updateLifeline5050(const QList<int>& remainingIndices);
     void updateLifelinePhone(const QString& suggestion);
     void updateLifelineAudience(const QMap<QChar, int>& poll);

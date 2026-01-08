@@ -322,9 +322,13 @@ void GameScreen::updateLifeline5050(const QList<int>& remainingIndices)
 void GameScreen::updateLifelinePhone(const QString& suggestion)
 {
     lifelinePhoneAvailable_ = false;
-    lifelinePhoneButton_->setEnabled(false);
-    lifelineResultLabel_->setText(QString("Friend says: %1").arg(suggestion));
-    lifelineResultLabel_->setVisible(true);
+    if (lifelinePhoneButton_) {
+        lifelinePhoneButton_->setEnabled(false);
+    }
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->setText(QString("Friend says: %1").arg(suggestion));
+        lifelineResultLabel_->show();
+    }
 }
 
 void GameScreen::updateLifelineAudience(const QMap<QChar, int>& poll)
@@ -350,8 +354,10 @@ void GameScreen::updateLifelineAudience(const QMap<QChar, int>& poll)
 void GameScreen::showLifelineLoading(const QString& message)
 {
     lifelineProcessing_ = true;
-    lifelineResultLabel_->setText(message);
-    lifelineResultLabel_->setVisible(true);
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->setText(message);
+        lifelineResultLabel_->show();
+    }
 }
 
 void GameScreen::hideLifelineLoading()
@@ -361,7 +367,9 @@ void GameScreen::hideLifelineLoading()
 
 void GameScreen::resetForNewQuestion()
 {
-    lifelineResultLabel_->setVisible(false);
+    if (lifelineResultLabel_) {
+        lifelineResultLabel_->hide();
+    }
     selectedAnswer_ = -1;
     updateAnswerButtons();
 }
@@ -399,32 +407,45 @@ void GameScreen::resetLifelines()
 void GameScreen::updateAnswerButtons()
 {
     for (int i = 0; i < 4; i++) {
+        if (!answerButtons_[i]) continue;
+        
         QString style;
         if (selectedAnswer_ == i) {
             style = 
                 "QPushButton {"
                 "  background-color: #4CAF50;"
                 "  color: white;"
-                "  font-size: 16px;"
-                "  padding: 15px 20px;"
-                "  border-radius: 8px;"
+                "  font-size: 24px;"
+                "  font-weight: bold;"
+                "  padding: 15px 30px;"
+                "  border-radius: 10px;"
+                "  min-height: 20px;"
                 "  text-align: left;"
-                "  min-height: 60px;"
+                "  background: transparent;"
                 "}"
-                "QPushButton:hover { background-color: #45A049; }";
+                "QPushButton:hover {"
+                "  background-color: #45A049;"
+                "}";
         } else {
             style = 
                 "QPushButton {"
                 "  background-color: #1E88E5;"
                 "  color: white;"
-                "  font-size: 16px;"
-                "  padding: 15px 20px;"
-                "  border-radius: 8px;"
+                "  font-size: 24px;"
+                "  font-weight: bold;"
+                "  padding: 15px 30px;"
+                "  border-radius: 10px;"
+                "  min-height: 20px;"
                 "  text-align: left;"
-                "  min-height: 60px;"
+                "  background: transparent;"
                 "}"
-                "QPushButton:hover { background-color: #1976D2; }"
-                "QPushButton:disabled { background-color: #555555; color: #888888; }";
+                "QPushButton:hover {"
+                "  background-color: #1976D2;"
+                "}"
+                "QPushButton:disabled {"
+                "  background-color: #555555;"
+                "  color: #888888;"
+                "}";
         }
         answerButtons_[i]->setStyleSheet(style);
     }
@@ -449,9 +470,21 @@ void GameScreen::onTimerTimeout()
     if (timeRemaining_ > 0) {
         timeRemaining_--;
         updateTimer(timeRemaining_);
+        
+        // BONUS: Add remaining time to score (score increases as time passes)
+        // Score = sum of remaining time for each question
+        // This is calculated when answer is submitted, but we can also show current potential score
     } else {
         stopTimer();
         emit gameEnded();
+    }
+}
+
+void GameScreen::updateScore(int score)
+{
+    totalScore_ = score;
+    if (scoreLabel_) {
+        scoreLabel_->setText(QString("Score: %1").arg(score));
     }
 }
 
