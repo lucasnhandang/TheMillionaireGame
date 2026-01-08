@@ -1,184 +1,107 @@
-# Makefile for Millionaire Game Client
-# C++ Client with ImGui GUI
+# Makefile for Qt-based Millionaire Game Client
+# This project now uses Qt5 with CMake instead of ImGui/GLFW
 
-CXX = g++
+# Detect OS
 UNAME_S := $(shell uname -s)
 
-# Platform-specific settings
-ifeq ($(UNAME_S),Darwin)  # macOS
-    CXX = clang++
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends $(GLFW_CFLAGS)
-    LDFLAGS = -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
-else  # Linux
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends $(GLFW_CFLAGS)
-    LDFLAGS = -pthread -lGL -lGLU -lX11 -lXrandr -lXinerama -lXcursor -ldl -lrt
-endif
+# Build directory
+BUILD_DIR = build
 
-# Directories
-SRC_DIR = .
-OBJ_DIR = obj
-BIN_DIR = bin
-IMGUI_DIR = ../imgui
-GLFW_DIR = ../glfw
-
-# Source files
-CLIENT_SRC = main.cpp socket_client.cpp protocol_handler.cpp json_utils.cpp texture_loader.cpp
-IMGUI_SRC = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp \
-            $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
-IMGUI_BACKEND_SRC = $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
-GLFW_SRC = $(GLFW_DIR)/src/*.c
-
-# Object files
-CLIENT_OBJ = $(CLIENT_SRC:%.cpp=$(OBJ_DIR)/%.o)
-IMGUI_OBJ = $(IMGUI_SRC:$(IMGUI_DIR)/%.cpp=$(OBJ_DIR)/imgui_%.o)
-IMGUI_BACKEND_OBJ = $(IMGUI_BACKEND_SRC:$(IMGUI_DIR)/backends/%.cpp=$(OBJ_DIR)/imgui_backend_%.o)
-
-# GLFW library - try system library first, then build from source
-GLFW_BUILD_DIR = $(GLFW_DIR)/build
-GLFW_LIB_BUILT = $(GLFW_BUILD_DIR)/src/libglfw3.a
-GLFW_LIB_OLD = $(GLFW_DIR)/lib/libglfw3.a
-
-# Try to use system GLFW first, fallback to building from source
-GLFW_PKG_CONFIG := $(shell pkg-config --exists glfw3 2>/dev/null && echo "yes" || echo "no")
-ifeq ($(GLFW_PKG_CONFIG),yes)
-    GLFW_CFLAGS := $(shell pkg-config --cflags glfw3)
-    GLFW_LDFLAGS := $(shell pkg-config --libs glfw3) $(LDFLAGS)
-    GLFW_LIB :=
-else
-    # Build from source - prefer new build location
-    GLFW_CFLAGS := -I$(GLFW_DIR)/include
-    ifeq ($(wildcard $(GLFW_LIB_BUILT)),)
-        # Try old location
-        ifeq ($(wildcard $(GLFW_LIB_OLD)),)
-            GLFW_LIB := $(GLFW_LIB_BUILT)
-        else
-            GLFW_LIB := $(GLFW_LIB_OLD)
-        endif
-    else
-        GLFW_LIB := $(GLFW_LIB_BUILT)
-    endif
-    GLFW_LDFLAGS := $(GLFW_LIB) $(LDFLAGS)
-endif
-
-# Executable
-CLIENT_EXE = $(BIN_DIR)/client
+# Executable name (same on all platforms when built with CMake)
+EXE = $(BUILD_DIR)/MillionaireGameClient
 
 # Default target
-all: directories $(CLIENT_EXE)
+all: $(EXE)
 
-# Create necessary directories
-directories:
-	@mkdir -p $(OBJ_DIR) $(BIN_DIR)
-
-# Build client
-ifeq ($(GLFW_PKG_CONFIG),yes)
-$(CLIENT_EXE): $(CLIENT_OBJ) $(IMGUI_OBJ) $(IMGUI_BACKEND_OBJ)
-	@echo "Linking client (using system GLFW)..."
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LDFLAGS)
-	@echo "Build complete! Executable: $@"
-else
-$(CLIENT_EXE): $(CLIENT_OBJ) $(IMGUI_OBJ) $(IMGUI_BACKEND_OBJ)
-	@if [ ! -f "$(GLFW_LIB)" ]; then \
-		echo "GLFW library not found. Building GLFW..."; \
-		$(MAKE) $(GLFW_LIB); \
+# Build with CMake
+$(EXE):
+	@echo "=== Building Qt Client with CMake ==="
+	@if ! command -v qmake >/dev/null 2>&1 && ! command -v qmake5 >/dev/null 2>&1; then \
+		echo ""; \
+		echo "ERROR: Qt5 is not installed!"; \
+		echo ""; \
+		echo "Please install Qt5:"; \
+		if [ "$(UNAME_S)" = "Darwin" ]; then \
+			echo "  brew install qt@5"; \
+			echo "  export PATH=\"/usr/local/opt/qt@5/bin:\$$PATH\""; \
+		else \
+			echo "  sudo apt-get update"; \
+			echo "  sudo apt-get install -y qtbase5-dev qt5-qmake"; \
+		fi; \
+		echo ""; \
+		echo "See BUILD_QT.md for detailed instructions."; \
+		exit 1; \
 	fi
-	@echo "Linking client (using built GLFW)..."
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LDFLAGS)
-	@echo "Build complete! Executable: $@"
-endif
-
-# Compile client object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@echo "Compiling $<..."
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Compile ImGui object files
-$(OBJ_DIR)/imgui_%.o: $(IMGUI_DIR)/%.cpp
-	@echo "Compiling ImGui: $<..."
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Compile ImGui backend object files
-$(OBJ_DIR)/imgui_backend_%.o: $(IMGUI_DIR)/backends/%.cpp
-	@echo "Compiling ImGui backend: $<..."
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Build GLFW if needed (platform-specific)
-$(GLFW_LIB_BUILT):
-	@echo "Building GLFW from source..."
-	@mkdir -p $(GLFW_BUILD_DIR)
-ifeq ($(UNAME_S),Darwin)  # macOS
-	@cd $(GLFW_BUILD_DIR) && cmake .. \
-		-DGLFW_BUILD_X11=OFF \
-		-DGLFW_BUILD_WAYLAND=OFF \
-		-DGLFW_BUILD_WIN32=OFF \
-		-DGLFW_BUILD_COCOA=ON \
-		-DBUILD_SHARED_LIBS=OFF \
-		-DGLFW_BUILD_EXAMPLES=OFF \
-		-DGLFW_BUILD_TESTS=OFF \
-		-DGLFW_BUILD_DOCS=OFF
-else  # Linux
-	@cd $(GLFW_BUILD_DIR) && cmake .. \
-		-DGLFW_BUILD_X11=ON \
-		-DGLFW_BUILD_WAYLAND=OFF \
-		-DGLFW_BUILD_WIN32=OFF \
-		-DGLFW_BUILD_COCOA=OFF \
-		-DBUILD_SHARED_LIBS=OFF \
-		-DGLFW_BUILD_EXAMPLES=OFF \
-		-DGLFW_BUILD_TESTS=OFF \
-		-DGLFW_BUILD_DOCS=OFF
-endif
-	@cd $(GLFW_BUILD_DIR) && make -j$$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
-	@echo "GLFW build complete!"
-
-$(GLFW_LIB_OLD): $(GLFW_LIB_BUILT)
-	@echo "Copying GLFW library to lib directory..."
-	@mkdir -p $(GLFW_DIR)/lib
-	@cp $(GLFW_LIB_BUILT) $(GLFW_LIB_OLD)
+	@mkdir -p $(BUILD_DIR)
+	@cd $(BUILD_DIR) && cmake .. && $(MAKE)
+	@echo ""
+	@echo "=== Build Complete ==="
+	@echo "Executable: $(EXE)"
+	@echo ""
+	@echo "Run with: make run"
+	@echo "Or:       ./$(EXE)"
 
 # Clean build artifacts
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+	rm -rf $(BUILD_DIR)
 
-# Rebuild GLFW (platform-specific)
-rebuild-glfw:
-	@echo "=== Rebuilding GLFW ==="
-	@cd $(GLFW_DIR) && rm -rf build
-	@mkdir -p $(GLFW_BUILD_DIR)
-ifeq ($(UNAME_S),Darwin)  # macOS
-	@cd $(GLFW_BUILD_DIR) && cmake .. \
-		-DGLFW_BUILD_X11=OFF \
-		-DGLFW_BUILD_WAYLAND=OFF \
-		-DGLFW_BUILD_WIN32=OFF \
-		-DGLFW_BUILD_COCOA=ON \
-		-DBUILD_SHARED_LIBS=OFF \
-		-DGLFW_BUILD_EXAMPLES=OFF \
-		-DGLFW_BUILD_TESTS=OFF \
-		-DGLFW_BUILD_DOCS=OFF
-else  # Linux
-	@cd $(GLFW_BUILD_DIR) && cmake .. \
-		-DGLFW_BUILD_X11=ON \
-		-DGLFW_BUILD_WAYLAND=OFF \
-		-DGLFW_BUILD_WIN32=OFF \
-		-DGLFW_BUILD_COCOA=OFF \
-		-DBUILD_SHARED_LIBS=OFF \
-		-DGLFW_BUILD_EXAMPLES=OFF \
-		-DGLFW_BUILD_TESTS=OFF \
-		-DGLFW_BUILD_DOCS=OFF
-endif
-	@cd $(GLFW_BUILD_DIR) && make -j$$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
-	@if [ -f "$(GLFW_LIB_BUILT)" ]; then \
-		mkdir -p $(GLFW_DIR)/lib; \
-		cp $(GLFW_LIB_BUILT) $(GLFW_DIR)/lib/; \
-		echo "GLFW rebuild complete! Library: $(GLFW_DIR)/lib/libglfw3.a"; \
+# Run the client
+run: $(EXE)
+	./$(EXE)
+
+# Run in demo mode (no server)
+demo: $(EXE)
+	./$(EXE) --demo
+
+# Rebuild everything
+rebuild: clean all
+
+# Help message
+help:
+	@echo "Qt-based Millionaire Game Client - Build System"
+	@echo ""
+	@echo "This project uses Qt5 with CMake (not ImGui/GLFW)"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make              - Build the client"
+	@echo "  make run          - Build and run with default server (localhost:8080)"
+	@echo "  make demo         - Build and run in demo mode (no server)"
+	@echo "  make clean        - Remove build directory"
+	@echo "  make rebuild      - Clean and build from scratch"
+	@echo ""
+	@echo "Requirements:"
+	@echo "  - Qt5 (qtbase5-dev on Linux, qt@5 on macOS)"
+	@echo "  - CMake 3.16+"
+	@echo ""
+	@echo "See BUILD_QT.md for detailed setup instructions."
+
+# Check Qt installation
+check-qt:
+	@echo "Checking Qt5 installation..."
+	@if command -v qmake >/dev/null 2>&1; then \
+		echo "✓ qmake found: $$(command -v qmake)"; \
+		echo "  Version: $$(qmake -v | grep -o 'Qt version [0-9.]*')"; \
+		echo "  Qt path: $$(qmake -query QT_INSTALL_PREFIX)"; \
+	elif command -v qmake5 >/dev/null 2>&1; then \
+		echo "✓ qmake5 found: $$(command -v qmake5)"; \
+		echo "  Version: $$(qmake5 -v | grep -o 'Qt version [0-9.]*')"; \
+		echo "  Qt path: $$(qmake5 -query QT_INSTALL_PREFIX)"; \
 	else \
-		echo "Error: GLFW library not found after build!"; \
-		exit 1; \
+		echo "✗ Qt5 not found!"; \
+		echo ""; \
+		echo "Install with:"; \
+		if [ "$(UNAME_S)" = "Darwin" ]; then \
+			echo "  brew install qt@5"; \
+		else \
+			echo "  sudo apt-get install qtbase5-dev qt5-qmake"; \
+		fi; \
+	fi
+	@echo ""
+	@if command -v cmake >/dev/null 2>&1; then \
+		echo "✓ CMake found: $$(cmake --version | head -n1)"; \
+	else \
+		echo "✗ CMake not found!"; \
+		echo "  Install with: sudo apt-get install cmake"; \
 	fi
 
-# Run client
-run: $(CLIENT_EXE)
-	./$(CLIENT_EXE)
-
-# Phony targets
-.PHONY: all clean run directories rebuild-glfw
-
+.PHONY: all clean run demo rebuild help check-qt

@@ -2,7 +2,7 @@
 #include "mainwindow.h"
 #include "socket_client.h"
 #include "protocol_handler.h"
-<parameter name="iostream">
+#include <iostream>
 #include <string>
 
 int main(int argc, char** argv)
