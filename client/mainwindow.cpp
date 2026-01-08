@@ -378,6 +378,8 @@ void MainWindow::onGameStart()
     gameState_->inGame = true;
     gameState_->onHome = false;
     gameScreen_->setGameState(gameState_.get());
+    // Reset lifelines when starting a new game session
+    gameScreen_->resetLifelines();
 }
 
 void MainWindow::onGameEnd()
@@ -395,4 +397,6 @@ void MainWindow::onBackToHome()
     stackedWidget_->setCurrentWidget(homeScreen_);
     gameState_->onHome = true;
     gameState_->inGame = false;
+    // Reset lifelines when returning to home (prepare for next game)
+    gameScreen_->resetLifelines();
 }

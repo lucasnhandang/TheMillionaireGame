@@ -447,6 +447,41 @@ void GameScreen::resetForNewQuestion()
     updateAnswerButtons();
 }
 
+void GameScreen::resetLifelines()
+{
+    // Reset lifeline state
+    lifeline5050Available_ = true;
+    lifelinePhoneAvailable_ = true;
+    lifelineAudienceAvailable_ = true;
+    lifelineProcessing_ = false;
+    lifelineType_.clear();
+    
+    // Reset lifeline UI
+    lifeline5050Button_->setEnabled(true);
+    lifelinePhoneButton_->setEnabled(true);
+    lifelineAudienceButton_->setEnabled(true);
+    
+    // Reset button styles to active state
+    QString activeStyle = 
+        "QPushButton {"
+        "  background-color: #FF9800;"
+        "  color: white;"
+        "  font-size: 12px;"
+        "  font-weight: bold;"
+        "  padding: 8px 15px;"
+        "  border-radius: 5px;"
+        "}"
+        "QPushButton:hover { background-color: #F57C00; }";
+    
+    lifeline5050Button_->setStyleSheet(activeStyle);
+    lifelinePhoneButton_->setStyleSheet(activeStyle);
+    lifelineAudienceButton_->setStyleSheet(activeStyle);
+    
+    // Hide lifeline result
+    lifelineResultLabel_->setVisible(false);
+    lifelineResultLabel_->clear();
+}
+
 void GameScreen::updateAnswerButtons()
 {
     for (int i = 0; i < 4; i++) {

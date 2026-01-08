@@ -37,6 +37,7 @@ public:
     void showLifelineLoading(const QString& message);
     void hideLifelineLoading();
     void resetForNewQuestion();
+    void resetLifelines();  // Reset all lifelines for new game session
 
 signals:
     void answerSubmitted(int answerIndex);
