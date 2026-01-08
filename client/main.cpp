@@ -216,6 +216,13 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
             case EVENT_GAME_START: {
                 std::cerr << "[DEBUG] Processing GAME_START event" << std::endl;
                 
+                // Extract gameId from notification
+                int gameId = MillionaireGame::JsonUtils::extractInt(event.data, "gameId", 0);
+                if (protocol && gameId > 0) {
+                    protocol->currentGameId = gameId;
+                    std::cerr << "[DEBUG] Updated currentGameId from GAME_START: " << gameId << std::endl;
+                }
+                
                 // Reset all game state
                 state.inGame = true;
                 state.onHome = false;
@@ -295,9 +302,15 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
                 state.pausedTimeRemaining = 0;
                 state.revealStart = std::chrono::steady_clock::now();
                 
-                // CRITICAL: Update protocol handler's question number so answerQuestion sends correct value
+                // CRITICAL: Update protocol handler's question number and gameId so answerQuestion sends correct value
                 if (protocol) {
                     protocol->currentQuestionNumber = newQuestionNumber;
+                    // Also update gameId from QUESTION_INFO if present (should match currentGameId, but ensure consistency)
+                    int gameIdFromNotification = MillionaireGame::JsonUtils::extractInt(event.data, "gameId", 0);
+                    if (gameIdFromNotification > 0 && gameIdFromNotification != protocol->currentGameId) {
+                        std::cerr << "[DEBUG] Updating currentGameId from QUESTION_INFO: " << gameIdFromNotification << " (was " << protocol->currentGameId << ")" << std::endl;
+                        protocol->currentGameId = gameIdFromNotification;
+                    }
                 }
                 
                 std::cerr << "[DEBUG] State updated: inGame=" << state.inGame 

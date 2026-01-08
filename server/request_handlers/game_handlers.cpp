@@ -336,9 +336,8 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             db_session.total_score = session.total_score;
             Database::getInstance().updateGameSession(db_session);
             
-            // Restart timer for next question (reset to 30 seconds)
+            // Stop old timer first
             GameTimer::getInstance().stopTimer(game_id);
-            GameTimer::getInstance().startQuestionTimer(game_id);
             
             string data = "{\"gameId\":" + to_string(game_id) + 
                          ",\"correct\":true" +
@@ -352,7 +351,11 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             // Send QUESTION_INFO notification with next question (guaranteed to have valid question)
             string question_data = buildQuestionInfoData(next_question, game_id, session);
             NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
-            LOG_INFO("Sent QUESTION_INFO for question_number=" + to_string(session.current_question_number));
+            LOG_INFO("Sent QUESTION_INFO for question_number=" + to_string(session.current_question_number) + ", game_id=" + to_string(game_id));
+            
+            // Start timer for next question AFTER sending notification (client will start its timer when it receives QUESTION_INFO)
+            GameTimer::getInstance().startQuestionTimer(game_id);
+            LOG_INFO("Started timer for question_number=" + to_string(session.current_question_number) + ", game_id=" + to_string(game_id));
             
             return StreamUtils::createSuccessResponse(200, data);
         }
