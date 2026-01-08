@@ -30,6 +30,68 @@ static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+// Custom GUI helper functions
+namespace CustomGUI {
+    // Helper to convert ImU32 to ImVec4
+    ImVec4 U32ToVec4(ImU32 color) {
+        return ImVec4(
+            ((color >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f,
+            ((color >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f,
+            ((color >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f,
+            ((color >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f
+        );
+    }
+    
+    // Draw rounded button with custom style
+    bool RoundedButton(const char* label, const ImVec2& size, ImU32 color, ImU32 hoverColor, float rounding = 10.0f) {
+        ImGui::PushStyleColor(ImGuiCol_Button, U32ToVec4(color));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, U32ToVec4(hoverColor));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, U32ToVec4(hoverColor));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, rounding);
+        bool clicked = ImGui::Button(label, size);
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+        return clicked;
+    }
+    
+    // Draw hexagonal panel background
+    void HexagonalPanel(const ImVec2& pos, const ImVec2& size, ImU32 color) {
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 p[6];
+        float center_x = pos.x + size.x * 0.5f;
+        float center_y = pos.y + size.y * 0.5f;
+        float radius_x = size.x * 0.5f;
+        float radius_y = size.y * 0.3f;
+        
+        for (int i = 0; i < 6; i++) {
+            float angle = (i * 60.0f - 30.0f) * 3.14159f / 180.0f;
+            p[i] = ImVec2(center_x + radius_x * cosf(angle), center_y + radius_y * sinf(angle));
+        }
+        draw_list->AddConvexPolyFilled(p, 6, color);
+    }
+    
+    // Draw gradient background
+    void GradientBackground(const ImVec2& pos, const ImVec2& size, ImU32 color1, ImU32 color2, bool horizontal = false) {
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        if (horizontal) {
+            draw_list->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                color1, color2, color2, color1);
+        } else {
+            draw_list->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                color1, color1, color2, color2);
+        }
+    }
+    
+    // Draw progress bar
+    void ProgressBar(const ImVec2& pos, float width, float height, float progress, ImU32 bgColor, ImU32 fgColor) {
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 p1 = pos;
+        ImVec2 p2 = ImVec2(pos.x + width, pos.y + height);
+        draw_list->AddRectFilled(p1, p2, bgColor);
+        draw_list->AddRectFilled(p1, ImVec2(p1.x + width * progress, p2.y), fgColor);
+    }
+}
+
 // Game state
 struct GameState {
     bool showLogin = true;
@@ -532,7 +594,29 @@ int main(int argc, char** argv) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     
-    ImGui::StyleColorsDark();
+    // Custom Millionaire Game Style
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 0.0f;
+    style.ChildRounding = 0.0f;
+    style.FrameRounding = 10.0f;
+    style.GrabRounding = 5.0f;
+    style.PopupRounding = 5.0f;
+    style.ScrollbarRounding = 5.0f;
+    style.TabRounding = 5.0f;
+    
+    // Dark blue theme
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.1f, 0.2f, 1.0f);  // Dark blue
+    colors[ImGuiCol_ChildBg] = ImVec4(0.08f, 0.15f, 0.25f, 1.0f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.15f, 0.25f, 0.4f, 1.0f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.2f, 0.35f, 0.5f, 1.0f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.25f, 0.4f, 0.6f, 1.0f);
+    colors[ImGuiCol_Button] = ImVec4(0.1f, 0.3f, 0.6f, 1.0f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.15f, 0.4f, 0.7f, 1.0f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.2f, 0.5f, 0.8f, 1.0f);
+    colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    colors[ImGuiCol_Border] = ImVec4(0.2f, 0.4f, 0.6f, 1.0f);
     
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -834,7 +918,13 @@ int main(int argc, char** argv) {
             ImGui::SameLine();
             
             // Center panel - Question
-            ImGui::BeginChild("QuestionPanel", ImVec2(800, 700), true);
+            ImGui::BeginChild("QuestionPanel", ImVec2(800, 700), false);
+            
+            // Draw gradient background
+            ImVec2 panelPos = ImGui::GetWindowPos();
+            ImVec2 panelSize = ImVec2(800, 700);
+            CustomGUI::GradientBackground(panelPos, panelSize, 
+                IM_COL32(10, 20, 40, 255), IM_COL32(20, 40, 60, 255));
             
             if (!state.inGame) {
                 ImGui::Text("Welcome, %s!", state.username);
@@ -895,13 +985,10 @@ int main(int argc, char** argv) {
                 // Game in progress
                 // Display question if we have question data, otherwise show waiting message
                 if (!state.question.empty() && state.currentQuestionNumber > 0) {
-                    // We have question data, display it
-                    ImGui::Text("Question %d of 15", state.currentQuestionNumber);
-
-                    // Walk Away (top-left of question panel)
-                    ImGui::SameLine();
-                    ImGui::SetCursorPosX(10.0f);
-                    if (ImGui::Button("WALK AWAY", ImVec2(120, 30))) {
+                    // Top bar with WALK AWAY and lifelines
+                    ImGui::SetCursorPos(ImVec2(20, 20));
+                    if (CustomGUI::RoundedButton("WALK AWAY", ImVec2(140, 40), 
+                        IM_COL32(100, 150, 200, 255), IM_COL32(120, 170, 220, 255), 20.0f)) {
                         if (demoMode) {
                             int prevIndex = std::max(0, state.currentQuestionNumber - 2);
                             state.finalPrize = prevIndex >= 0 ? state.PRIZE_LADDER[prevIndex] : 0;
@@ -918,42 +1005,133 @@ int main(int argc, char** argv) {
                         }
                     }
                     
-                    // Timer with color coding
-                    if (state.timeRemaining <= 10) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red
-                    } else if (state.timeRemaining <= 20) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.7f, 0.0f, 1.0f)); // Orange
-                    }
-
-                    // Draw circular timer
-                    {
-                        ImGui::SameLine();
-                        ImVec2 center = ImGui::GetCursorScreenPos();
-                        center.x += 40; center.y += 28;
-                        float radius = 24.0f;
-                        ImDrawList* draw_list = ImGui::GetWindowDrawList();
-                        float pct = state.timeRemaining / 30.0f;
-                        constexpr float kPi = 3.14159265358979323846f;
-                        draw_list->AddCircleFilled(center, radius, IM_COL32(30, 30, 30, 255), 64);
-                        draw_list->AddCircle(center, radius, IM_COL32(80, 80, 80, 255), 64, 2.0f);
-                        // Arc progress
-                        int segments = 48;
-                        for (int i = 0; i < segments; ++i) {
-                            float a0 = (-kPi/2) + (i / (float)segments) * 2*kPi;
-                            float a1 = (-kPi/2) + ((i+1) / (float)segments) * 2*kPi;
-                            if ((i+1) / (float)segments > pct) break;
-                            draw_list->AddTriangleFilled(
-                                center,
-                                ImVec2(center.x + (float)std::cos(a0)*radius, center.y + (float)std::sin(a0)*radius),
-                                ImVec2(center.x + (float)std::cos(a1)*radius, center.y + (float)std::sin(a1)*radius),
-                                IM_COL32(255, 165, 0, 200));
+                    // Lifelines (top right)
+                    ImGui::SetCursorPos(ImVec2(600, 20));
+                    if (state.availableLifelines[0]) {
+                        if (CustomGUI::RoundedButton("50:50", ImVec2(60, 40), 
+                            IM_COL32(100, 150, 200, 255), IM_COL32(120, 170, 220, 255), 20.0f)) {
+                            if (demoMode) {
+                                state.errorMessage = "50/50 used! (Demo - removes 2 wrong answers)";
+                                state.availableLifelines[0] = false;
+                            } else if (protocol) {
+                                std::cerr << "[DEBUG] Player using 50/50 lifeline" << std::endl;
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Eliminating 2 wrong answers...";
+                                state.lifelineType = "5050";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
+                                protocol->useLifeline("5050");
+                            }
                         }
-                        // Number
-                        char tbuf[8]; snprintf(tbuf, sizeof(tbuf), "%d", state.timeRemaining);
-                        ImVec2 ts = ImGui::CalcTextSize(tbuf);
-                        draw_list->AddText(ImVec2(center.x - ts.x*0.5f, center.y - ts.y*0.5f), IM_COL32(255,255,255,255), tbuf);
-                        ImGui::Dummy(ImVec2(80, 56));
+                    } else {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                        ImGui::Button("50:50", ImVec2(60, 40));
+                        ImGui::PopStyleColor();
                     }
+                    
+                    ImGui::SameLine();
+                    if (state.availableLifelines[1]) {
+                        if (CustomGUI::RoundedButton("Phone", ImVec2(60, 40), 
+                            IM_COL32(100, 150, 200, 255), IM_COL32(120, 170, 220, 255), 20.0f)) {
+                            if (demoMode) {
+                                state.errorMessage = "Friend says: I think it's A! (Demo)";
+                                state.availableLifelines[1] = false;
+                            } else if (protocol) {
+                                std::cerr << "[DEBUG] Player using Phone a Friend lifeline" << std::endl;
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Calling...";
+                                state.lifelineType = "PHONE";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
+                                protocol->useLifeline("PHONE");
+                            }
+                        }
+                    } else {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                        ImGui::Button("Phone", ImVec2(60, 40));
+                        ImGui::PopStyleColor();
+                    }
+                    
+                    ImGui::SameLine();
+                    if (state.availableLifelines[2]) {
+                        if (CustomGUI::RoundedButton("Audience", ImVec2(80, 40), 
+                            IM_COL32(100, 150, 200, 255), IM_COL32(120, 170, 220, 255), 20.0f)) {
+                            if (demoMode) {
+                                state.errorMessage = "Audience poll: A: 65%, B: 15%, C: 10%, D: 10% (Demo)";
+                                state.availableLifelines[2] = false;
+                            } else if (protocol) {
+                                std::cerr << "[DEBUG] Player using Ask Audience lifeline" << std::endl;
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Surveying...";
+                                state.lifelineType = "AUDIENCE";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
+                                protocol->useLifeline("AUDIENCE");
+                            }
+                        }
+                    } else {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                        ImGui::Button("Audience", ImVec2(80, 40));
+                        ImGui::PopStyleColor();
+                    }
+                    
+                    // Progress bar and question number
+                    ImGui::SetCursorPos(ImVec2(200, 30));
+                    float progress = state.currentQuestionNumber / 15.0f;
+                    ImVec2 progressPos = ImGui::GetCursorScreenPos();
+                    CustomGUI::ProgressBar(progressPos, 400.0f, 8.0f, progress,
+                        IM_COL32(50, 50, 50, 255), IM_COL32(100, 200, 255, 255));
+                    
+                    // Question number in center of progress bar
+                    ImVec2 progressCenter = ImVec2(progressPos.x + 200.0f, progressPos.y + 4.0f);
+                    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                    draw_list->AddCircleFilled(progressCenter, 20.0f, IM_COL32(20, 40, 60, 255), 32);
+                    draw_list->AddCircle(progressCenter, 20.0f, IM_COL32(100, 200, 255, 255), 32, 2.0f);
+                    char qbuf[8]; snprintf(qbuf, sizeof(qbuf), "%d", state.currentQuestionNumber);
+                    ImVec2 qts = ImGui::CalcTextSize(qbuf);
+                    draw_list->AddText(ImVec2(progressCenter.x - qts.x*0.5f, progressCenter.y - qts.y*0.5f), 
+                        IM_COL32(255,255,255,255), qbuf);
+                    ImGui::Dummy(ImVec2(400, 40));
+                    
+                    // Timer (circular, top right)
+                    ImGui::SetCursorPos(ImVec2(700, 20));
+                    ImVec2 timerCenter = ImGui::GetCursorScreenPos();
+                    timerCenter.x += 30; timerCenter.y += 20;
+                    float timerRadius = 25.0f;
+                    float timerPct = state.timeRemaining / 30.0f;
+                    constexpr float kPi = 3.14159265358979323846f;
+                    
+                    ImU32 timerColor = IM_COL32(100, 200, 100, 255);
+                    if (state.timeRemaining <= 10) timerColor = IM_COL32(255, 100, 100, 255);
+                    else if (state.timeRemaining <= 20) timerColor = IM_COL32(255, 200, 100, 255);
+                    
+                    draw_list->AddCircleFilled(timerCenter, timerRadius, IM_COL32(30, 30, 30, 255), 64);
+                    draw_list->AddCircle(timerCenter, timerRadius, IM_COL32(80, 80, 80, 255), 64, 2.0f);
+                    
+                    // Arc progress
+                    int segments = 48;
+                    for (int i = 0; i < segments; ++i) {
+                        float a0 = (-kPi/2) + (i / (float)segments) * 2*kPi;
+                        float a1 = (-kPi/2) + ((i+1) / (float)segments) * 2*kPi;
+                        if ((i+1) / (float)segments > timerPct) break;
+                        draw_list->AddTriangleFilled(
+                            timerCenter,
+                            ImVec2(timerCenter.x + (float)std::cos(a0)*timerRadius, timerCenter.y + (float)std::sin(a0)*timerRadius),
+                            ImVec2(timerCenter.x + (float)std::cos(a1)*timerRadius, timerCenter.y + (float)std::sin(a1)*timerRadius),
+                            timerColor);
+                    }
+                    
+                    char tbuf[8]; snprintf(tbuf, sizeof(tbuf), "%d", state.timeRemaining);
+                    ImVec2 ts = ImGui::CalcTextSize(tbuf);
+                    draw_list->AddText(ImVec2(timerCenter.x - ts.x*0.5f, timerCenter.y - ts.y*0.5f), 
+                        IM_COL32(255,255,255,255), tbuf);
+                    ImGui::Dummy(ImVec2(60, 40));
 
                     // Start timer after reveal completes
                     if (state.revealActive) {
@@ -976,19 +1154,22 @@ int main(int argc, char** argv) {
                         if (state.answersRevealed >= 4) state.revealActive = false;
                     }
 
-                    if (state.timeRemaining <= 20) {
-                        ImGui::PopStyleColor();
-                    }
+                    // Question display with hexagonal panel style
+                    ImGui::SetCursorPos(ImVec2(50, 120));
+                    ImVec2 questionPos = ImGui::GetCursorScreenPos();
+                    ImVec2 questionSize = ImVec2(700, 100);
+                    CustomGUI::HexagonalPanel(questionPos, questionSize, IM_COL32(20, 40, 60, 200));
                     
-                    ImGui::Text("Prize: %d VND", state.currentPrize);
-                    ImGui::Text("Score: %d points", state.totalScore);
-                    ImGui::Separator();
-                    
-                    // Display question
+                    ImGui::SetCursorPos(ImVec2(70, 140));
+                    ImGui::SetWindowFontScale(1.3f);
                     if (!state.question.empty()) {
                         ImGui::TextWrapped("%s", state.question.c_str());
+                    } else {
+                        ImGui::TextWrapped("Waiting for question...");
                     }
-                    ImGui::Separator();
+                    ImGui::SetWindowFontScale(1.0f);
+                    
+                    ImGui::SetCursorPos(ImVec2(50, 240));
                     
                     // Answer buttons with reveal
                     size_t maxToShow = state.revealActive ? (size_t)state.answersRevealed : state.options.size();
@@ -1014,24 +1195,23 @@ int main(int argc, char** argv) {
                         // Check if this button was selected BEFORE rendering
                         bool wasSelected = (state.selectedAnswer == static_cast<int>(i));
                         
-                        // Apply disabled style (gray) if eliminated by 5050
+                        // Answer button with rounded style
+                        ImU32 btnColor = IM_COL32(50, 100, 150, 255);
+                        ImU32 btnHoverColor = IM_COL32(70, 130, 180, 255);
+                        
                         if (isDisabled) {
-                            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                            btnColor = IM_COL32(50, 50, 50, 255);
+                            btnHoverColor = IM_COL32(50, 50, 50, 255);
                         } else if (wasSelected) {
-                            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.0f, 1.0f));
+                            btnColor = IM_COL32(100, 200, 100, 255);
+                            btnHoverColor = IM_COL32(120, 220, 120, 255);
                         }
                         
-                        // Disable button if eliminated
                         if (isDisabled) {
                             ImGui::BeginDisabled();
                         }
                         
-                        if (ImGui::Button(label, ImVec2(700, 50))) {
+                        if (CustomGUI::RoundedButton(label, ImVec2(700, 60), btnColor, btnHoverColor, 15.0f)) {
                             if (!isDisabled) {
                                 state.selectedAnswer = i;
                             }
@@ -1040,21 +1220,14 @@ int main(int argc, char** argv) {
                         if (isDisabled) {
                             ImGui::EndDisabled();
                         }
-                        
-                        // Pop style colors
-                        if (isDisabled) {
-                            ImGui::PopStyleColor(4);
-                        } else if (wasSelected) {
-                            ImGui::PopStyleColor(3);
-                        }
                     }
                     if (state.revealActive) {
                         ImGui::TextDisabled("Revealing options...");
                     }
                     
-                    ImGui::Spacing();
-                    
-                    if (ImGui::Button("Submit Answer", ImVec2(200, 50))) {
+                    ImGui::SetCursorPos(ImVec2(200, 550));
+                    if (CustomGUI::RoundedButton("Submit Answer", ImVec2(200, 50), 
+                        IM_COL32(50, 150, 50, 255), IM_COL32(70, 180, 70, 255), 15.0f)) {
                         if (state.selectedAnswer >= 0) {
                             if (demoMode) {
                                 // Demo mode - fake answer
@@ -1117,7 +1290,8 @@ int main(int argc, char** argv) {
                     }
                     
                     ImGui::SameLine();
-                    if (ImGui::Button("Give Up", ImVec2(150, 50))) {
+                    if (CustomGUI::RoundedButton("Give Up", ImVec2(150, 50), 
+                        IM_COL32(150, 50, 50, 255), IM_COL32(180, 70, 70, 255), 15.0f)) {
                         if (demoMode) {
                             state.resultMessage = "You gave up! (Demo Mode)";
                             state.showResultMessage = true;
@@ -1135,111 +1309,14 @@ int main(int argc, char** argv) {
                         }
                     }
                     
-                    // Lifelines - ONLY show when we have a question (not waiting)
-                    ImGui::Separator();
-                    ImGui::Text("Lifelines:");
-                    
-                    if (state.availableLifelines[0]) {
-                        bool used = false;
-                        if (state.t5050Loaded) {
-                            if (ImGui::ImageButton("##ll5050", ImTextureRef((ImTextureID)(intptr_t)state.tex5050), ImVec2(48, 48))) used = true;
-                        } else {
-                            if (ImGui::Button("50/50", ImVec2(150, 30))) used = true;
-                        }
-                        if (used) {
-                            if (demoMode) {
-                                state.errorMessage = "50/50 used! (Demo - removes 2 wrong answers)";
-                                state.availableLifelines[0] = false;
-                            } else if (protocol) {
-                                std::cerr << "[DEBUG] Player using 50/50 lifeline" << std::endl;
-                                // Pause timer
-                                state.timerPaused = true;
-                                state.pausedTimeRemaining = state.timeRemaining;
-                                state.timerRunning = false;
-                                // Start loading
-                                state.lifelineProcessing = true;
-                                state.lifelineLoadingMessage = "Eliminating 2 wrong answers...";
-                                state.lifelineType = "5050";
-                                state.lifelineStartTime = std::chrono::steady_clock::now();
-                                protocol->useLifeline("5050");
-                            }
-                        }
-                    } else {
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                        ImGui::Button("50/50 (Used)", ImVec2(150, 30));
-                        ImGui::PopStyleColor();
-                    }
-                    
-                    ImGui::SameLine();
-                    if (state.availableLifelines[1]) {
-                        bool used = false;
-                        if (state.tPhoneLoaded) {
-                            if (ImGui::ImageButton("##llphone", ImTextureRef((ImTextureID)(intptr_t)state.texPhone), ImVec2(48, 48))) used = true;
-                        } else {
-                            if (ImGui::Button("Phone Friend", ImVec2(150, 30))) used = true;
-                        }
-                        if (used) {
-                            if (demoMode) {
-                                state.errorMessage = "Friend says: I think it's A! (Demo)";
-                                state.availableLifelines[1] = false;
-                            } else if (protocol) {
-                                std::cerr << "[DEBUG] Player using Phone a Friend lifeline" << std::endl;
-                                // Pause timer
-                                state.timerPaused = true;
-                                state.pausedTimeRemaining = state.timeRemaining;
-                                state.timerRunning = false;
-                                // Start loading
-                                state.lifelineProcessing = true;
-                                state.lifelineLoadingMessage = "Calling...";
-                                state.lifelineType = "PHONE";
-                                state.lifelineStartTime = std::chrono::steady_clock::now();
-                                protocol->useLifeline("PHONE");
-                            }
-                        }
-                    } else {
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                        ImGui::Button("Phone (Used)", ImVec2(150, 30));
-                        ImGui::PopStyleColor();
-                    }
-                    
-                    ImGui::SameLine();
-                    if (state.availableLifelines[2]) {
-                        bool used = false;
-                        if (state.tAudienceLoaded) {
-                            if (ImGui::ImageButton("##llaud", ImTextureRef((ImTextureID)(intptr_t)state.texAudience), ImVec2(48, 48))) used = true;
-                        } else {
-                            if (ImGui::Button("Ask Audience", ImVec2(150, 30))) used = true;
-                        }
-                        if (used) {
-                            if (demoMode) {
-                                state.errorMessage = "Audience poll: A: 65%, B: 15%, C: 10%, D: 10% (Demo)";
-                                state.availableLifelines[2] = false;
-                            } else if (protocol) {
-                                std::cerr << "[DEBUG] Player using Ask Audience lifeline" << std::endl;
-                                // Pause timer
-                                state.timerPaused = true;
-                                state.pausedTimeRemaining = state.timeRemaining;
-                                state.timerRunning = false;
-                                // Start loading
-                                state.lifelineProcessing = true;
-                                state.lifelineLoadingMessage = "Surveying...";
-                                state.lifelineType = "AUDIENCE";
-                                state.lifelineStartTime = std::chrono::steady_clock::now();
-                                protocol->useLifeline("AUDIENCE");
-                            }
-                        }
-                    } else {
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                        ImGui::Button("Audience (Used)", ImVec2(150, 30));
-                        ImGui::PopStyleColor();
-                    }
-                    
+                    // Error message display
                     if (!state.errorMessage.empty()) {
-                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", state.errorMessage.c_str());
+                        ImGui::SetCursorPos(ImVec2(50, 600));
+                        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", state.errorMessage.c_str());
                     }
                     
-                    // Lifeline results area (below lifeline buttons)
-                    ImGui::Separator();
+                    // Lifeline results area
+                    ImGui::SetCursorPos(ImVec2(50, 630));
                     if (state.lifelineProcessing) {
                         // Show loading message
                         ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "%s", state.lifelineLoadingMessage.c_str());
@@ -1362,7 +1439,7 @@ frame_end:
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
-        glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+        glClearColor(0.05f, 0.1f, 0.2f, 1.0f);  // Dark blue background
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
