@@ -80,16 +80,18 @@ CREATE TABLE IF NOT EXISTS game_answers (
 -- ============================================
 -- 6. SAVED_GAMES TABLE
 -- ============================================
--- CREATE TABLE IF NOT EXISTS saved_games (
---     id SERIAL PRIMARY KEY,
---     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
---     game_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
---     question_number INTEGER NOT NULL,
---     prize BIGINT NOT NULL,
---     score INTEGER NOT NULL,
---     used_lifelines TEXT, -- JSON array: ["5050", "PHONE", "AUDIENCE"]
---     saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
--- );
+CREATE TABLE IF NOT EXISTS saved_games (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    game_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+    question_number INTEGER NOT NULL,
+    prize BIGINT NOT NULL,
+    score INTEGER NOT NULL,
+    time_remaining INTEGER NOT NULL DEFAULT 30,
+    used_lifelines TEXT, -- JSON array: ["5050", "PHONE", "AUDIENCE"]
+    saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)  -- Only one saved game per user
+);
 
 -- ============================================
 -- 7. FRIEND_REQUESTS TABLE

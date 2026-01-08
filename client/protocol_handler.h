@@ -48,6 +48,7 @@ public:
     AnswerResponse answerQuestion(int answerIndex);
     int useLifeline(const std::string& lifelineType);
     int giveUp();
+    int saveGame();
     int leaveGame();
     
     // Connection

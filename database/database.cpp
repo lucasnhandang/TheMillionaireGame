@@ -477,7 +477,7 @@ GameSession Database::getActiveGameSession(const string& username) {
 }
 
 bool Database::saveGameProgress(const string& username, int game_id, int question_number, 
-                                long long prize, int score, const vector<string>& used_lifelines) {
+                                long long prize, int score, int time_remaining, const vector<string>& used_lifelines) {
     if (!isConnected()) return false;
     
     int user_id = getUserId(username);
@@ -491,14 +491,15 @@ bool Database::saveGameProgress(const string& username, int game_id, int questio
     }
     lifelines_json += "]";
     
-    // Delete existing saved game for this user
+    // Delete existing saved game for this user (ON CONFLICT with UNIQUE constraint will handle this, but explicit delete is clearer)
     string delete_query = "DELETE FROM saved_games WHERE user_id = " + to_string(user_id);
-    PQexec(conn_, delete_query.c_str());
+    PGresult* del_res = PQexec(conn_, delete_query.c_str());
+    PQclear(del_res);
     
-    string query = "INSERT INTO saved_games (user_id, game_id, question_number, prize, score, used_lifelines) "
+    string query = "INSERT INTO saved_games (user_id, game_id, question_number, prize, score, time_remaining, used_lifelines) "
                    "VALUES (" + to_string(user_id) + ", " + to_string(game_id) + ", " +
                    to_string(question_number) + ", " + to_string(prize) + ", " +
-                   to_string(score) + ", " + escapeString(lifelines_json) + ")";
+                   to_string(score) + ", " + to_string(time_remaining) + ", " + escapeString(lifelines_json) + ")";
     
     PGresult* res = PQexec(conn_, query.c_str());
     
@@ -519,7 +520,8 @@ GameSession Database::loadGameProgress(const string& username) {
     int user_id = getUserId(username);
     if (user_id == 0) return session;
     
-    string query = "SELECT sg.game_id, sg.question_number, sg.prize, sg.score, "
+    // Load saved game with time_remaining
+    string query = "SELECT sg.game_id, sg.question_number, sg.prize, sg.score, sg.time_remaining, "
                    "gs.status, gs.total_score "
                    "FROM saved_games sg "
                    "JOIN game_sessions gs ON sg.game_id = gs.id "
@@ -536,13 +538,68 @@ GameSession Database::loadGameProgress(const string& username) {
     session.current_question_number = atoi(PQgetvalue(res, 0, 1));
     session.current_prize = atoll(PQgetvalue(res, 0, 2));
     session.total_score = atoi(PQgetvalue(res, 0, 3));
-    session.status = PQgetvalue(res, 0, 4);
+    // Store time_remaining in a custom field - we'll use it via a helper
     // Calculate current_level from current_question_number (1-5=0, 6-10=1, 11-15=2)
     session.current_level = (session.current_question_number <= 5) ? 0 : 
                            (session.current_question_number <= 10) ? 1 : 2;
+    session.status = PQgetvalue(res, 0, 5);
+    // Note: time_remaining is at index 4, but GameSession doesn't have that field
+    // We'll need to pass it separately or extend GameSession struct
     
     PQclear(res);
     return session;
+}
+
+int Database::getSavedGameTimeRemaining(const string& username) {
+    if (!isConnected()) return 30;  // Default
+    
+    int user_id = getUserId(username);
+    if (user_id == 0) return 30;
+    
+    string query = "SELECT time_remaining FROM saved_games WHERE user_id = " + to_string(user_id) + " ORDER BY saved_at DESC LIMIT 1";
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return 30;
+    }
+    
+    int time_remaining = atoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
+    return time_remaining;
+}
+
+vector<string> Database::getSavedGameLifelines(const string& username) {
+    vector<string> lifelines;
+    if (!isConnected()) return lifelines;
+    
+    int user_id = getUserId(username);
+    if (user_id == 0) return lifelines;
+    
+    string query = "SELECT used_lifelines FROM saved_games WHERE user_id = " + to_string(user_id) + " ORDER BY saved_at DESC LIMIT 1";
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return lifelines;
+    }
+    
+    string lifelines_json = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    // Parse JSON array: ["5050", "PHONE", "AUDIENCE"]
+    // Simple parsing - look for quoted strings
+    size_t pos = 0;
+    while (pos < lifelines_json.length()) {
+        size_t start = lifelines_json.find('"', pos);
+        if (start == string::npos) break;
+        size_t end = lifelines_json.find('"', start + 1);
+        if (end == string::npos) break;
+        lifelines.push_back(lifelines_json.substr(start + 1, end - start - 1));
+        pos = end + 1;
+    }
+    
+    return lifelines;
 }
 
 bool Database::endGame(int game_id, const string& status, int total_score, long long final_prize) {

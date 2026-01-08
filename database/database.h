@@ -129,8 +129,10 @@ public:
     int createGameSession(const std::string& username);
     bool updateGameSession(const GameSession& session);
     GameSession getActiveGameSession(const std::string& username);
-    bool saveGameProgress(const std::string& username, int game_id, int question_number, long long prize, int score, const std::vector<std::string>& used_lifelines);
+    bool saveGameProgress(const std::string& username, int game_id, int question_number, long long prize, int score, int time_remaining, const std::vector<std::string>& used_lifelines);
     GameSession loadGameProgress(const std::string& username);
+    int getSavedGameTimeRemaining(const std::string& username);
+    std::vector<std::string> getSavedGameLifelines(const std::string& username);
     bool endGame(int game_id, const std::string& status, int total_score, long long final_prize);
     bool addGameQuestion(int game_id, int question_order, int question_id);
     bool addGameAnswer(int game_id, int question_order, int selected_option, bool is_correct, int response_time_second);

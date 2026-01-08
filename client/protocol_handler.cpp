@@ -319,6 +319,31 @@ int ProtocolHandler::giveUp() {
     return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
 }
 
+int ProtocolHandler::saveGame() {
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    
+    std::string data = buildDataJson(strings);
+    
+    if (!client_->sendRequest("SAVE_GAME", data)) {
+        return 503;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        return 504;
+    }
+    
+    int code = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (code == 200) {
+        // Clear current game state after successful save
+        currentGameId = 0;
+        currentQuestionNumber = 0;
+    }
+    
+    return code;
+}
+
 int ProtocolHandler::leaveGame() {
     std::map<std::string, std::string> strings;
     strings["authToken"] = authToken;

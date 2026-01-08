@@ -613,26 +613,182 @@ string handleResume(const string& request, ClientSession& session, int client_fd
         return StreamUtils::createErrorResponse(405, "User already in a game");
     }
 
-    GameProgress progress = GameStateManager::getInstance().loadGameProgress(session.username);
-    if (progress.level == 0) {
+    // Load saved game from database
+    GameSession saved_game = Database::getInstance().loadGameProgress(session.username);
+    if (saved_game.id == 0) {
         return StreamUtils::createErrorResponse(404, "No saved game found");
     }
 
-    session.in_game = true;
-    session.game_id = progress.level;
-    session.current_question_number = progress.level;
-    session.current_prize = progress.prize;
-
-    string data = "{\"questionNumber\":" + to_string(progress.level) + 
-                 ",\"prize\":" + to_string(progress.prize) + 
-                 ",\"gameId\":" + to_string(session.game_id) +
-                 ",\"totalScore\":" + to_string(session.total_score) + "}";
+    // Get saved game details (time_remaining, lifelines)
+    int time_remaining = Database::getInstance().getSavedGameTimeRemaining(session.username);
+    vector<string> saved_lifelines = Database::getInstance().getSavedGameLifelines(session.username);
     
-    // TODO: Send QUESTION_INFO notification with resumed question
-    // This requires database integration to load question data
-    // Question q = Database::getInstance().getQuestion(session.current_level);
-    // string question_data = buildQuestionInfoData(q, session.game_id, session);
-    // NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    // Restore session state
+    session.in_game = true;
+    session.game_id = saved_game.id;
+    session.current_question_number = saved_game.current_question_number;
+    session.current_level = saved_game.current_level;
+    session.current_prize = saved_game.current_prize;
+    session.total_score = saved_game.total_score;
+    
+    // Restore used lifelines per question
+    session.used_lifelines_per_question.clear();
+    session.used_lifelines.clear();
+    for (const string& lifeline : saved_lifelines) {
+        session.used_lifelines.insert(lifeline);
+        session.used_lifelines_per_question[saved_game.current_question_number].insert(lifeline);
+    }
+    
+    // Update game session status to "active"
+    saved_game.status = "active";
+    Database::getInstance().updateGameSession(saved_game);
+    
+    // Get the current question from the pre-selected game_questions
+    Question current_question = Database::getInstance().getGameQuestion(saved_game.id, saved_game.current_question_number);
+    if (current_question.id == 0) {
+        LOG_ERROR("Failed to get question for resumed game_id=" + to_string(saved_game.id) + ", question_number=" + to_string(saved_game.current_question_number));
+        return StreamUtils::createErrorResponse(500, "Failed to load saved game question");
+    }
+    
+    // Send GAME_START notification
+    string game_start_data = "{\"gameId\":" + to_string(saved_game.id) + 
+                            ",\"timestamp\":" + to_string(time(nullptr)) + "}";
+    NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
+    
+    // Ensure time_remaining is valid (at least 1 second)
+    if (time_remaining <= 0) {
+        time_remaining = 30;  // Default if invalid
+        LOG_ERROR("Invalid time_remaining for saved game, using default 30");
+    }
+    
+    // Send QUESTION_INFO notification with saved time_remaining
+    string question_data = buildQuestionInfoData(current_question, saved_game.id, session);
+    // Override timeRemaining in question_data with saved value
+    // Find and replace the timeRemaining value (handle with or without comma)
+    size_t timeRemaining_pos = question_data.find("\"timeRemaining\":");
+    if (timeRemaining_pos != string::npos) {
+        size_t value_start = question_data.find_first_of("0123456789", timeRemaining_pos + 16);
+        if (value_start != string::npos) {
+            size_t value_end = question_data.find_first_not_of("0123456789", value_start);
+            if (value_end != string::npos) {
+                // Replace the value portion only, keeping the comma if it exists
+                question_data.replace(value_start, value_end - value_start, to_string(time_remaining));
+                LOG_INFO("Resumed game: replaced timeRemaining with " + to_string(time_remaining) + " for game_id=" + to_string(saved_game.id));
+            } else {
+                // If no end found, try to find comma or closing brace
+                value_end = question_data.find_first_of(",}", value_start);
+                if (value_end != string::npos) {
+                    question_data.replace(value_start, value_end - value_start, to_string(time_remaining));
+                    LOG_INFO("Resumed game: replaced timeRemaining (alt) with " + to_string(time_remaining) + " for game_id=" + to_string(saved_game.id));
+                }
+            }
+        }
+    } else {
+        LOG_ERROR("Failed to find timeRemaining in question_data for resumed game_id=" + to_string(saved_game.id));
+    }
+    NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    
+    // Resume timer with saved time_remaining (ensure at least 1 second)
+    GameTimer::getInstance().resumeTimerWithTime(saved_game.id, time_remaining);
+    
+    string data = "{\"questionNumber\":" + to_string(saved_game.current_question_number) + 
+                 ",\"prize\":" + to_string(saved_game.current_prize) + 
+                 ",\"gameId\":" + to_string(saved_game.id) +
+                 ",\"totalScore\":" + to_string(saved_game.total_score) +
+                 ",\"timeRemaining\":" + to_string(time_remaining) + "}";
+    
+    return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handleSaveGame(const string& request, ClientSession& session, int client_fd) {
+    if (!session.in_game) {
+        return StreamUtils::createErrorResponse(406, "Not in a game");
+    }
+
+    int game_id = session.game_id;
+    
+    // STOP TIMER FIRST to prevent it from expiring during save
+    // Get time remaining BEFORE stopping (but stop immediately after)
+    int time_remaining = 30;  // Default
+    if (session.timer_paused) {
+        // Timer already paused, use stored value
+        time_remaining = session.paused_time_remaining;
+    } else {
+        // Timer is running - get remaining time and STOP it immediately
+        time_remaining = GameTimer::getInstance().getRemainingTime(game_id);
+        if (time_remaining < 0) {
+            time_remaining = 30;  // Default if timer not started
+        }
+        // Stop timer immediately to prevent expiration during save
+        GameTimer::getInstance().stopTimer(game_id);
+        // Also mark as paused in session to preserve state
+        session.timer_paused = true;
+        session.paused_time_remaining = time_remaining;
+    }
+    
+    // Collect used lifelines for current question
+    vector<string> used_lifelines;
+    auto it = session.used_lifelines_per_question.find(session.current_question_number);
+    if (it != session.used_lifelines_per_question.end()) {
+        for (const string& lifeline : it->second) {
+            used_lifelines.push_back(lifeline);
+        }
+    }
+    
+    // Save current values BEFORE clearing session state
+    int saved_question_number = session.current_question_number;
+    int saved_level = session.current_level;
+    long long saved_prize = session.current_prize;
+    int saved_score = session.total_score;
+    
+    // Save game progress to saved_games table
+    bool success = Database::getInstance().saveGameProgress(
+        session.username,
+        game_id,
+        saved_question_number,
+        saved_prize,
+        saved_score,
+        time_remaining,
+        used_lifelines
+    );
+    
+    if (!success) {
+        // If save failed, resume timer if it wasn't already paused
+        if (!session.timer_paused) {
+            GameTimer::getInstance().resumeTimerWithTime(game_id, time_remaining);
+            session.timer_paused = false;
+        }
+        return StreamUtils::createErrorResponse(500, "Failed to save game");
+    }
+    
+    // Timer already stopped above - no need to stop again
+    
+    // Keep game_session status as "active" (don't change to "saved" - it's not a valid status)
+    // The saved_games table tracks saved games separately
+    GameSession db_session;
+    db_session.id = game_id;
+    db_session.status = "active";  // Keep as active - saved_games table tracks the saved state
+    db_session.current_question_number = saved_question_number;
+    db_session.current_level = saved_level;
+    db_session.current_prize = saved_prize;
+    db_session.total_score = saved_score;
+    Database::getInstance().updateGameSession(db_session);
+    
+    // Clear session state (game is saved, user can resume later)
+    session.in_game = false;
+    session.game_id = 0;
+    session.current_question_number = 0;
+    session.current_level = 0;
+    session.current_prize = 0;
+    session.total_score = 0;
+    session.used_lifelines.clear();
+    session.used_lifelines_per_question.clear();
+    session.timer_paused = false;
+    session.paused_time_remaining = 0;
+    
+    string data = "{\"message\":\"Game saved successfully\","
+                 "\"gameId\":" + to_string(game_id) + ","
+                 "\"questionNumber\":" + to_string(saved_question_number) + "}";
     
     return StreamUtils::createSuccessResponse(200, data);
 }
@@ -642,9 +798,19 @@ string handleLeaveGame(const string& request, ClientSession& session, int client
         return StreamUtils::createErrorResponse(406, "Not in a game");
     }
 
-    GameStateManager::getInstance().saveGameProgress(session.username, 
-        session.current_question_number, session.current_prize);
+    // Leave game doesn't save - just ends the game
+    int game_id = session.game_id;
+    GameTimer::getInstance().stopTimer(game_id);
+    
+    // End game with "quit" status
+    long long final_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(session.current_question_number);
+    Database::getInstance().endGame(game_id, "quit", session.total_score, final_prize);
+    
     session.in_game = false;
+    session.game_id = 0;
+    session.current_question_number = 0;
+    session.used_lifelines.clear();
+    session.used_lifelines_per_question.clear();
 
     string data = "{}";
     return StreamUtils::createSuccessResponse(200, data);

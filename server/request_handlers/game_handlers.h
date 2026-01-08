@@ -17,6 +17,7 @@ namespace GameHandlers {
     std::string handleLifeline(const std::string& request, ClientSession& session, int client_fd);
     std::string handleGiveUp(const std::string& request, ClientSession& session, int client_fd);
     std::string handleResume(const std::string& request, ClientSession& session, int client_fd);
+    std::string handleSaveGame(const std::string& request, ClientSession& session, int client_fd);
     std::string handleLeaveGame(const std::string& request, ClientSession& session, int client_fd);
 }
 

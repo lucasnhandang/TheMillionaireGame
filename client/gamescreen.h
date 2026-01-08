@@ -49,6 +49,7 @@ signals:
     void answerSubmitted(int answerIndex);
     void lifelineUsed(const QString& lifelineType);
     void walkAwayClicked();
+    void saveGameClicked();
     void gameEnded();
 
 private slots:
@@ -57,6 +58,7 @@ private slots:
     void onLifelinePhoneClicked();
     void onLifelineAudienceClicked();
     void onWalkAwayClicked();
+    void onSaveGameClicked();
     void onTimerTimeout();
     void onRevealTimeout();
 
@@ -106,6 +108,7 @@ private:
     QPushButton* lifelinePhoneButton_;
     QPushButton* lifelineAudienceButton_;  // Maps to lifelinAskButton in UI
     QPushButton* walkAwayButton_;
+    QPushButton* saveGameButton_;
     QPushButton* submitButton_;
     
     QLabel* lifelineResultLabel_;

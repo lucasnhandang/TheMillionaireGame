@@ -14,6 +14,7 @@
 #include <QMap>
 #include <QList>
 #include <QChar>
+#include <QMessageBox>
 #include <cmath>
 
 GameScreen::GameScreen(QWidget *parent)
@@ -76,6 +77,45 @@ void GameScreen::setupUI()
     
     // Buttons
     walkAwayButton_ = ui->walkAwayButton;
+    
+    // Create Save Game button
+    saveGameButton_ = new QPushButton("Save Game", this);
+    saveGameButton_->setObjectName("saveGameButton");
+    saveGameButton_->setStyleSheet(
+        "QPushButton { background-color: #4a6fa5; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 14px; font-weight: bold; }"
+        "QPushButton:hover { background-color: #5a7fb5; }"
+        "QPushButton:pressed { background-color: #3a5f95; }"
+        "QPushButton:disabled { background-color: #555; color: #888; }"
+    );
+    
+    // Add Save Game button to the same parent as walkAwayButton if possible
+    if (walkAwayButton_ && walkAwayButton_->parentWidget()) {
+        // If parent has a layout, try to add button there
+        QLayout* parentLayout = walkAwayButton_->parentWidget()->layout();
+        if (parentLayout) {
+            // Try to find if it's a QHBoxLayout or QVBoxLayout
+            QHBoxLayout* hLayout = qobject_cast<QHBoxLayout*>(parentLayout);
+            if (hLayout) {
+                // Insert before walkAwayButton
+                int index = hLayout->indexOf(walkAwayButton_);
+                if (index >= 0) {
+                    hLayout->insertWidget(index, saveGameButton_);
+                } else {
+                    hLayout->addWidget(saveGameButton_);
+                }
+            } else {
+                // Add to parent widget directly
+                saveGameButton_->setParent(walkAwayButton_->parentWidget());
+                saveGameButton_->show();
+            }
+        } else {
+            // No layout, add directly to parent widget
+            saveGameButton_->setParent(walkAwayButton_->parentWidget());
+            saveGameButton_->setGeometry(walkAwayButton_->x() - 150, walkAwayButton_->y(), 130, walkAwayButton_->height());
+            saveGameButton_->show();
+        }
+    }
+    
     answerButtonA_ = ui->answerButtonA;
     answerButtonB_ = ui->answerButtonB;
     answerButtonC_ = ui->answerButtonC;
@@ -118,6 +158,7 @@ void GameScreen::setupConnections()
 {
     // Connect button signals
     connect(walkAwayButton_, &QPushButton::clicked, this, &GameScreen::onWalkAwayClicked);
+    connect(saveGameButton_, &QPushButton::clicked, this, &GameScreen::onSaveGameClicked);
     connect(submitButton_, &QPushButton::clicked, this, &GameScreen::onAnswerButtonClicked);
     
     // Connect lifeline buttons
@@ -208,6 +249,11 @@ void GameScreen::updateQuestion(const QString& question, const QStringList& opti
 
 void GameScreen::updateTimer(int seconds)
 {
+    // Stop timer first to ensure we're setting the correct value
+    bool wasRunning = timerRunning_;
+    stopTimer();
+    
+    // Set the new time remaining value
     timeRemaining_ = seconds;
     if (timerLabel_) {
         timerLabel_->setText(QString::number(seconds));
@@ -244,6 +290,11 @@ void GameScreen::updateTimer(int seconds)
                 "min-width: 20px;"
             );
         }
+    }
+    
+    // Restart timer if it was running before (unless we're setting it to 0 or negative)
+    if (wasRunning && timeRemaining_ > 0) {
+        startTimer();
     }
 }
 
@@ -557,5 +608,69 @@ void GameScreen::onWalkAwayClicked()
     } else if (protocol_) {
         protocol_->giveUp();
         emit gameEnded();
+    }
+}
+
+void GameScreen::onSaveGameClicked()
+{
+    if (demoMode_) {
+        return;  // Don't save in demo mode
+    }
+    
+    if (!protocol_) {
+        return;
+    }
+    
+    // Stop timer
+    stopTimer();
+    
+    // Ask for confirmation
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Save Game");
+    msgBox.setText("Do you want to save this game and exit?");
+    msgBox.setInformativeText("You can resume this game later from the home screen.");
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Cancel);
+    msgBox.setDefaultButton(QMessageBox::Save);
+    msgBox.setStyleSheet(
+        "QMessageBox { background-color: #1a1a1a; color: white; }"
+        "QMessageBox QLabel { color: white; font-size: 14px; }"
+        "QMessageBox QPushButton { background-color: #4a6fa5; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+        "QMessageBox QPushButton:hover { background-color: #5a7fb5; }"
+        "QMessageBox QPushButton:pressed { background-color: #3a5f95; }"
+        "QMessageBox QPushButton:default { background-color: #4a6fa5; }"
+    );
+    
+    int ret = msgBox.exec();
+    
+    if (ret == QMessageBox::Save) {
+        // Save the game
+        int result = protocol_->saveGame();
+        
+        if (result == 200) {
+            // Save successful - route to home immediately
+            emit saveGameClicked();
+            emit gameEnded();
+        } else {
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Save Failed");
+            errorBox.setText("Failed to save game.");
+            errorBox.setInformativeText("Please try again.");
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setIcon(QMessageBox::Critical);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
+            
+            // Resume timer if save failed
+            startTimer();
+        }
+    } else {
+        // User cancelled - resume timer
+        startTimer();
     }
 }

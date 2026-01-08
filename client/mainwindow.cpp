@@ -108,6 +108,7 @@ void MainWindow::setupConnections()
     });
     
     connect(gameScreen_, &GameScreen::walkAwayClicked, this, &MainWindow::onGameEnd);
+    connect(gameScreen_, &GameScreen::saveGameClicked, this, &MainWindow::onGameEnd);
     connect(gameScreen_, &GameScreen::gameEnded, this, &MainWindow::onGameEnd);
     
     // Result screen
@@ -230,6 +231,11 @@ void MainWindow::processGameEvents()
                 int prize = MillionaireGame::JsonUtils::extractInt(event.data, "prize", 0);
                 int totalScore = MillionaireGame::JsonUtils::extractInt(event.data, "totalScore", 0);
                 
+                // Debug: Log extracted timeRemaining
+                std::cerr << "[DEBUG] QUESTION_INFO - extracted timeRemaining: " << timeRemaining 
+                          << ", questionNumber: " << questionNumber 
+                          << ", prize: " << prize << std::endl;
+                
                 // Parse options
                 QStringList options;
                 // Simple JSON parsing for options array
@@ -265,7 +271,7 @@ void MainWindow::processGameEvents()
                 
                 gameState_->question = question;
                 gameState_->currentQuestionNumber = questionNumber;
-                gameState_->timeRemaining = 30;
+                gameState_->timeRemaining = timeRemaining;  // Use actual timeRemaining from notification
                 gameState_->currentPrize = prize;
                 gameState_->totalScore = totalScore;
                 gameState_->waitingForQuestion = false;
@@ -277,7 +283,7 @@ void MainWindow::processGameEvents()
                 // Update game screen
                 gameScreen_->updateQuestion(QString::fromStdString(question), options, questionNumber);
                 gameScreen_->updateScore(totalScore);  // BONUS: Update score display
-                gameScreen_->updateTimer(30);
+                gameScreen_->updateTimer(timeRemaining);  // Use actual timeRemaining from notification
                 gameScreen_->resetForNewQuestion();
                 
                 break;
@@ -445,6 +451,8 @@ void MainWindow::onGameStart()
 void MainWindow::onGameEnd()
 {
     gameState_->inGame = false;
+    // Route to home screen when game ends (including when saved)
+    onBackToHome();
 }
 
 void MainWindow::onShowResult()

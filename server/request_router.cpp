@@ -49,6 +49,8 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
         return GameHandlers::handleGiveUp(request, *session, client_fd);
     } else if (request_type == "RESUME") {
         return GameHandlers::handleResume(request, *session, client_fd);
+    } else if (request_type == "SAVE_GAME") {
+        return GameHandlers::handleSaveGame(request, *session, client_fd);
     } else if (request_type == "LEAVE_GAME") {
         return GameHandlers::handleLeaveGame(request, *session, client_fd);
     } else if (request_type == "LOGOUT") {
