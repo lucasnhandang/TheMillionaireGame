@@ -71,10 +71,31 @@ static string buildQuestionInfoData(const Question& q, int game_id, const Client
 }
 
 string handleStart(const string& request, ClientSession& session, int client_fd) {
-    // Check database only - database is source of truth
+    // Check database for active game - if exists, end it first (user wants to start fresh)
     GameSession active_game = Database::getInstance().getActiveGameSession(session.username);
     if (active_game.id > 0) {
-        return StreamUtils::createErrorResponse(405, "Already in a game");
+        // End the existing active game first
+        LOG_INFO("Ending existing active game " + to_string(active_game.id) + " for user " + session.username + " before starting new game");
+        
+        // Stop timer if running
+        GameTimer::getInstance().stopTimer(active_game.id);
+        
+        // Calculate final prize (use safe checkpoint)
+        long long final_prize = ScoringSystem::getInstance().getSafeCheckpointPrize(active_game.current_question_number);
+        
+        // End game in database
+        bool end_success = Database::getInstance().endGame(active_game.id, "quit", active_game.total_score, final_prize);
+        if (!end_success) {
+            LOG_ERROR("Failed to end existing game " + to_string(active_game.id) + " before starting new game");
+            // Continue anyway - try to start new game
+        }
+        
+        // Clear session state
+        session.in_game = false;
+        session.game_id = 0;
+        session.current_question_number = 0;
+        session.used_lifelines.clear();
+        session.used_lifelines_per_question.clear();
     }
 
     bool override_saved = JsonUtils::extractBool(request, "overrideSavedGame", false);
