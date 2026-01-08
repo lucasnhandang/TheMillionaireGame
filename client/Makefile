@@ -10,7 +10,7 @@ ifeq ($(UNAME_S),Darwin)  # macOS
     CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -DTEXTURE_LOADER_ENABLE_STB $(GLFW_CFLAGS)
     LDFLAGS = -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 else  # Linux
-    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -DTEXTURE_LOADER_ENABLE_STB $(GLFW_CFLAGS)
+    CXXFLAGS = -std=c++11 -Wall -Wextra -g -I. -I../imgui -I../imgui/backends -DTEXTURE_LOADER_ENABLE_STB -I./third_party $(GLFW_CFLAGS)
     LDFLAGS = -pthread -lGL -lGLU -lX11 -lXrandr -lXinerama -lXcursor -ldl -lrt
 endif
 

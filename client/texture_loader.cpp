@@ -16,7 +16,7 @@
     #define STBI_ONLY_JPEG
     #define STBI_NO_HDR
     #define STBI_NO_LINEAR
-    #include "third_party/stb_image.h"
+    #include "stb_image.h"
 #endif
 
 static bool file_exists(const char* path) {
