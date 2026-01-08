@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(MillionaireGameClient VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find Qt5 - try multiple methods for Linux compatibility
@@ -63,7 +63,7 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH}
 )
 
 # Try to find Qt5
-    find_package(Qt5 QUIET COMPONENTS Core Widgets Gui REQUIRED)
+find_package(Qt5 QUIET COMPONENTS Core Widgets Gui)
 
 if(NOT Qt5_FOUND)
     # Last resort: try to find Qt5Config.cmake directly
@@ -81,7 +81,7 @@ if(NOT Qt5_FOUND)
         message(STATUS "Adding to CMAKE_PREFIX_PATH: ${QT5_CONFIG_DIR}/..")
     endif()
     
-    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui REQUIRED)
+    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
 endif()
 
 if(NOT Qt5_FOUND)
