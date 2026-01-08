@@ -11,6 +11,9 @@
 #include <QProgressBar>
 #include <QPainter>
 #include <QFont>
+#include <QMap>
+#include <QList>
+#include <QChar>
 #include <cmath>
 
 GameScreen::GameScreen(QWidget *parent)

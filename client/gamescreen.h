@@ -9,6 +9,10 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QTime>
+#include <QMap>
+#include <QList>
+#include <QChar>
+#include <QStringList>
 
 class ProtocolHandler;
 class GameState;
