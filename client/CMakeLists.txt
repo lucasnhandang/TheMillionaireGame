@@ -4,8 +4,46 @@ project(MillionaireGameClient VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find Qt5
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Network)
+# Find Qt5 - try multiple methods for Linux compatibility
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} $ENV{QT_DIR} /usr/lib/x86_64-linux-gnu/cmake/Qt5 /usr/lib/qt5)
+
+# Try to find Qt5 using different methods
+find_package(Qt5 QUIET COMPONENTS Core Widgets Gui)
+
+if(NOT Qt5_FOUND)
+    # If Qt5 not found, try alternative paths
+    message(STATUS "Qt5 not found in standard paths, trying alternatives...")
+    
+    # Check if qmake is available and get Qt path from it
+    find_program(QMAKE_EXECUTABLE NAMES qmake qmake5 PATHS
+        /usr/bin
+        /usr/lib/qt5/bin
+        $ENV{QT_DIR}/bin
+        /opt/qt5/bin
+    )
+    
+    if(QMAKE_EXECUTABLE)
+        execute_process(
+            COMMAND ${QMAKE_EXECUTABLE} -query QT_INSTALL_PREFIX
+            OUTPUT_VARIABLE QT_INSTALL_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QT_INSTALL_PREFIX})
+        message(STATUS "Found Qt at: ${QT_INSTALL_PREFIX}")
+    endif()
+    
+    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
+endif()
+
+if(NOT Qt5_FOUND)
+    message(FATAL_ERROR "Qt5 not found! Please install Qt5 development packages:\n"
+        "  sudo apt-get install qtbase5-dev qt5-qmake\n"
+        "  sudo apt-get install libqt5widgets5 libqt5core5a libqt5gui5")
+endif()
+
+message(STATUS "Found Qt5 version: ${Qt5_VERSION}")
+message(STATUS "Qt5 Core: ${Qt5Core_DIR}")
+message(STATUS "Qt5 Widgets: ${Qt5Widgets_DIR}")
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)

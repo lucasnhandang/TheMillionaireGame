@@ -6,9 +6,14 @@
 # Cài đặt Qt5 và các dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential cmake
-sudo apt-get install -y qt5-default qtbase5-dev qtbase5-dev-tools
+sudo apt-get install -y qtbase5-dev qt5-qmake
 sudo apt-get install -y libqt5widgets5 libqt5core5a libqt5gui5
+
+# Nếu vẫn không tìm thấy Qt5, thử cài thêm:
+sudo apt-get install -y qtchooser qt5-qmake qtbase5-dev-tools
 ```
+
+**Lưu ý**: Nếu bạn đang dùng Ubuntu 20.04 trở lên, package `qt5-default` đã bị xóa. Chỉ cần cài `qtbase5-dev` là đủ.
 
 ## Build Project
 
@@ -19,6 +24,30 @@ cd build
 cmake ..
 make
 ```
+
+**Nếu gặp lỗi "Could not find a package configuration file provided by Qt5":**
+
+1. Kiểm tra Qt5 đã được cài đặt:
+   ```bash
+   qmake --version
+   which qmake
+   ```
+
+2. Nếu qmake không có, cài đặt:
+   ```bash
+   sudo apt-get install qtbase5-dev qt5-qmake
+   ```
+
+3. Nếu qmake có nhưng CMake không tìm thấy, chỉ định đường dẫn:
+   ```bash
+   export CMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5:$CMAKE_PREFIX_PATH
+   cmake ..
+   ```
+
+4. Hoặc build với đường dẫn Qt cụ thể:
+   ```bash
+   cmake -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5 ..
+   ```
 
 Executable sẽ được tạo tại `build/MillionaireGameClient`
 
