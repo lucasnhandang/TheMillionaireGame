@@ -11,11 +11,7 @@
 #endif
 
 #if TEXTURE_LOADER_HAVE_STB
-    #define STB_IMAGE_IMPLEMENTATION
-    #define STBI_ONLY_PNG
-    #define STBI_ONLY_JPEG
-    #define STBI_NO_HDR
-    #define STBI_NO_LINEAR
+    // Include header only (implementation is in stb_image_impl.cpp)
     #include "stb_image.h"
 #endif
 
