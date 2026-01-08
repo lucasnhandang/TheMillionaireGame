@@ -140,12 +140,18 @@ set(QT_WIDGETS_HEADERS
     resultscreen.h
 )
 
+# UI files
+set(QT_UI_FILES
+    loginscreen.ui
+)
+
 # Executable
 add_executable(${PROJECT_NAME}
     ${CLIENT_SRC}
     ${CLIENT_HEADERS}
     ${QT_WIDGETS_SRC}
     ${QT_WIDGETS_HEADERS}
+    ${QT_UI_FILES}
 )
 
 target_link_libraries(${PROJECT_NAME}
