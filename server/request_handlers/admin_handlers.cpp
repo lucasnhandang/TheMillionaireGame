@@ -265,8 +265,12 @@ string handleViewQues(const string& request, ClientSession& session, int client_
         return StreamUtils::createErrorResponse(422, "Invalid level: must be 0-2");
     }
 
-    // Get questions from database
-    vector<Question> questions = Database::getInstance().getQuestions(level == -1 ? 0 : level, page, limit);
+    // Normalize level (-1 means 'all levels')
+    int effective_level = (level == -1 ? 0 : level);
+    
+    // Get questions from database (current page) and total count for pagination
+    vector<Question> questions = Database::getInstance().getQuestions(effective_level, page, limit);
+    int total_questions = Database::getInstance().getQuestionCount(effective_level);
     
     stringstream ss;
     ss << "{\"questions\":[";
@@ -276,7 +280,7 @@ string handleViewQues(const string& request, ClientSession& session, int client_
            << ",\"question\":\"" << questions[i].question_text << "\""
            << ",\"level\":" << questions[i].level << "}";
     }
-    ss << "],\"total\":" << questions.size()
+    ss << "],\"total\":" << total_questions
        << ",\"page\":" << page << "}";
     
     return StreamUtils::createSuccessResponse(200, ss.str());
@@ -305,6 +309,49 @@ string handleDelQues(const string& request, ClientSession& session, int client_f
 
     string data = "{\"message\":\"Question deleted successfully\",\"questionId\":" + to_string(question_id) + "}";
     return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handleGetQuestion(const string& request, ClientSession& session, int client_fd) {
+    // Check database role directly (not cached session role)
+    string user_role = Database::getInstance().getUserRole(session.username);
+    if (user_role != "admin") {
+        return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
+    }
+    
+    int question_id = JsonUtils::extractInt(request, "questionId", -1);
+    if (question_id < 0) {
+        return StreamUtils::createErrorResponse(400, "Missing questionId");
+    }
+    
+    Question q = Database::getInstance().getQuestion(question_id);
+    if (q.id == 0 || !q.is_active) {
+        return StreamUtils::createErrorResponse(404, "Question not found");
+    }
+    
+    // Build JSON with full question data (options and lifelines)
+    stringstream ss;
+    ss << "{\"questionId\":" << q.id
+       << ",\"question\":\"" << q.question_text << "\""
+       << ",\"optionA\":\"" << q.option_a << "\""
+       << ",\"optionB\":\"" << q.option_b << "\""
+       << ",\"optionC\":\"" << q.option_c << "\""
+       << ",\"optionD\":\"" << q.option_d << "\""
+       << ",\"correctAnswer\":" << q.correct_answer
+       << ",\"level\":" << q.level;
+    
+    if (!q.lifeline_5050_info.empty()) {
+        ss << ",\"lifeline_5050_info\":" << q.lifeline_5050_info;
+    }
+    if (!q.lifeline_ask_info.empty()) {
+        ss << ",\"lifeline_ask_info\":" << q.lifeline_ask_info;
+    }
+    if (!q.lifeline_call_info.empty()) {
+        ss << ",\"lifeline_call_info\":\"" << q.lifeline_call_info << "\"";
+    }
+    
+    ss << "}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 string handleBanUser(const string& request, ClientSession& session, int client_fd) {
@@ -352,6 +399,126 @@ string handleBanUser(const string& request, ClientSession& session, int client_f
     //     NotificationUtils::sendNotification(banned_user_fd, "USER_BANNED", user_notification_data);
     // }
     
+    return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handleViewUsers(const string& request, ClientSession& session, int client_fd) {
+    // Check database role directly
+    string user_role = Database::getInstance().getUserRole(session.username);
+    if (user_role != "admin") {
+        return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
+    }
+
+    int page = JsonUtils::extractInt(request, "page", 1);
+    int limit = JsonUtils::extractInt(request, "limit", 10);
+
+    if (page < 1) {
+        return StreamUtils::createErrorResponse(422, "Invalid page: must be positive");
+    }
+    if (limit < 1 || limit > 100) {
+        return StreamUtils::createErrorResponse(422, "Invalid limit: must be between 1 and 100");
+    }
+
+    // Get users from database
+    vector<User> users = Database::getInstance().getAllUsers(page, limit);
+    int total_users = Database::getInstance().getTotalUserCount();
+
+    // Build JSON array of users
+    ostringstream users_json;
+    users_json << "[";
+    for (size_t i = 0; i < users.size(); i++) {
+        if (i > 0) users_json << ",";
+        users_json << "{"
+                   << "\"username\":\"" << users[i].username << "\","
+                   << "\"role\":\"" << users[i].role << "\","
+                   << "\"isBanned\":" << (users[i].is_banned ? "true" : "false") << ","
+                   << "\"totalGames\":" << users[i].total_games << ","
+                   << "\"highestPrize\":" << users[i].highest_prize
+                   << "}";
+    }
+    users_json << "]";
+
+    string data = "{\"users\":" + users_json.str() +
+                  ",\"total\":" + to_string(total_users) +
+                  ",\"page\":" + to_string(page) +
+                  ",\"limit\":" + to_string(limit) + "}";
+
+    return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handlePromoteUser(const string& request, ClientSession& session, int client_fd) {
+    // Check database role directly
+    string user_role = Database::getInstance().getUserRole(session.username);
+    if (user_role != "admin") {
+        return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
+    }
+
+    string target_username = JsonUtils::extractString(request, "username");
+    if (target_username.empty()) {
+        return StreamUtils::createErrorResponse(400, "Missing username");
+    }
+
+    // Cannot promote yourself (already admin)
+    if (target_username == session.username) {
+        return StreamUtils::createErrorResponse(422, "Cannot promote yourself");
+    }
+
+    // Check if user exists
+    if (!Database::getInstance().userExists(target_username)) {
+        return StreamUtils::createErrorResponse(404, "User not found");
+    }
+
+    // Check if user is already admin
+    string current_role = Database::getInstance().getUserRole(target_username);
+    if (current_role == "admin") {
+        return StreamUtils::createErrorResponse(409, "User is already an admin");
+    }
+
+    // Promote user to admin
+    bool success = Database::getInstance().updateUserRole(target_username, "admin");
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to promote user");
+    }
+
+    string data = "{\"message\":\"User promoted to admin successfully\",\"username\":\"" + target_username + "\"}";
+    return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handleRevokeAdmin(const string& request, ClientSession& session, int client_fd) {
+    // Check database role directly
+    string user_role = Database::getInstance().getUserRole(session.username);
+    if (user_role != "admin") {
+        return StreamUtils::createErrorResponse(403, "Access forbidden - not an admin account");
+    }
+
+    string target_username = JsonUtils::extractString(request, "username");
+    if (target_username.empty()) {
+        return StreamUtils::createErrorResponse(400, "Missing username");
+    }
+
+    // Cannot revoke your own admin rights
+    if (target_username == session.username) {
+        return StreamUtils::createErrorResponse(422, "Cannot revoke your own admin rights");
+    }
+
+    // Check if user exists
+    if (!Database::getInstance().userExists(target_username)) {
+        return StreamUtils::createErrorResponse(404, "User not found");
+    }
+
+    // Check if user is actually an admin
+    string current_role = Database::getInstance().getUserRole(target_username);
+    if (current_role != "admin") {
+        return StreamUtils::createErrorResponse(409, "User is not an admin");
+    }
+
+    // Revoke admin rights (set role to "user")
+    bool success = Database::getInstance().updateUserRole(target_username, "user");
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to revoke admin rights");
+    }
+
+    string data = "{\"message\":\"Admin rights revoked successfully\",\"username\":\"" + target_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

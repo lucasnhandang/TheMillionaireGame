@@ -1,6 +1,5 @@
 #include "game_handlers.h"
 #include "../game_state_manager.h"
-#include "../question_manager.h"
 #include "../scoring_system.h"
 #include "../game_timer.h"
 #include "../lifeline_manager.h"
@@ -112,14 +111,38 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
         return StreamUtils::createErrorResponse(500, "Failed to create game session");
     }
     
-    // Get random question for level 0 (easy) - first question
-    Question first_question = QuestionManager::getInstance().getRandomQuestion(0);
-    if (first_question.id == 0) {
-        return StreamUtils::createErrorResponse(500, "Failed to get question");
+    // Pre-select a fixed subset of questions for this game to avoid repeats:
+    // 5 easy (level 0), 5 medium (level 1), 5 hard (level 2)
+    const int QUESTIONS_PER_LEVEL = 5;
+    
+    vector<Question> easy_questions = Database::getInstance().getRandomQuestions(0, QUESTIONS_PER_LEVEL);
+    vector<Question> medium_questions = Database::getInstance().getRandomQuestions(1, QUESTIONS_PER_LEVEL);
+    vector<Question> hard_questions = Database::getInstance().getRandomQuestions(2, QUESTIONS_PER_LEVEL);
+    
+    if (easy_questions.size() < QUESTIONS_PER_LEVEL ||
+        medium_questions.size() < QUESTIONS_PER_LEVEL ||
+        hard_questions.size() < QUESTIONS_PER_LEVEL) {
+        return StreamUtils::createErrorResponse(500, "Not enough questions in question bank for all levels");
     }
     
-    // Add question to game_questions table
-    Database::getInstance().addGameQuestion(game_id, 1, first_question.id);
+    // Save selected questions to game_questions table in order:
+    // questions 1-5 easy, 6-10 medium, 11-15 hard
+    int question_order = 1;
+    for (const Question& q : easy_questions) {
+        Database::getInstance().addGameQuestion(game_id, question_order++, q.id);
+    }
+    for (const Question& q : medium_questions) {
+        Database::getInstance().addGameQuestion(game_id, question_order++, q.id);
+    }
+    for (const Question& q : hard_questions) {
+        Database::getInstance().addGameQuestion(game_id, question_order++, q.id);
+    }
+    
+    // Load the first question from the pre-selected set (question_number = 1)
+    Question first_question = Database::getInstance().getGameQuestion(game_id, 1);
+    if (first_question.id == 0) {
+        return StreamUtils::createErrorResponse(500, "Failed to get first question for game");
+    }
     
     session.in_game = true;
     session.game_id = game_id;
@@ -316,15 +339,13 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
             // Clear lifelines used for previous question (lifelines are per-question)
             // Note: used_lifelines_per_question will be empty for new question automatically
             
-            // Get next random question for the new level
-            Question next_question = QuestionManager::getInstance().getRandomQuestion(next_level);
+            // Get next question from the pre-selected game_questions set
+            Question next_question = Database::getInstance().getGameQuestion(game_id, session.current_question_number);
             if (next_question.id == 0) {
-                LOG_ERROR("Failed to get next question for level " + to_string(next_level) + ", question_number " + to_string(session.current_question_number));
+                LOG_ERROR("Failed to get next question for game_id=" + to_string(game_id) +
+                          ", question_number=" + to_string(session.current_question_number));
                 return StreamUtils::createErrorResponse(500, "Failed to get next question");
             }
-            
-            // Add question to game_questions table
-            Database::getInstance().addGameQuestion(game_id, session.current_question_number, next_question.id);
             
             // Update game session in database
             GameSession db_session;

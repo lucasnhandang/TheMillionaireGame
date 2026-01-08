@@ -81,6 +81,13 @@ public:
     };
     FriendStatusResponse getFriendStatus();
     
+    struct FindFriendResponse {
+        int responseCode;
+        std::string username;
+        std::string status;
+    };
+    FindFriendResponse findFriend(const std::string& username);
+    
     int addFriend(const std::string& friendUsername);
     int acceptFriend(const std::string& friendUsername);
     int declineFriend(const std::string& friendUsername);
@@ -97,6 +104,20 @@ public:
     
     int deleteFriend(const std::string& friendUsername);
     int sendChat(const std::string& recipient, const std::string& message);
+    
+    struct ChatMessage {
+        std::string from;
+        std::string to;
+        std::string content;
+        long long timestamp;
+    };
+    struct GetMessagesResponse {
+        int responseCode;
+        std::vector<ChatMessage> messages;
+        int page;
+        int limit;
+    };
+    GetMessagesResponse getMessages(const std::string& friendUsername, int page = 1, int limit = 50);
     
     // User information
     struct UserInfo {

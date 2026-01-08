@@ -715,10 +715,56 @@ void AdminPanelScreen::onUsersNextPage()
 
 void AdminPanelScreen::onPromoteUser(const QString& username)
 {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Promote User",
-                                                              QString("Promote %1 to admin?").arg(username),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    // Custom styled confirmation dialog to ensure text is visible on dark theme
+    QMessageBox promoteBox(this);
+    promoteBox.setIcon(QMessageBox::Question);
+    promoteBox.setWindowTitle("Promote User");
+    promoteBox.setText(QString("Promote %1 to admin?").arg(username));
+    promoteBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    promoteBox.setDefaultButton(QMessageBox::No);
+    promoteBox.setStyleSheet(
+        "QMessageBox {"
+        "  background-color: #0D1B2A;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "  font-size: 14px;"
+        "}"
+    );
+    QAbstractButton* yesBtn = promoteBox.button(QMessageBox::Yes);
+    QAbstractButton* noBtn = promoteBox.button(QMessageBox::No);
+    if (yesBtn) {
+        yesBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #1E88E5;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #1976D2;"
+            "}"
+        );
+    }
+    if (noBtn) {
+        noBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #555555;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #666666;"
+            "}"
+        );
+    }
+    QMessageBox::StandardButton reply =
+        static_cast<QMessageBox::StandardButton>(promoteBox.exec());
+    if (reply != QMessageBox::Yes)
+        return;
     
     if (!protocol_) {
         QMessageBox::warning(this, "Error", "Not connected to server");
@@ -742,10 +788,56 @@ void AdminPanelScreen::onPromoteUser(const QString& username)
 
 void AdminPanelScreen::onRevokeAdmin(const QString& username)
 {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Revoke Admin",
-                                                              QString("Revoke admin rights from %1?").arg(username),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    // Custom styled confirmation dialog to ensure text is visible on dark theme
+    QMessageBox revokeBox(this);
+    revokeBox.setIcon(QMessageBox::Question);
+    revokeBox.setWindowTitle("Revoke Admin");
+    revokeBox.setText(QString("Revoke admin rights from %1?").arg(username));
+    revokeBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    revokeBox.setDefaultButton(QMessageBox::No);
+    revokeBox.setStyleSheet(
+        "QMessageBox {"
+        "  background-color: #0D1B2A;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "  font-size: 14px;"
+        "}"
+    );
+    QAbstractButton* yesBtn = revokeBox.button(QMessageBox::Yes);
+    QAbstractButton* noBtn = revokeBox.button(QMessageBox::No);
+    if (yesBtn) {
+        yesBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #1E88E5;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #1976D2;"
+            "}"
+        );
+    }
+    if (noBtn) {
+        noBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #555555;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #666666;"
+            "}"
+        );
+    }
+    QMessageBox::StandardButton reply =
+        static_cast<QMessageBox::StandardButton>(revokeBox.exec());
+    if (reply != QMessageBox::Yes)
+        return;
     
     if (!protocol_) {
         QMessageBox::warning(this, "Error", "Not connected to server");
@@ -771,16 +863,93 @@ void AdminPanelScreen::onRevokeAdmin(const QString& username)
 
 void AdminPanelScreen::onBanUser(const QString& username)
 {
-    bool ok;
-    QString reason = QInputDialog::getText(this, "Ban User",
-                                          QString("Enter reason for banning %1:").arg(username),
-                                          QLineEdit::Normal, "", &ok);
-    if (!ok || reason.isEmpty()) return;
+    // Custom, themed input dialog for ban reason
+    QInputDialog reasonDialog(this);
+    reasonDialog.setWindowTitle("Ban User");
+    reasonDialog.setLabelText(QString("Enter reason for banning %1:").arg(username));
+    reasonDialog.setInputMode(QInputDialog::TextInput);
+    reasonDialog.setTextValue("");
+    reasonDialog.setStyleSheet(
+        "QInputDialog {"
+        "  background-color: #0D1B2A;"
+        "  color: white;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "}"
+        "QLineEdit {"
+        "  background-color: #1a1a2e;"
+        "  color: white;"
+        "  border: 1px solid #444;"
+        "  border-radius: 4px;"
+        "}"
+        "QPushButton {"
+        "  background-color: #1E88E5;"
+        "  color: white;"
+        "  padding: 6px 20px;"
+        "  border-radius: 5px;"
+        "  border: none;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #1976D2;"
+        "}"
+    );
+    if (reasonDialog.exec() != QDialog::Accepted)
+        return;
+    QString reason = reasonDialog.textValue().trimmed();
+    if (reason.isEmpty())
+        return;
     
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Ban",
-                                                              QString("Ban user %1?").arg(username),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    // Custom styled confirmation dialog to ensure text is visible on dark theme
+    QMessageBox banBox(this);
+    banBox.setIcon(QMessageBox::Question);
+    banBox.setWindowTitle("Confirm Ban");
+    banBox.setText(QString("Ban user %1?").arg(username));
+    banBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    banBox.setDefaultButton(QMessageBox::No);
+    banBox.setStyleSheet(
+        "QMessageBox {"
+        "  background-color: #0D1B2A;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "  font-size: 14px;"
+        "}"
+    );
+    QAbstractButton* yesBtn = banBox.button(QMessageBox::Yes);
+    QAbstractButton* noBtn = banBox.button(QMessageBox::No);
+    if (yesBtn) {
+        yesBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #E53935;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #C62828;"
+            "}"
+        );
+    }
+    if (noBtn) {
+        noBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #555555;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #666666;"
+            "}"
+        );
+    }
+    QMessageBox::StandardButton reply =
+        static_cast<QMessageBox::StandardButton>(banBox.exec());
+    if (reply != QMessageBox::Yes)
+        return;
     
     if (!protocol_) {
         QMessageBox::warning(this, "Error", "Not connected to server");
@@ -910,7 +1079,38 @@ void AdminPanelScreen::onEditQuestion(int questionId)
         
         int code = protocol_->changeQuestion(questionId, newQuestion, optionsVec, correctAnswer);
         if (code == 200) {
-            QMessageBox::information(this, "Success", "Question updated successfully");
+            // Themed success message box with white text and highlighted OK button
+            QMessageBox infoBox(this);
+            infoBox.setIcon(QMessageBox::Information);
+            infoBox.setWindowTitle("Success");
+            infoBox.setText("Question updated successfully");
+            infoBox.setStandardButtons(QMessageBox::Ok);
+            infoBox.setDefaultButton(QMessageBox::Ok);
+            infoBox.setStyleSheet(
+                "QMessageBox {"
+                "  background-color: #0D1B2A;"
+                "}"
+                "QLabel {"
+                "  color: white;"
+                "  font-size: 14px;"
+                "}"
+            );
+            QAbstractButton* okBtn = infoBox.button(QMessageBox::Ok);
+            if (okBtn) {
+                okBtn->setStyleSheet(
+                    "QPushButton {"
+                    "  background-color: #1E88E5;"
+                    "  color: white;"
+                    "  padding: 6px 20px;"
+                    "  border-radius: 5px;"
+                    "  border: none;"
+                    "}"
+                    "QPushButton:hover {"
+                    "  background-color: #1976D2;"
+                    "}"
+                );
+            }
+            infoBox.exec();
             loadQuestions(currentQuestionsPage_);
         } else if (code == 404) {
             QMessageBox::warning(this, "Error", "Question not found");
@@ -928,11 +1128,57 @@ void AdminPanelScreen::onEditQuestion(int questionId)
 
 void AdminPanelScreen::onDeleteQuestion(int questionId)
 {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Delete Question",
-                                                              QString("Delete question ID: %1?\n"
-                                                                     "This action cannot be undone.").arg(questionId),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    // Custom styled confirmation dialog to ensure text is visible on dark theme
+    QMessageBox deleteBox(this);
+    deleteBox.setIcon(QMessageBox::Question);
+    deleteBox.setWindowTitle("Delete Question");
+    deleteBox.setText(QString("Delete question ID: %1?\n"
+                              "This action cannot be undone.").arg(questionId));
+    deleteBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    deleteBox.setDefaultButton(QMessageBox::No);
+    deleteBox.setStyleSheet(
+        "QMessageBox {"
+        "  background-color: #0D1B2A;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "  font-size: 14px;"
+        "}"
+    );
+    QAbstractButton* yesBtn = deleteBox.button(QMessageBox::Yes);
+    QAbstractButton* noBtn = deleteBox.button(QMessageBox::No);
+    if (yesBtn) {
+        yesBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #E53935;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #C62828;"
+            "}"
+        );
+    }
+    if (noBtn) {
+        noBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #555555;"
+            "  color: white;"
+            "  padding: 6px 20px;"
+            "  border-radius: 5px;"
+            "  border: none;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #666666;"
+            "}"
+        );
+    }
+    QMessageBox::StandardButton reply =
+        static_cast<QMessageBox::StandardButton>(deleteBox.exec());
+    if (reply != QMessageBox::Yes)
+        return;
     
     if (!protocol_) {
         QMessageBox::warning(this, "Error", "Not connected to server");

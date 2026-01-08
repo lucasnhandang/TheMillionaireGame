@@ -1441,6 +1441,141 @@ Permanently block a user account.
 
 ---
 
+### VIEW_USERS
+View list of all users with pagination (admin only).
+
+**Request:**
+```json
+{
+  "requestType": "VIEW_USERS",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+
+**Optional Fields:**
+- `page`: Page number (default: 1)
+- `limit`: Number of users per page (default: 10, max: 100)
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "users": [
+      {
+        "username": "player1",
+        "role": "user",
+        "isBanned": false,
+        "totalGames": 15,
+        "highestPrize": 5000000
+      },
+      {
+        "username": "admin1",
+        "role": "admin",
+        "isBanned": false,
+        "totalGames": 0,
+        "highestPrize": 0
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+**Error Responses:**
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 422: Invalid page or limit (UNPROCESSABLE_DATA)
+
+---
+
+### PROMOTE_USER
+Promote a regular user to admin role.
+
+**Request:**
+```json
+{
+  "requestType": "PROMOTE_USER",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "username": "player1"
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+- `username`: Username of user to promote
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "message": "User promoted to admin successfully",
+    "username": "player1"
+  }
+}
+```
+
+**Error Responses:**
+- 400: Missing username (INVALID_DATA)
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 404: User not found (NOT_FOUND)
+- 409: User is already an admin (CONFLICT)
+- 422: Cannot promote yourself (UNPROCESSABLE_DATA)
+
+---
+
+### REVOKE_ADMIN
+Revoke admin rights from an admin user (demote to regular user).
+
+**Request:**
+```json
+{
+  "requestType": "REVOKE_ADMIN",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "username": "admin2"
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+- `username`: Username of admin user to demote
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "message": "Admin rights revoked successfully",
+    "username": "admin2"
+  }
+}
+```
+
+**Error Responses:**
+- 400: Missing username (INVALID_DATA)
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 404: User not found (NOT_FOUND)
+- 409: User is not an admin (CONFLICT)
+- 422: Cannot revoke your own admin rights (UNPROCESSABLE_DATA)
+
+---
+
 ## Scoring System
 
 ### Point Calculation Per Question

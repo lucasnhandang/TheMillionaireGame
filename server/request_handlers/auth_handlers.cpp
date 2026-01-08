@@ -53,7 +53,7 @@ string handleLogin(const string& request, ClientSession& session, int client_fd)
     SessionManager::getInstance().addOnlineUser(username);
 
     string data = "{\"authToken\":\"" + token + "\",\"username\":\"" + username + 
-                 "\",\"role\":\"" + user_role + "}";
+                 "\",\"role\":\"" + user_role + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
 

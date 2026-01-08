@@ -124,5 +124,15 @@ int SessionManager::getClientFdByGameId(int game_id) {
     return -1;
 }
 
+int SessionManager::getClientFdByUsername(const string& username) {
+    lock_guard<mutex> lock(clients_mutex_);
+    for (const auto& pair : active_clients_) {
+        if (pair.second.username == username) {
+            return pair.first;
+        }
+    }
+    return -1;
+}
+
 } // namespace MillionaireGame
 

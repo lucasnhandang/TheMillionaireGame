@@ -716,7 +716,7 @@ psql -U postgres -d millionaire_game -c "SELECT id, question_text, option_a, opt
 **Verification:**
 ```bash
 # Check user banned
-psql -U postgres -d millionaire_game -c "SELECT is_banned, ban_reason FROM users WHERE username = 'testuser2';"
+psql -U postgres -d millionaire_game -c "SELECT is_banned, ban_reason FROM users WHERE username = 'testuser1';"
 # Should show: is_banned = true, ban_reason = 'Test ban'
 
 # Try to login as banned user

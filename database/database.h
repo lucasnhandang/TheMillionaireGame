@@ -17,6 +17,7 @@ namespace MillionaireGame {
 
 struct User {
     int id;
+    int user_id;  // Alias for id (for consistency)
     std::string username;
     std::string password_hash;
     std::string role;  // "user" or "admin"
@@ -24,8 +25,12 @@ struct User {
     std::string ban_reason;
     time_t created_at;
     time_t last_login;
+    int total_games;  // Total games played
+    long long highest_prize;  // Highest prize won
+    std::string created_at_str;  // String format for display
+    std::string last_login_str;  // String format for display
     
-    User() : id(0), is_banned(false), created_at(0), last_login(0) {}
+    User() : id(0), user_id(0), is_banned(false), created_at(0), last_login(0), total_games(0), highest_prize(0) {}
 };
 
 struct Question {
@@ -87,6 +92,15 @@ struct FriendRequest {
     FriendRequest() : id(0), sent_at(0) {}
 };
 
+struct ChatMessage {
+    std::string sender;
+    std::string receiver;
+    std::string content;
+    long long timestamp;
+    
+    ChatMessage() : timestamp(0) {}
+};
+
 /**
  * Database Module
  * Singleton class for database operations using PostgreSQL (libpq)
@@ -137,6 +151,7 @@ public:
     // Messages
     bool sendMessage(const std::string& sender, const std::string& receiver, const std::string& content, int game_id = 0);
     std::vector<std::pair<std::string, std::string>> getMessages(const std::string& username);
+    std::vector<ChatMessage> getConversationMessages(const std::string& user1, const std::string& user2, int page, int limit);
     
     // Game history
     std::vector<GameSession> getGameHistory(const std::string& username, int limit = 20);
@@ -147,9 +162,16 @@ public:
     bool deleteQuestion(int question_id);  // Soft delete (sets is_active = false)
     Question getQuestion(int question_id);
     Question getGameQuestion(int game_id, int question_order);  // Get question assigned to game
+    
+    // Admin user management
+    std::vector<User> getAllUsers(int page = 1, int limit = 10);
+    int getTotalUserCount();
+    bool updateUserRole(const std::string& username, const std::string& role);
     std::vector<Question> getQuestions(int level, int page, int limit);
+    int getQuestionCount(int level);
     bool questionExists(int question_id);
     Question getRandomQuestion(int level);  // Get random active question for level
+    std::vector<Question> getRandomQuestions(int level, int count);  // Get N random active questions for level
     
     // Error handling
     std::string getLastError() const;

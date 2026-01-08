@@ -14,6 +14,47 @@ AddQuestionDialog::AddQuestionDialog(QWidget *parent)
     setWindowTitle("Add New Question");
     setMinimumWidth(600);
     setMinimumHeight(500);
+    
+    // Apply dark theme consistent with the main app and ensure text is visible
+    setStyleSheet(
+        "QDialog {"
+        "  background-color: #0D1B2A;"
+        "  color: white;"
+        "}"
+        "QLabel {"
+        "  color: white;"
+        "}"
+        "QGroupBox {"
+        "  color: #00D4FF;"
+        "  border: 1px solid #333;"
+        "  margin-top: 10px;"
+        "}"
+        "QGroupBox::title {"
+        "  subcontrol-origin: margin;"
+        "  left: 10px;"
+        "  padding: 0 5px 0 5px;"
+        "}"
+        "QLineEdit, QTextEdit, QComboBox {"
+        "  background-color: #1a1a2e;"
+        "  color: white;"
+        "  border: 1px solid #444;"
+        "  border-radius: 4px;"
+        "}"
+        "QRadioButton {"
+        "  color: white;"
+        "}"
+        "QRadioButton::indicator {"
+        "  width: 18px;"
+        "  height: 18px;"
+        "  border-radius: 9px;"
+        "  border: 2px solid #00D4FF;"
+        "  background-color: transparent;"
+        "}"
+        "QRadioButton::indicator:checked {"
+        "  background-color: #00D4FF;"
+        "  border-color: #00B0FF;"
+        "}"
+    );
 }
 
 void AddQuestionDialog::setupUI()
@@ -23,7 +64,7 @@ void AddQuestionDialog::setupUI()
     
     // Title
     QLabel* titleLabel = new QLabel("Add New Question", this);
-    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E88E5;");
+    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: white;");
     mainLayout->addWidget(titleLabel);
     
     // Question text

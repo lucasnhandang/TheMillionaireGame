@@ -4,6 +4,7 @@
 #include "gamescreen.h"
 #include "resultscreen.h"
 #include "adminpanelscreen.h"
+#include "friendsscreen.h"
 #include "protocol_handler.h"
 #include "game_event.h"
 #include "gamestate.h"
@@ -56,6 +57,7 @@ void MainWindow::setupUI()
     gameScreen_ = new GameScreen(this);
     resultScreen_ = new ResultScreen(this);
     adminPanelScreen_ = new AdminPanelScreen(this);
+    friendsScreen_ = new FriendsScreen(this);
     
     // Add screens to stacked widget
     stackedWidget_->addWidget(loginScreen_);
@@ -63,6 +65,7 @@ void MainWindow::setupUI()
     stackedWidget_->addWidget(gameScreen_);
     stackedWidget_->addWidget(resultScreen_);
     stackedWidget_->addWidget(adminPanelScreen_);
+    stackedWidget_->addWidget(friendsScreen_);
     
     // Show login screen initially
     stackedWidget_->setCurrentWidget(loginScreen_);
@@ -81,6 +84,7 @@ void MainWindow::setupConnections()
     // Home screen
     connect(homeScreen_, &HomeScreen::playGameClicked, this, &MainWindow::onGameStart);
     connect(homeScreen_, &HomeScreen::adminPanelClicked, this, &MainWindow::onAdminPanelClicked);
+    connect(homeScreen_, &HomeScreen::friendsClicked, this, &MainWindow::onFriendsClicked);
     
     // Game screen
     connect(gameScreen_, &GameScreen::answerSubmitted, this, [this](int answerIndex) {
@@ -111,6 +115,7 @@ void MainWindow::setupConnections()
     
     // Admin panel screen
     connect(adminPanelScreen_, &AdminPanelScreen::backToHome, this, &MainWindow::onBackToHome);
+    connect(friendsScreen_, &FriendsScreen::backToHome, this, &MainWindow::onBackToHome);
 }
 
 void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
@@ -120,6 +125,7 @@ void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
     homeScreen_->setProtocolHandler(protocol);
     gameScreen_->setProtocolHandler(protocol);
     adminPanelScreen_->setProtocolHandler(protocol);
+    friendsScreen_->setProtocolHandler(protocol);
     
     setupNotificationHandler();
 }
@@ -131,6 +137,7 @@ void MainWindow::setDemoMode(bool demoMode)
     homeScreen_->setDemoMode(demoMode);
     gameScreen_->setDemoMode(demoMode);
     adminPanelScreen_->setDemoMode(demoMode);
+    friendsScreen_->setDemoMode(demoMode);
 }
 
 void MainWindow::setupNotificationHandler()
@@ -169,6 +176,12 @@ void MainWindow::setupNotificationHandler()
                     eventQueue->push(GameEvent(EVENT_GAME_END, msg.data));
                 } else if (msg.type == "LIFELINE_INFO") {
                     eventQueue->push(GameEvent(EVENT_LIFELINE_INFO, msg.data));
+                } else if (msg.type == "FRIEND_REQUEST") {
+                    eventQueue->push(GameEvent(EVENT_FRIEND_REQUEST, msg.data));
+                } else if (msg.type == "FRIEND_REQUEST_ACCEPTED") {
+                    eventQueue->push(GameEvent(EVENT_FRIEND_ACCEPTED, msg.data));
+                } else if (msg.type == "NEW_MESSAGE") {
+                    eventQueue->push(GameEvent(EVENT_NEW_MESSAGE, msg.data));
                 }
             }
         }
@@ -369,6 +382,27 @@ void MainWindow::processGameEvents()
                 break;
             }
             
+            case EVENT_FRIEND_REQUEST: {
+                if (friendsScreen_) {
+                    friendsScreen_->handleFriendRequestNotification(event.data);
+                }
+                break;
+            }
+            
+            case EVENT_FRIEND_ACCEPTED: {
+                if (friendsScreen_) {
+                    friendsScreen_->handleFriendAcceptedNotification(event.data);
+                }
+                break;
+            }
+            
+            case EVENT_NEW_MESSAGE: {
+                if (friendsScreen_) {
+                    friendsScreen_->handleNewMessageNotification(event.data);
+                }
+                break;
+            }
+            
             default:
                 break;
         }
@@ -425,4 +459,10 @@ void MainWindow::onAdminPanelClicked()
     stackedWidget_->setCurrentWidget(adminPanelScreen_);
     // Load users tab by default
     adminPanelScreen_->loadUsers(1);
+}
+
+void MainWindow::onFriendsClicked()
+{
+    stackedWidget_->setCurrentWidget(friendsScreen_);
+    friendsScreen_->refreshData();
 }

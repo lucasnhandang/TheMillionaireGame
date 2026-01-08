@@ -224,6 +224,89 @@ bool Database::updateLastLogin(const string& username) {
     return true;
 }
 
+vector<User> Database::getAllUsers(int page, int limit) {
+    vector<User> users;
+    if (!isConnected()) return users;
+    
+    int offset = (page - 1) * limit;
+    
+    string query = "SELECT u.id, u.username, u.role, u.is_banned, u.created_at, u.last_login, "
+                   "COALESCE(COUNT(DISTINCT gs.id), 0) as total_games, "
+                   "COALESCE(MAX(gs.final_prize), 0) as highest_prize "
+                   "FROM users u "
+                   "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost') "
+                   "GROUP BY u.id, u.username, u.role, u.is_banned, u.created_at, u.last_login "
+                   "ORDER BY u.id ASC "
+                   "LIMIT " + to_string(limit) + " OFFSET " + to_string(offset);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        LOG_ERROR("Get all users failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return users;
+    }
+    
+    int row_count = PQntuples(res);
+    for (int i = 0; i < row_count; i++) {
+        User user;
+        user.id = atoi(PQgetvalue(res, i, 0));
+        user.user_id = user.id;  // Set alias
+        user.username = PQgetvalue(res, i, 1);
+        user.role = PQgetvalue(res, i, 2);
+        user.is_banned = (string(PQgetvalue(res, i, 3)) == "t");
+        user.created_at_str = PQgetvalue(res, i, 4);
+        user.last_login_str = PQgetvalue(res, i, 5);
+        user.total_games = atoi(PQgetvalue(res, i, 6));
+        user.highest_prize = atoll(PQgetvalue(res, i, 7));
+        users.push_back(user);
+    }
+    
+    PQclear(res);
+    return users;
+}
+
+int Database::getTotalUserCount() {
+    if (!isConnected()) return 0;
+    
+    string query = "SELECT COUNT(*) FROM users";
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        LOG_ERROR("Get total user count failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return 0;
+    }
+    
+    int count = atoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
+    return count;
+}
+
+bool Database::updateUserRole(const string& username, const string& role) {
+    if (!isConnected()) return false;
+    
+    // Validate role
+    if (role != "user" && role != "admin") {
+        LOG_ERROR("Invalid role: " + role + " (must be 'user' or 'admin')");
+        return false;
+    }
+    
+    string query = "UPDATE users SET role = " + escapeString(role) +
+                   " WHERE username = " + escapeString(username);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        LOG_ERROR("Update user role failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return false;
+    }
+    
+    PQclear(res);
+    return true;
+}
+
 bool Database::banUser(const string& username, const string& reason) {
     if (!isConnected()) return false;
     
@@ -843,9 +926,10 @@ bool Database::sendMessage(const string& sender, const string& receiver, const s
     int receiver_id = getUserId(receiver);
     if (sender_id == 0 || receiver_id == 0) return false;
     
-    string query = "INSERT INTO messages (sender_id, receiver_id, content, game_id) "
+    // Schema uses from_user_id, to_user_id, created_at (no game_id or is_read)
+    string query = "INSERT INTO messages (from_user_id, to_user_id, content) "
                    "VALUES (" + to_string(sender_id) + ", " + to_string(receiver_id) + ", " +
-                   escapeString(content) + ", " + (game_id > 0 ? to_string(game_id) : "NULL") + ")";
+                   escapeString(content) + ")";
     
     PGresult* res = PQexec(conn_, query.c_str());
     
@@ -866,10 +950,11 @@ vector<pair<string, string>> Database::getMessages(const string& username) {
     int user_id = getUserId(username);
     if (user_id == 0) return messages;
     
+    // Schema uses from_user_id, to_user_id, created_at (no is_read column)
     string query = "SELECT u.username, m.content FROM messages m "
-                   "JOIN users u ON m.sender_id = u.id "
-                   "WHERE m.receiver_id = " + to_string(user_id) + " AND m.is_read = FALSE "
-                   "ORDER BY m.sent_at DESC";
+                   "JOIN users u ON m.from_user_id = u.id "
+                   "WHERE m.to_user_id = " + to_string(user_id) + " "
+                   "ORDER BY m.created_at DESC";
     
     PGresult* res = PQexec(conn_, query.c_str());
     
@@ -884,6 +969,54 @@ vector<pair<string, string>> Database::getMessages(const string& username) {
     
     PQclear(res);
     return messages;
+}
+
+vector<ChatMessage> Database::getConversationMessages(const string& user1, const string& user2, int page, int limit) {
+    vector<ChatMessage> msgs;
+    if (!isConnected()) return msgs;
+    
+    if (page < 1 || limit <= 0) return msgs;
+    
+    int user1_id = getUserId(user1);
+    int user2_id = getUserId(user2);
+    if (user1_id == 0 || user2_id == 0) return msgs;
+    
+    int offset = (page - 1) * limit;
+    
+    // Schema uses from_user_id, to_user_id, created_at
+    string query =
+        "SELECT su.username AS sender, ru.username AS receiver, m.content, "
+        "EXTRACT(EPOCH FROM m.created_at)::bigint AS ts "
+        "FROM messages m "
+        "JOIN users su ON m.from_user_id = su.id "
+        "JOIN users ru ON m.to_user_id = ru.id "
+        "WHERE (m.from_user_id = " + to_string(user1_id) + " AND m.to_user_id = " + to_string(user2_id) + ") "
+        "   OR (m.from_user_id = " + to_string(user2_id) + " AND m.to_user_id = " + to_string(user1_id) + ") "
+        "ORDER BY m.created_at ASC "
+        "LIMIT " + to_string(limit) + " OFFSET " + to_string(offset);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        LOG_ERROR("Get conversation messages failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return msgs;
+    }
+    
+    int rows = PQntuples(res);
+    msgs.reserve(rows);
+    
+    for (int i = 0; i < rows; ++i) {
+        ChatMessage m;
+        m.sender = PQgetvalue(res, i, 0);
+        m.receiver = PQgetvalue(res, i, 1);
+        m.content = PQgetvalue(res, i, 2);
+        m.timestamp = atoll(PQgetvalue(res, i, 3));
+        msgs.push_back(m);
+    }
+    
+    PQclear(res);
+    return msgs;
 }
 
 // ============================================
@@ -1139,6 +1272,27 @@ vector<Question> Database::getQuestions(int level, int page, int limit) {
     return questions;
 }
 
+int Database::getQuestionCount(int level) {
+    if (!isConnected()) return 0;
+    
+    string query = "SELECT COUNT(*) FROM questions WHERE is_active = TRUE";
+    if (level > 0) {
+        query += " AND level = " + to_string(level);
+    }
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        LOG_ERROR("Get question count failed: " + string(PQerrorMessage(conn_)));
+        PQclear(res);
+        return 0;
+    }
+    
+    int count = atoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
+    return count;
+}
+
 bool Database::questionExists(int question_id) {
     if (!isConnected()) return false;
     
@@ -1183,6 +1337,45 @@ Question Database::getRandomQuestion(int level) {
     
     PQclear(res);
     return question;
+}
+
+std::vector<Question> Database::getRandomQuestions(int level, int count) {
+    std::vector<Question> questions;
+    if (!isConnected()) return questions;
+    
+    if (count <= 0) return questions;
+    
+    string query = "SELECT id, question_text, option_a, option_b, option_c, option_d, "
+                   "correct_answer, level FROM questions "
+                   "WHERE level = " + to_string(level) + " AND is_active = TRUE "
+                   "ORDER BY RANDOM() LIMIT " + to_string(count);
+    
+    PGresult* res = PQexec(conn_, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return questions;
+    }
+    
+    int rows = PQntuples(res);
+    questions.reserve(rows);
+    
+    for (int i = 0; i < rows; ++i) {
+        Question q;
+        q.id = atoi(PQgetvalue(res, i, 0));
+        q.question_text = PQgetvalue(res, i, 1);
+        q.option_a = PQgetvalue(res, i, 2);
+        q.option_b = PQgetvalue(res, i, 3);
+        q.option_c = PQgetvalue(res, i, 4);
+        q.option_d = PQgetvalue(res, i, 5);
+        q.correct_answer = atoi(PQgetvalue(res, i, 6));
+        q.level = atoi(PQgetvalue(res, i, 7));
+        q.is_active = true;
+        questions.push_back(q);
+    }
+    
+    PQclear(res);
+    return questions;
 }
 
 } // namespace MillionaireGame

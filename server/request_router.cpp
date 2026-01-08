@@ -59,6 +59,8 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
         return SocialHandlers::handleLeaderboard(request, *session);
     } else if (request_type == "FRIEND_STATUS") {
         return SocialHandlers::handleFriendStatus(request, *session);
+    } else if (request_type == "FIND_FRIEND") {
+        return SocialHandlers::handleFindFriend(request, *session);
     } else if (request_type == "ADD_FRIEND") {
         return SocialHandlers::handleAddFriend(request, *session);
     } else if (request_type == "ACCEPT_FRIEND") {
@@ -71,6 +73,8 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
         return SocialHandlers::handleDelFriend(request, *session);
     } else if (request_type == "CHAT") {
         return SocialHandlers::handleChat(request, *session);
+    } else if (request_type == "GET_MESSAGES") {
+        return SocialHandlers::handleGetMessages(request, *session);
     } else if (request_type == "USER_INFO") {
         return UserHandlers::handleUserInfo(request, *session);
     } else if (request_type == "VIEW_HISTORY") {
@@ -83,10 +87,18 @@ string RequestRouter::processRequest(const string& request, int client_fd) {
         return AdminHandlers::handleChangeQues(request, *session, client_fd);
     } else if (request_type == "VIEW_QUES") {
         return AdminHandlers::handleViewQues(request, *session, client_fd);
+    } else if (request_type == "GET_QUESTION") {
+        return AdminHandlers::handleGetQuestion(request, *session, client_fd);
     } else if (request_type == "DEL_QUES") {
         return AdminHandlers::handleDelQues(request, *session, client_fd);
     } else if (request_type == "BAN_USER") {
         return AdminHandlers::handleBanUser(request, *session, client_fd);
+    } else if (request_type == "VIEW_USERS") {
+        return AdminHandlers::handleViewUsers(request, *session, client_fd);
+    } else if (request_type == "PROMOTE_USER") {
+        return AdminHandlers::handlePromoteUser(request, *session, client_fd);
+    } else if (request_type == "REVOKE_ADMIN") {
+        return AdminHandlers::handleRevokeAdmin(request, *session, client_fd);
     } else {
         return StreamUtils::createErrorResponse(415, "Unknown request type");
     }

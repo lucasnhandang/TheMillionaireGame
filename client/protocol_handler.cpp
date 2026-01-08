@@ -5,6 +5,62 @@
 #include <sstream>
 #include <iostream>
 
+namespace {
+bool extractNextJsonObject(const std::string& json, size_t& pos, std::string& object) {
+    const size_t length = json.length();
+    
+    while (pos < length) {
+        char c = json[pos];
+        if (c == '{') {
+            int braceDepth = 0;
+            bool inString = false;
+            bool escape = false;
+            size_t start = pos;
+            
+            for (size_t i = pos; i < length; ++i) {
+                char ch = json[i];
+                
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                
+                if (ch == '\\') {
+                    escape = true;
+                    continue;
+                }
+                
+                if (ch == '"') {
+                    inString = !inString;
+                    continue;
+                }
+                
+                if (!inString) {
+                    if (ch == '{') {
+                        braceDepth++;
+                    } else if (ch == '}') {
+                        braceDepth--;
+                        if (braceDepth == 0) {
+                            object = json.substr(start, i - start + 1);
+                            pos = i + 1;
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        } else if (c == ']') {
+            return false;
+        }
+        
+        pos++;
+    }
+    
+    return false;
+}
+}
+
 ProtocolHandler::ProtocolHandler(SocketClient* client)
     : currentGameId(0), currentQuestionNumber(0), client_(client), eventQueue_(new GameEventQueue()) {
 }
@@ -308,11 +364,11 @@ SocketClient::Message ProtocolHandler::waitForResponse(int timeoutMs) {
             // All other types are notifications (have notificationType) - put them back for notification handler
             if (msg.type == "RESPONSE") {
                 std::cerr << "[DEBUG] Found RESPONSE with responseCode, returning" << std::endl;
-                return msg;
-            } else {
+                    return msg;
+                } else {
                 // This is a notification (GAME_START, QUESTION_INFO, etc.) - put it back for notification handler
                 std::cerr << "[DEBUG] Notification type (" << msg.type << "), putting back for notification handler" << std::endl;
-                client_->putMessageBack(msg);
+                    client_->putMessageBack(msg);
                 // Yield to give notification handler a chance to grab the message
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -420,7 +476,55 @@ ProtocolHandler::FriendStatusResponse ProtocolHandler::getFriendStatus() {
     
     response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
     
-    // TODO: Parse friends array from JSON
+    if (response.responseCode == 200) {
+        response.friends.clear();
+        size_t friends_start = msg.data.find("\"friends\"");
+        if (friends_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", friends_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                std::string obj;
+                while (extractNextJsonObject(msg.data, pos, obj)) {
+                    FriendStatus status;
+                    status.username = MillionaireGame::JsonUtils::extractString(obj, "username");
+                    status.status = MillionaireGame::JsonUtils::extractString(obj, "status");
+                    if (!status.username.empty()) {
+                        response.friends.push_back(status);
+                    }
+                }
+            }
+        }
+    }
+    
+    return response;
+}
+
+ProtocolHandler::FindFriendResponse ProtocolHandler::findFriend(const std::string& usernameToFind) {
+    FindFriendResponse response;
+    response.responseCode = 500;
+    
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    strings["username"] = usernameToFind;
+    
+    std::string data = buildDataJson(strings);
+    
+    if (!client_->sendRequest("FIND_FRIEND", data)) {
+        response.responseCode = 503;
+        return response;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        response.responseCode = 504;
+        return response;
+    }
+    
+    response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (response.responseCode == 200) {
+        response.username = MillionaireGame::JsonUtils::extractString(msg.data, "username");
+        response.status = MillionaireGame::JsonUtils::extractString(msg.data, "status");
+    }
     
     return response;
 }
@@ -504,7 +608,25 @@ ProtocolHandler::FriendReqListResponse ProtocolHandler::getFriendReqList() {
     
     response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
     
-    // TODO: Parse friendRequests array from JSON
+    if (response.responseCode == 200) {
+        response.friendRequests.clear();
+        size_t req_start = msg.data.find("\"friendRequests\"");
+        if (req_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", req_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                std::string obj;
+                while (extractNextJsonObject(msg.data, pos, obj)) {
+                    FriendRequest fr;
+                    fr.username = MillionaireGame::JsonUtils::extractString(obj, "username");
+                    fr.sentAt = MillionaireGame::JsonUtils::extractLongLong(obj, "sentAt", 0);
+                    if (!fr.username.empty()) {
+                        response.friendRequests.push_back(fr);
+                    }
+                }
+            }
+        }
+    }
     
     return response;
 }
@@ -546,6 +668,62 @@ int ProtocolHandler::sendChat(const std::string& recipient, const std::string& m
     }
     
     return MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+}
+
+ProtocolHandler::GetMessagesResponse ProtocolHandler::getMessages(const std::string& friendUsername, int page, int limit) {
+    GetMessagesResponse response;
+    response.responseCode = 500;
+    response.page = page;
+    response.limit = limit;
+    
+    std::map<std::string, std::string> strings;
+    strings["authToken"] = authToken;
+    strings["friendUsername"] = friendUsername;
+    
+    std::map<std::string, int> ints;
+    ints["page"] = page;
+    ints["limit"] = limit;
+    
+    std::string data = buildDataJson(strings, ints);
+    
+    if (!client_->sendRequest("GET_MESSAGES", data)) {
+        response.responseCode = 503;
+        return response;
+    }
+    
+    SocketClient::Message msg = waitForResponse(5000);
+    if (msg.type == "TIMEOUT" || msg.data.empty()) {
+        response.responseCode = 504;
+        return response;
+    }
+    
+    response.responseCode = MillionaireGame::JsonUtils::extractInt(msg.data, "responseCode", 500);
+    if (response.responseCode == 200) {
+        response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", page);
+        response.limit = MillionaireGame::JsonUtils::extractInt(msg.data, "limit", limit);
+        
+        response.messages.clear();
+        size_t msg_start = msg.data.find("\"messages\"");
+        if (msg_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", msg_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                std::string obj;
+                while (extractNextJsonObject(msg.data, pos, obj)) {
+                    ChatMessage chat;
+                    chat.from = MillionaireGame::JsonUtils::extractString(obj, "from");
+                    chat.to = MillionaireGame::JsonUtils::extractString(obj, "to");
+                    chat.content = MillionaireGame::JsonUtils::extractString(obj, "content");
+                    chat.timestamp = MillionaireGame::JsonUtils::extractLongLong(obj, "timestamp", 0);
+                    if (!chat.from.empty() || !chat.to.empty()) {
+                        response.messages.push_back(chat);
+                    }
+                }
+            }
+        }
+    }
+    
+    return response;
 }
 
 // User information
@@ -753,9 +931,9 @@ ProtocolHandler::ViewQuestionsResponse ProtocolHandler::viewQuestions(int page, 
     
     if (response.responseCode == 200) {
         // Basic metadata
-        response.total = MillionaireGame::JsonUtils::extractInt(msg.data, "total", 0);
-        response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
-        
+    response.total = MillionaireGame::JsonUtils::extractInt(msg.data, "total", 0);
+    response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
+    
         // Parse questions array from JSON (similar approach as viewUsers)
         size_t questions_start = msg.data.find("\"questions\"");
         if (questions_start != std::string::npos) {

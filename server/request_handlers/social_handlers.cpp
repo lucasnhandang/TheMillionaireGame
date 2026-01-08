@@ -2,15 +2,35 @@
 #include "../session_manager.h"
 #include "../json_utils.h"
 #include "../stream_handler.h"
+#include "../notification_utils.h"
 #include "../../database/database.h"
 #include <vector>
 #include <sstream>
+#include <ctime>
 
 using namespace std;
 
 namespace MillionaireGame {
 
 namespace SocialHandlers {
+
+namespace {
+std::string jsonEscape(const std::string& input) {
+    std::string output;
+    output.reserve(input.size());
+    for (char c : input) {
+        switch (c) {
+            case '"': output += "\\\""; break;
+            case '\\': output += "\\\\"; break;
+            case '\n': output += "\\n"; break;
+            case '\r': output += "\\r"; break;
+            case '\t': output += "\\t"; break;
+            default: output += c; break;
+        }
+    }
+    return output;
+}
+}
 
 string handleLeaderboard(const string& request, ClientSession& session) {
     string type = JsonUtils::extractString(request, "type");
@@ -66,6 +86,29 @@ string handleFriendStatus(const string& request, ClientSession& session) {
     return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
+string handleFindFriend(const string& request, ClientSession& session) {
+    (void)session; // not used beyond auth
+    string target_username = JsonUtils::extractString(request, "username");
+    
+    if (target_username.empty()) {
+        return StreamUtils::createErrorResponse(400, "Missing username");
+    }
+    
+    if (!Database::getInstance().userExists(target_username)) {
+        return StreamUtils::createErrorResponse(404, "User not found");
+    }
+    
+    bool already_friend = Database::getInstance().friendshipExists(session.username, target_username);
+    string status = already_friend ? "friend" : "not_friend";
+    if (target_username == session.username) {
+        status = "self";
+    }
+    
+    string data = "{\"username\":\"" + target_username + "\","
+                  "\"status\":\"" + status + "\"}";
+    return StreamUtils::createSuccessResponse(200, data);
+}
+
 string handleAddFriend(const string& request, ClientSession& session) {
     string friend_username = JsonUtils::extractString(request, "friendUsername");
 
@@ -91,6 +134,14 @@ string handleAddFriend(const string& request, ClientSession& session) {
     bool success = Database::getInstance().addFriendRequest(session.username, friend_username);
     if (!success) {
         return StreamUtils::createErrorResponse(409, "Friend request already sent or failed");
+    }
+
+    // Notify recipient if online
+    int friend_fd = SessionManager::getInstance().getClientFdByUsername(friend_username);
+    if (friend_fd != -1) {
+        string notif = "{\"from\":\"" + jsonEscape(session.username) + "\","
+                       "\"sentAt\":" + to_string(time(nullptr)) + "}";
+        NotificationUtils::sendNotification(friend_fd, "FRIEND_REQUEST", notif);
     }
 
     string data = "{\"friendUsername\":\"" + friend_username + "\"}";
@@ -129,6 +180,12 @@ string handleAcceptFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(500, "Failed to accept friend request");
     }
 
+    int friend_fd = SessionManager::getInstance().getClientFdByUsername(friend_username);
+    if (friend_fd != -1) {
+        string notif = "{\"friend\":\"" + jsonEscape(session.username) + "\"}";
+        NotificationUtils::sendNotification(friend_fd, "FRIEND_REQUEST_ACCEPTED", notif);
+    }
+
     string data = "{\"friendUsername\":\"" + friend_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
 }
@@ -140,13 +197,25 @@ string handleDeclineFriend(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(400, "Missing friendUsername");
     }
 
-    // TODO: Replace with database call
-    // bool request_exists = Database::getInstance().friendRequestExists(friend_username, session.username);
-    // if (!request_exists) {
-    //     return StreamUtils::createErrorResponse(404, "Friend request not found");
-    // }
-    // 
-    // bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
+    // Check if friend request exists (from friend_username to session.username)
+    vector<FriendRequest> requests = Database::getInstance().getFriendRequests(session.username);
+    bool request_exists = false;
+    for (const auto& req : requests) {
+        if (req.username == friend_username) {
+            request_exists = true;
+            break;
+        }
+    }
+    
+    if (!request_exists) {
+        return StreamUtils::createErrorResponse(404, "Friend request not found");
+    }
+    
+    // Decline friend request (from friend_username to session.username)
+    bool success = Database::getInstance().declineFriendRequest(friend_username, session.username);
+    if (!success) {
+        return StreamUtils::createErrorResponse(500, "Failed to decline friend request");
+    }
 
     string data = "{\"friendUsername\":\"" + friend_username + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
@@ -206,14 +275,65 @@ string handleChat(const string& request, ClientSession& session) {
         return StreamUtils::createErrorResponse(404, "Recipient user not found");
     }
     
+    // Only allow chat between friends
+    if (!Database::getInstance().friendshipExists(session.username, recipient)) {
+        return StreamUtils::createErrorResponse(403, "Cannot chat with non-friend user");
+    }
+    
     // Send message (stored in database, delivered if online)
     bool success = Database::getInstance().sendMessage(session.username, recipient, message);
     if (!success) {
         return StreamUtils::createErrorResponse(500, "Failed to send message");
     }
 
-    string data = "{\"recipient\":\"" + recipient + "}";
+    // Notify recipient if online
+    int recipient_fd = SessionManager::getInstance().getClientFdByUsername(recipient);
+    if (recipient_fd != -1) {
+        string notif = "{\"from\":\"" + jsonEscape(session.username) + "\","
+                       "\"content\":\"" + jsonEscape(message) + "\","
+                       "\"timestamp\":" + to_string(time(nullptr)) + "}";
+        NotificationUtils::sendNotification(recipient_fd, "NEW_MESSAGE", notif);
+    }
+
+    string data = "{\"recipient\":\"" + recipient + "\"}";
     return StreamUtils::createSuccessResponse(200, data);
+}
+
+string handleGetMessages(const string& request, ClientSession& session) {
+    string friend_username = JsonUtils::extractString(request, "friendUsername");
+    int page = JsonUtils::extractInt(request, "page", 1);
+    int limit = JsonUtils::extractInt(request, "limit", 50);
+    
+    if (friend_username.empty()) {
+        return StreamUtils::createErrorResponse(400, "Missing friendUsername");
+    }
+    
+    if (page < 1 || limit <= 0 || limit > 200) {
+        return StreamUtils::createErrorResponse(422, "Invalid page or limit");
+    }
+    
+    // Only allow viewing chat history with friends
+    if (!Database::getInstance().friendshipExists(session.username, friend_username)) {
+        return StreamUtils::createErrorResponse(403, "Cannot view messages with non-friend user");
+    }
+    
+    vector<ChatMessage> messages = Database::getInstance().getConversationMessages(
+        session.username, friend_username, page, limit);
+    
+    stringstream ss;
+    ss << "{\"messages\":[";
+    for (size_t i = 0; i < messages.size(); ++i) {
+        if (i > 0) ss << ",";
+        ss << "{"
+           << "\"from\":\"" << messages[i].sender << "\","
+           << "\"to\":\"" << messages[i].receiver << "\","
+           << "\"content\":\"" << messages[i].content << "\","
+           << "\"timestamp\":" << messages[i].timestamp
+           << "}";
+    }
+    ss << "],\"page\":" << page << ",\"limit\":" << limit << "}";
+    
+    return StreamUtils::createSuccessResponse(200, ss.str());
 }
 
 } // namespace SocialHandlers

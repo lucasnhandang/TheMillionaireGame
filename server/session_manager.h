@@ -106,6 +106,13 @@ public:
      * @return Client file descriptor, or -1 if not found
      */
     int getClientFdByGameId(int game_id);
+    
+    /**
+     * Find client file descriptor by username
+     * @param username Username to search
+     * @return Client file descriptor, or -1 if user not connected
+     */
+    int getClientFdByUsername(const std::string& username);
 
 private:
     SessionManager() = default;

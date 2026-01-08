@@ -133,6 +133,7 @@ set(QT_WIDGETS_SRC
     adminpanelscreen.cpp
     addquestiondialog.cpp
     editquestiondialog.cpp
+    friendsscreen.cpp
 )
 
 set(QT_WIDGETS_HEADERS
@@ -144,6 +145,7 @@ set(QT_WIDGETS_HEADERS
     adminpanelscreen.h
     addquestiondialog.h
     editquestiondialog.h
+    friendsscreen.h
 )
 
 # UI files

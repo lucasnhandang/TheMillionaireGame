@@ -12,6 +12,7 @@ class HomeScreen;
 class GameScreen;
 class ResultScreen;
 class AdminPanelScreen;
+class FriendsScreen;
 class GameState;
 
 class MainWindow : public QMainWindow
@@ -32,6 +33,7 @@ private slots:
     void onShowResult();
     void onBackToHome();
     void onAdminPanelClicked();
+    void onFriendsClicked();
     void processGameEvents();
 
 private:
@@ -46,6 +48,7 @@ private:
     GameScreen* gameScreen_;
     ResultScreen* resultScreen_;
     AdminPanelScreen* adminPanelScreen_;
+    FriendsScreen* friendsScreen_;
     
     ProtocolHandler* protocol_;
     std::unique_ptr<GameState> gameState_;

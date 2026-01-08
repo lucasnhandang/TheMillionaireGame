@@ -14,12 +14,14 @@ namespace MillionaireGame {
 namespace SocialHandlers {
     std::string handleLeaderboard(const std::string& request, ClientSession& session);
     std::string handleFriendStatus(const std::string& request, ClientSession& session);
+    std::string handleFindFriend(const std::string& request, ClientSession& session);
     std::string handleAddFriend(const std::string& request, ClientSession& session);
     std::string handleAcceptFriend(const std::string& request, ClientSession& session);
     std::string handleDeclineFriend(const std::string& request, ClientSession& session);
     std::string handleFriendReqList(const std::string& request, ClientSession& session);
     std::string handleDelFriend(const std::string& request, ClientSession& session);
     std::string handleChat(const std::string& request, ClientSession& session);
+    std::string handleGetMessages(const std::string& request, ClientSession& session);
 }
 
 } // namespace MillionaireGame
