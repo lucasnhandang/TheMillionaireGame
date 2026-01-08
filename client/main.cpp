@@ -1097,10 +1097,9 @@ int main(int argc, char** argv) {
                     ImVec2 qts = ImGui::CalcTextSize(qbuf);
                     draw_list->AddText(ImVec2(progressCenter.x - qts.x*0.5f, progressCenter.y - qts.y*0.5f), 
                         IM_COL32(255,255,255,255), qbuf);
-                    ImGui::Dummy(ImVec2(400, 40));
                     
-                    // Timer (circular, top right)
-                    ImGui::SetCursorPos(ImVec2(700, 20));
+                    // Timer (circular, below question number)
+                    ImGui::SetCursorPos(ImVec2(375, 50));  // Center horizontally, below progress bar
                     ImVec2 timerCenter = ImGui::GetCursorScreenPos();
                     timerCenter.x += 30; timerCenter.y += 20;
                     float timerRadius = 25.0f;
@@ -1154,19 +1153,31 @@ int main(int argc, char** argv) {
                         if (state.answersRevealed >= 4) state.revealActive = false;
                     }
 
-                    // Question display with hexagonal panel style
-                    ImGui::SetCursorPos(ImVec2(50, 120));
+                    // Question display with rounded frame
+                    ImGui::SetCursorPos(ImVec2(50, 100));
                     ImVec2 questionPos = ImGui::GetCursorScreenPos();
-                    ImVec2 questionSize = ImVec2(700, 100);
-                    CustomGUI::HexagonalPanel(questionPos, questionSize, IM_COL32(20, 40, 60, 200));
+                    ImVec2 questionSize = ImVec2(700, 120);
                     
-                    ImGui::SetCursorPos(ImVec2(70, 140));
+                    // Draw rounded rectangle background
+                    draw_list->AddRectFilled(questionPos, ImVec2(questionPos.x + questionSize.x, questionPos.y + questionSize.y),
+                        IM_COL32(40, 60, 80, 200), 15.0f);
+                    draw_list->AddRect(questionPos, ImVec2(questionPos.x + questionSize.x, questionPos.y + questionSize.y),
+                        IM_COL32(100, 150, 200, 255), 15.0f, 0, 2.0f);
+                    
+                    // Center question text
+                    ImGui::SetCursorPos(ImVec2(50, 100));
+                    ImGui::PushTextWrapPos(questionPos.x + questionSize.x - 20);
                     ImGui::SetWindowFontScale(1.3f);
+                    ImVec2 textSize = ImGui::CalcTextSize(state.question.empty() ? "Waiting for question..." : state.question.c_str());
+                    float centerX = (questionSize.x - textSize.x) * 0.5f;
+                    float centerY = (questionSize.y - textSize.y) * 0.5f;
+                    ImGui::SetCursorPos(ImVec2(50 + centerX, 100 + centerY));
                     if (!state.question.empty()) {
-                        ImGui::TextWrapped("%s", state.question.c_str());
+                        ImGui::Text("%s", state.question.c_str());
                     } else {
-                        ImGui::TextWrapped("Waiting for question...");
+                        ImGui::Text("Waiting for question...");
                     }
+                    ImGui::PopTextWrapPos();
                     ImGui::SetWindowFontScale(1.0f);
                     
                     ImGui::SetCursorPos(ImVec2(50, 240));
@@ -1289,25 +1300,6 @@ int main(int argc, char** argv) {
                         }
                     }
                     
-                    ImGui::SameLine();
-                    if (CustomGUI::RoundedButton("Give Up", ImVec2(150, 50), 
-                        IM_COL32(150, 50, 50, 255), IM_COL32(180, 70, 70, 255), 15.0f)) {
-                        if (demoMode) {
-                            state.resultMessage = "You gave up! (Demo Mode)";
-                            state.showResultMessage = true;
-                            state.resultMessageTime = 3.0f;
-                            state.inGame = false;
-                        } else if (protocol) {
-                            std::cerr << "[DEBUG] Player giving up" << std::endl;
-                            int code = protocol->giveUp();
-                            if (code == 200) {
-                                state.timerRunning = false;
-                                // Notification handler will show the result
-                            } else {
-                                state.errorMessage = "Error giving up (code " + std::to_string(code) + ")";
-                            }
-                        }
-                    }
                     
                     // Error message display
                     if (!state.errorMessage.empty()) {
