@@ -15,6 +15,8 @@
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <map>
+#include <sstream>
 
 #ifdef _WIN32
     #include <GL/gl.h>
@@ -72,6 +74,17 @@ struct GameState {
     bool revealActive = false;
     int answersRevealed = 0;       // 0..4
     bool timerStartedForThisQuestion = false;
+    
+    // Lifeline processing
+    bool lifelineProcessing = false;
+    std::string lifelineLoadingMessage;  // "Eliminating...", "Calling...", "Surveying"
+    std::chrono::steady_clock::time_point lifelineStartTime;
+    std::string lifelineType;  // "5050", "PHONE", "AUDIENCE"
+    std::vector<int> lifeline5050Remaining;  // For 5050: remaining option indices
+    std::string lifelinePhoneSuggestion;  // For PHONE: suggestion string
+    std::map<char, int> lifelineAudiencePoll;  // For AUDIENCE: poll percentages (A, B, C, D)
+    bool timerPaused = false;
+    int pausedTimeRemaining = 0;
 
     // Final result
     long long finalPrize = 0;
@@ -137,8 +150,8 @@ void updateTimer(GameState& state, ProtocolHandler* protocol, int myTimerId) {
     while (state.timerRunning && state.timeRemaining > 0 && state.timerThreadId == myTimerId) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         
-        // Only decrement if this is still the active timer
-        if (state.timerRunning && state.inGame && state.timerThreadId == myTimerId) {
+        // Only decrement if this is still the active timer and not paused
+        if (state.timerRunning && state.inGame && state.timerThreadId == myTimerId && !state.timerPaused) {
             state.timeRemaining--;
             std::cerr << "[DEBUG] Timer #" << myTimerId << ": " << state.timeRemaining << "s remaining" << std::endl;
         }
@@ -313,13 +326,103 @@ void processGameEvents(GameEventQueue* eventQueue, GameState& state, ProtocolHan
             
             case EVENT_LIFELINE_INFO: {
                 std::cerr << "[DEBUG] Processing LIFELINE_INFO event" << std::endl;
+                std::cerr << "[DEBUG] LIFELINE_INFO data: " << event.data << std::endl;
                 std::string lifelineType = MillionaireGame::JsonUtils::extractString(event.data, "lifelineType");
+                int timeRemaining = MillionaireGame::JsonUtils::extractInt(event.data, "timeRemaining", state.timeRemaining);
+                
+                // Mark lifeline as used
                 if (lifelineType == "5050") {
                     state.availableLifelines[0] = false;
+                    // Parse remainingOptions array - extract JSON array directly
+                    state.lifeline5050Remaining.clear();
+                    std::string searchKey = "\"remainingOptions\"";
+                    size_t pos = event.data.find(searchKey);
+                    if (pos != std::string::npos) {
+                        pos = event.data.find('[', pos);
+                        if (pos != std::string::npos) {
+                            size_t end = event.data.find(']', pos);
+                            if (end != std::string::npos) {
+                                std::string arrayStr = event.data.substr(pos + 1, end - pos - 1);
+                                std::stringstream ss(arrayStr);
+                                std::string token;
+                                while (std::getline(ss, token, ',')) {
+                                    // Remove whitespace
+                                    token.erase(0, token.find_first_not_of(" \t"));
+                                    token.erase(token.find_last_not_of(" \t") + 1);
+                                    if (!token.empty()) {
+                                        int idx = std::stoi(token);
+                                        state.lifeline5050Remaining.push_back(idx);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else if (lifelineType == "PHONE") {
                     state.availableLifelines[1] = false;
+                    // Parse suggestion string
+                    state.lifelinePhoneSuggestion = MillionaireGame::JsonUtils::extractString(event.data, "suggestion");
                 } else if (lifelineType == "AUDIENCE") {
                     state.availableLifelines[2] = false;
+                    // Parse poll object - extract JSON object directly
+                    state.lifelineAudiencePoll.clear();
+                    std::string searchKey = "\"poll\"";
+                    size_t pos = event.data.find(searchKey);
+                    if (pos != std::string::npos) {
+                        pos = event.data.find('{', pos);
+                        if (pos != std::string::npos) {
+                            // Find matching closing brace
+                            int braceCount = 0;
+                            size_t end = pos;
+                            for (size_t i = pos; i < event.data.length(); i++) {
+                                if (event.data[i] == '{') braceCount++;
+                                if (event.data[i] == '}') {
+                                    braceCount--;
+                                    if (braceCount == 0) {
+                                        end = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (end > pos) {
+                                std::string pollStr = event.data.substr(pos + 1, end - pos - 1);
+                                std::stringstream ss(pollStr);
+                                std::string token;
+                                while (std::getline(ss, token, ',')) {
+                                    // Token format: "A":65
+                                    size_t colonPos = token.find(':');
+                                    if (colonPos != std::string::npos) {
+                                        // Extract key (remove quotes)
+                                        std::string key = token.substr(0, colonPos);
+                                        key.erase(0, key.find_first_not_of(" \t\""));
+                                        key.erase(key.find_last_not_of(" \t\"") + 1);
+                                        // Extract value
+                                        std::string value = token.substr(colonPos + 1);
+                                        value.erase(0, value.find_first_not_of(" \t"));
+                                        value.erase(value.find_last_not_of(" \t") + 1);
+                                        if (key.length() == 1 && key[0] >= 'A' && key[0] <= 'D') {
+                                            state.lifelineAudiencePoll[key[0]] = std::stoi(value);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Stop loading and show result
+                state.lifelineProcessing = false;
+                state.lifelineLoadingMessage.clear();
+                
+                // Resume timer with remaining time
+                if (state.timerPaused) {
+                    state.timeRemaining = timeRemaining;
+                    state.timerPaused = false;
+                    // Restart timer if it was running
+                    if (state.timerRunning) {
+                        state.timerThreadId++;
+                        int newTimerId = state.timerThreadId;
+                        std::thread(updateTimer, std::ref(state), protocol, newTimerId).detach();
+                    }
                 }
                 break;
             }
@@ -829,6 +932,25 @@ int main(int argc, char** argv) {
                     size_t maxToShow = state.revealActive ? (size_t)state.answersRevealed : state.options.size();
                     if (maxToShow > state.options.size()) maxToShow = state.options.size();
                     for (size_t i = 0; i < maxToShow; i++) {
+                        // Check if this option should be hidden (5050 lifeline)
+                        bool shouldHide = false;
+                        if (!state.lifeline5050Remaining.empty() && state.lifelineType == "5050") {
+                            // Hide if not in remainingOptions
+                            bool found = false;
+                            for (int idx : state.lifeline5050Remaining) {
+                                if (idx == static_cast<int>(i)) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            shouldHide = !found;
+                        }
+                        
+                        if (shouldHide) {
+                            // Hide this option (don't render)
+                            continue;
+                        }
+                        
                         char label[512];
                         snprintf(label, sizeof(label), "%c. %s", 'A' + (int)i, state.options[i].c_str());
                         
@@ -954,6 +1076,15 @@ int main(int argc, char** argv) {
                                 state.availableLifelines[0] = false;
                             } else if (protocol) {
                                 std::cerr << "[DEBUG] Player using 50/50 lifeline" << std::endl;
+                                // Pause timer
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                // Start loading
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Eliminating 2 wrong answers...";
+                                state.lifelineType = "5050";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
                                 protocol->useLifeline("5050");
                             }
                         }
@@ -977,6 +1108,15 @@ int main(int argc, char** argv) {
                                 state.availableLifelines[1] = false;
                             } else if (protocol) {
                                 std::cerr << "[DEBUG] Player using Phone a Friend lifeline" << std::endl;
+                                // Pause timer
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                // Start loading
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Calling...";
+                                state.lifelineType = "PHONE";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
                                 protocol->useLifeline("PHONE");
                             }
                         }
@@ -1000,6 +1140,15 @@ int main(int argc, char** argv) {
                                 state.availableLifelines[2] = false;
                             } else if (protocol) {
                                 std::cerr << "[DEBUG] Player using Ask Audience lifeline" << std::endl;
+                                // Pause timer
+                                state.timerPaused = true;
+                                state.pausedTimeRemaining = state.timeRemaining;
+                                state.timerRunning = false;
+                                // Start loading
+                                state.lifelineProcessing = true;
+                                state.lifelineLoadingMessage = "Surveying...";
+                                state.lifelineType = "AUDIENCE";
+                                state.lifelineStartTime = std::chrono::steady_clock::now();
                                 protocol->useLifeline("AUDIENCE");
                             }
                         }
@@ -1011,6 +1160,66 @@ int main(int argc, char** argv) {
                     
                     if (!state.errorMessage.empty()) {
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", state.errorMessage.c_str());
+                    }
+                    
+                    // Lifeline results area (below lifeline buttons)
+                    ImGui::Separator();
+                    if (state.lifelineProcessing) {
+                        // Show loading message
+                        ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "%s", state.lifelineLoadingMessage.c_str());
+                    } else if (!state.lifelineType.empty()) {
+                        // Show lifeline result
+                        if (state.lifelineType == "5050" && !state.lifeline5050Remaining.empty()) {
+                            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "50/50: Two wrong answers eliminated!");
+                        } else if (state.lifelineType == "PHONE" && !state.lifelinePhoneSuggestion.empty()) {
+                            ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "Friend says: %s", state.lifelinePhoneSuggestion.c_str());
+                        } else if (state.lifelineType == "AUDIENCE" && !state.lifelineAudiencePoll.empty()) {
+                            ImGui::Text("Audience Poll Results:");
+                            // Draw column chart
+                            float chartWidth = 600.0f;
+                            float chartHeight = 150.0f;
+                            float barWidth = chartWidth / 4.0f - 10.0f;
+                            ImVec2 chartPos = ImGui::GetCursorScreenPos();
+                            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                            
+                            // Draw background
+                            draw_list->AddRectFilled(chartPos, ImVec2(chartPos.x + chartWidth, chartPos.y + chartHeight), 
+                                                    IM_COL32(40, 40, 40, 255));
+                            
+                            // Draw bars for each option
+                            char labels[] = {'A', 'B', 'C', 'D'};
+                            for (int i = 0; i < 4; i++) {
+                                char label = labels[i];
+                                int percent = 0;
+                                if (state.lifelineAudiencePoll.find(label) != state.lifelineAudiencePoll.end()) {
+                                    percent = state.lifelineAudiencePoll[label];
+                                }
+                                
+                                float barHeight = (percent / 100.0f) * (chartHeight - 40.0f);
+                                float x = chartPos.x + i * (chartWidth / 4.0f) + 5.0f;
+                                float y = chartPos.y + chartHeight - 20.0f - barHeight;
+                                
+                                // Draw bar
+                                ImU32 barColor = IM_COL32(100, 150, 255, 255);
+                                draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + barWidth, chartPos.y + chartHeight - 20.0f), barColor);
+                                
+                                // Draw label
+                                char labelStr[16];
+                                snprintf(labelStr, sizeof(labelStr), "%c", label);
+                                ImVec2 labelSize = ImGui::CalcTextSize(labelStr);
+                                draw_list->AddText(ImVec2(x + barWidth/2.0f - labelSize.x/2.0f, chartPos.y + chartHeight - 15.0f), 
+                                                  IM_COL32(255, 255, 255, 255), labelStr);
+                                
+                                // Draw percentage
+                                char percentStr[16];
+                                snprintf(percentStr, sizeof(percentStr), "%d%%", percent);
+                                ImVec2 percentSize = ImGui::CalcTextSize(percentStr);
+                                draw_list->AddText(ImVec2(x + barWidth/2.0f - percentSize.x/2.0f, y - 20.0f), 
+                                                  IM_COL32(255, 255, 255, 255), percentStr);
+                            }
+                            
+                            ImGui::Dummy(ImVec2(chartWidth, chartHeight));
+                        }
                     }
 
                     // Bottom bar with prize

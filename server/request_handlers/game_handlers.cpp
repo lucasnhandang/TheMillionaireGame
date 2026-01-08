@@ -8,10 +8,13 @@
 #include "../stream_handler.h"
 #include "../notification_utils.h"
 #include "../logger.h"
+#include "../session_manager.h"
 #include "../../database/database.h"
 #include <ctime>
 #include <algorithm>
 #include <sstream>
+#include <thread>
+#include <chrono>
 
 using namespace std;
 
@@ -372,15 +375,19 @@ string handleLifeline(const string& request, ClientSession& session, int client_
         return StreamUtils::createErrorResponse(407, "Lifeline already used");
     }
     
-    // Determine level for current question
-    int level = (session.current_question_number <= 5) ? 0 : 
-                (session.current_question_number <= 10) ? 1 : 2;
-    
-    // Get current question
-    Question current_question = QuestionManager::getInstance().getRandomQuestion(level);
+    // Get current question from game_questions table (not random)
+    Question current_question = Database::getInstance().getGameQuestion(game_id, session.current_question_number);
     if (current_question.id == 0) {
         return StreamUtils::createErrorResponse(500, "Failed to get question");
     }
+    
+    // Pause timer - get current remaining time
+    int time_remaining = GameTimer::getInstance().getRemainingTime(game_id);
+    if (time_remaining < 0) {
+        time_remaining = 30;  // Default if timer not started
+    }
+    session.timer_paused = true;
+    session.paused_time_remaining = time_remaining;
     
     // Use lifeline
     LifelineResult result;
@@ -395,51 +402,53 @@ string handleLifeline(const string& request, ClientSession& session, int client_
     }
     
     if (!result.success) {
+        session.timer_paused = false;  // Resume timer on error
         return StreamUtils::createErrorResponse(500, "Failed to process lifeline");
     }
     
     session.used_lifelines.insert(lifeline_type);
     
-    // Build response data with lifeline result
-    // result.result_data contains the hint JSON object
-    // For 5050: {"remainingOptions":[0,2]}
-    // For PHONE: {"suggestion":"I'm 85% sure it's A"}
-    // For AUDIENCE: {"poll":{"A":65,"B":15,"C":10,"D":10}}
+    // Build immediate response (acknowledgment)
+    string data = "{\"lifelineType\":\"" + lifeline_type + "\",\"message\":\"Processing lifeline...\"}";
     
-    // Merge result_data into response, adding lifelineType
-    string data;
-    if (!result.result_data.empty()) {
-        // result_data is a JSON object, merge lifelineType into it
-        string inner_data = result.result_data;
-        if (inner_data.front() == '{' && inner_data.back() == '}') {
-            // Remove outer braces
-            inner_data = inner_data.substr(1, inner_data.length() - 2);
-            // Add lifelineType as first field
-            data = "{\"lifelineType\":\"" + lifeline_type + "\"";
-            if (!inner_data.empty()) {
-                data += "," + inner_data;
-            }
-            data += "}";
-        } else {
-            // Fallback: just wrap it
-            data = "{\"lifelineType\":\"" + lifeline_type + "\",\"data\":" + result.result_data + "}";
+    // Send LIFELINE_INFO notification with 3 second delay
+    // Include timeRemaining so client can resume timer
+    string lifeline_data = result.result_data;
+    if (!lifeline_data.empty() && lifeline_data.front() == '{' && lifeline_data.back() == '}') {
+        // Remove outer braces and add fields
+        string inner_data = lifeline_data.substr(1, lifeline_data.length() - 2);
+        lifeline_data = "{\"lifelineType\":\"" + lifeline_type + "\"";
+        lifeline_data += ",\"questionNumber\":" + to_string(session.current_question_number);
+        lifeline_data += ",\"timeRemaining\":" + to_string(time_remaining);
+        if (!inner_data.empty()) {
+            lifeline_data += "," + inner_data;
         }
+        lifeline_data += "}";
     } else {
-        // Fallback if no result_data
-        data = "{\"lifelineType\":\"" + lifeline_type + "\"}";
+        lifeline_data = "{\"lifelineType\":\"" + lifeline_type + "\"";
+        lifeline_data += ",\"questionNumber\":" + to_string(session.current_question_number);
+        lifeline_data += ",\"timeRemaining\":" + to_string(time_remaining);
+        lifeline_data += "}";
     }
     
-    // TODO: Implement LIFELINE_INFO notification with delay
-    // Delay times: 5050=5s, PHONE=10s, AUDIENCE=5s
-    // This requires async/threading mechanism to send notification after delay
-    // Example implementation:
-    // int delay_seconds = (lifeline_type == "PHONE") ? 10 : 5;
-    // std::thread([client_fd, lifeline_type, session, delay_seconds]() {
-    //     std::this_thread::sleep_for(std::chrono::seconds(delay_seconds));
-    //     
-    //     string lifeline_data = buildLifelineInfoData(lifeline_type, session);
-    //     NotificationUtils::sendNotification(client_fd, "LIFELINE_INFO", lifeline_data);
-    // }).detach();
+    // Send notification after 3 second delay in background thread
+    std::thread([client_fd, lifeline_data, game_id]() {
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        
+        // Resume timer after delay
+        ClientSession* session = SessionManager::getInstance().getSession(client_fd);
+        if (session && session->timer_paused && session->game_id == game_id) {
+            session->timer_paused = false;
+            // Restart timer with remaining time
+            GameTimer::getInstance().stopTimer(game_id);
+            // Calculate new start time based on remaining time
+            time_t new_start = time(nullptr) - (30 - session->paused_time_remaining);
+            // Note: GameTimer doesn't support setting start time directly,
+            // so we'll let client handle timer resume based on timeRemaining
+        }
+        
+        NotificationUtils::sendNotification(client_fd, "LIFELINE_INFO", lifeline_data);
+    }).detach();
     
     return StreamUtils::createSuccessResponse(200, data);
 }

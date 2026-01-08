@@ -12,7 +12,8 @@ ClientSession::ClientSession(const string& ip)
     : client_ip(ip), connected_time(time(nullptr)),
       last_ping_time(time(nullptr)), authenticated(false), 
       in_game(false), game_id(0), current_question_number(0),
-      current_level(0), current_prize(0), total_score(0), role("user") {}
+      current_level(0), current_prize(0), total_score(0), role("user"),
+      timer_paused(false), paused_time_remaining(0) {}
 
 SessionManager& SessionManager::getInstance() {
     static SessionManager instance;

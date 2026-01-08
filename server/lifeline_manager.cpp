@@ -135,14 +135,16 @@ LifelineResult LifelineManager::usePhone(int /* game_id */, int question_id) {
     
     char label = 'A' + suggestion;
     
-    std::stringstream ss;
-    ss << "{\"suggestion\":" << suggestion << ",\"label\":\"" << label << "\",\"confidence\":\"";
+    // Build suggestion message
+    std::string message;
     if (suggestion == correct) {
-        ss << "I'm " << (dis(gen) % 30 + 70) << "% sure it's " << label;
+        message = "I'm " + std::to_string(dis(gen) % 30 + 70) + "% sure it's " + label;
     } else {
-        ss << "I think it might be " << label << ", but I'm not certain";
+        message = "I think it might be " + std::string(1, label) + ", but I'm not certain";
     }
-    ss << "\"}";
+    
+    std::stringstream ss;
+    ss << "{\"suggestion\":\"" << message << "\"}";
     
     result.success = true;
     result.result_data = ss.str();
@@ -195,7 +197,7 @@ LifelineResult LifelineManager::useAudience(int /* game_id */, int question_id) 
     }
     
     std::stringstream ss;
-    ss << "{\"percentages\":{";
+    ss << "{\"poll\":{";
     int wrong_idx = 0;
     for (int i = 0; i < 4; i++) {
         if (i > 0) ss << ",";

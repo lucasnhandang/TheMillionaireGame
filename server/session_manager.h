@@ -29,6 +29,8 @@ struct ClientSession {
     int current_prize;
     int total_score;
     std::set<std::string> used_lifelines;  // Track which lifelines have been used
+    bool timer_paused;  // Timer pause state for lifelines
+    int paused_time_remaining;  // Time remaining when timer was paused
 
     // Constructor
     explicit ClientSession(const std::string& ip);
