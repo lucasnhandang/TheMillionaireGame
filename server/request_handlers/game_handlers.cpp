@@ -41,18 +41,21 @@ static string buildQuestionInfoData(const Question& q, int game_id, const Client
     // Build lifelines array - check per-question usage (allow multiple lifelines per question)
     ss << "\"lifelines\":[";
     bool first = true;
-    auto& used_for_question = session.used_lifelines_per_question[session.current_question_number];
-    if (used_for_question.find("5050") == used_for_question.end()) {
+    // Use find() instead of operator[] because session is const
+    auto it = session.used_lifelines_per_question.find(session.current_question_number);
+    const std::set<std::string>* used_for_question = (it != session.used_lifelines_per_question.end()) ? &it->second : nullptr;
+    
+    if (!used_for_question || used_for_question->find("5050") == used_for_question->end()) {
         if (!first) ss << ",";
         ss << "\"5050\"";
         first = false;
     }
-    if (used_for_question.find("PHONE") == used_for_question.end()) {
+    if (!used_for_question || used_for_question->find("PHONE") == used_for_question->end()) {
         if (!first) ss << ",";
         ss << "\"PHONE\"";
         first = false;
     }
-    if (used_for_question.find("AUDIENCE") == used_for_question.end()) {
+    if (!used_for_question || used_for_question->find("AUDIENCE") == used_for_question->end()) {
         if (!first) ss << ",";
         ss << "\"AUDIENCE\"";
         first = false;
