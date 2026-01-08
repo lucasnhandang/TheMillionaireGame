@@ -222,8 +222,14 @@ string handleAnswer(const string& request, ClientSession& session, int client_fd
         return "{\"responseCode\":408,\"data\":" + data + "}";
     }
     
-    int time_remaining = GameTimer::getInstance().getRemainingTime(game_id);
-    if (time_remaining < 0) time_remaining = 0;
+    // Get time remaining - if timer is paused, use paused_time_remaining
+    int time_remaining;
+    if (session.timer_paused) {
+        time_remaining = session.paused_time_remaining;
+    } else {
+        time_remaining = GameTimer::getInstance().getRemainingTime(game_id);
+        if (time_remaining < 0) time_remaining = 0;
+    }
     
     // Get the question assigned to this game (not a new random one!)
     Question current_question = Database::getInstance().getGameQuestion(game_id, question_number);
@@ -487,19 +493,17 @@ string handleLifeline(const string& request, ClientSession& session, int client_
     }
     
     // Send notification after 3 second delay in background thread
-    std::thread([client_fd, lifeline_data, game_id]() {
+    // IMPORTANT: Timer is paused, we send notification with the SAME time_remaining (no deduction)
+    // After sending notification, resume timer with the SAME remaining time
+    std::thread([client_fd, lifeline_data, game_id, time_remaining]() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
         
-        // Resume timer after delay
+        // Resume timer after delay - resume with the SAME time_remaining (no deduction for lifeline delay)
         ClientSession* session = SessionManager::getInstance().getSession(client_fd);
         if (session && session->timer_paused && session->game_id == game_id) {
             session->timer_paused = false;
-            // Restart timer with remaining time
-            GameTimer::getInstance().stopTimer(game_id);
-            // Calculate new start time based on remaining time
-            time_t new_start = time(nullptr) - (30 - session->paused_time_remaining);
-            // Note: GameTimer doesn't support setting start time directly,
-            // so we'll let client handle timer resume based on timeRemaining
+            // Resume timer with the SAME remaining time (no deduction)
+            GameTimer::getInstance().resumeTimerWithTime(game_id, time_remaining);
         }
         
         NotificationUtils::sendNotification(client_fd, "LIFELINE_INFO", lifeline_data);

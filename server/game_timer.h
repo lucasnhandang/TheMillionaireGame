@@ -43,6 +43,13 @@ public:
     void stopTimer(int game_id);
     
     /**
+     * Resume timer with specific remaining time
+     * @param game_id Game session ID
+     * @param remaining_time Remaining time in seconds
+     */
+    void resumeTimerWithTime(int game_id, int remaining_time);
+    
+    /**
      * Get all game IDs that have timed out
      * @return Vector of timed-out game IDs
      */

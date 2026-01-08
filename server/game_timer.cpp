@@ -42,6 +42,14 @@ void GameTimer::stopTimer(int game_id) {
     timer_start_times_.erase(game_id);
 }
 
+void GameTimer::resumeTimerWithTime(int game_id, int remaining_time) {
+    std::lock_guard<std::mutex> lock(timers_mutex_);
+    // Set start time so that getRemainingTime() returns remaining_time
+    // start_time = now - (30 - remaining_time)
+    time_t now = time(nullptr);
+    timer_start_times_[game_id] = now - (question_timeout_seconds_ - remaining_time);
+}
+
 std::vector<int> GameTimer::getTimedOutGames() {
     std::lock_guard<std::mutex> lock(timers_mutex_);
     std::vector<int> timed_out;
