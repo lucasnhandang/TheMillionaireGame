@@ -100,7 +100,13 @@ string handleLogout(const string& request, ClientSession& session, int client_fd
         AuthManager::getInstance().unregisterToken(session.auth_token, username);
     }
     SessionManager::getInstance().removeOnlineUser(username);
-    SessionManager::getInstance().removeSession(client_fd);
+    
+    // Clear session auth info but keep the session alive for re-login
+    session.username.clear();
+    session.auth_token.clear();
+    session.authenticated = false;
+    session.in_game = false;
+    session.role = "user";
     
     string data = "{}";
     return StreamUtils::createSuccessResponse(200, data);

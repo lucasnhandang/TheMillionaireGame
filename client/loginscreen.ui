@@ -26,9 +26,9 @@
   <widget class="QLabel" name="errorLabel">
    <property name="geometry">
     <rect>
-     <x>450</x>
-     <y>500</y>
-     <width>361</width>
+     <x>300</x>
+     <y>530</y>
+     <width>450</width>
      <height>31</height>
     </rect>
    </property>
@@ -51,14 +51,14 @@
   <widget class="QPushButton" name="registerButton">
    <property name="geometry">
     <rect>
-     <x>690</x>
-     <y>470</y>
-     <width>121</width>
-     <height>29</height>
+     <x>580</x>
+     <y>475</y>
+     <width>150</width>
+     <height>45</height>
     </rect>
    </property>
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
@@ -67,17 +67,17 @@
     <string notr="true">   QPushButton {
        background-color: #4CAF50;
        color: white;
-       font-size: 18px;
+       font-size: 16px;
        font-weight: bold;
-       padding: 15px 50px;
-       border-radius: 10px;
+       padding: 8px 20px;
+       border-radius: 8px;
        border: none;
    }
    QPushButton:hover {
        background-color: #45A049;
    }
    QPushButton:pressed {
-       background-color: #1565C0;
+       background-color: #388E3C;
    }</string>
    </property>
    <property name="text">
@@ -87,9 +87,9 @@
   <widget class="QLabel" name="label_5">
    <property name="geometry">
     <rect>
-     <x>450</x>
+     <x>420</x>
      <y>430</y>
-     <width>62</width>
+     <width>100</width>
      <height>21</height>
     </rect>
    </property>
@@ -111,15 +111,15 @@
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>450</x>
+     <x>420</x>
      <y>330</y>
-     <width>77</width>
+     <width>100</width>
      <height>21</height>
     </rect>
    </property>
    <property name="maximumSize">
     <size>
-     <width>100</width>
+     <width>120</width>
      <height>16777215</height>
     </size>
    </property>
@@ -213,9 +213,9 @@
   <widget class="QLabel" name="label_4">
    <property name="geometry">
     <rect>
-     <x>450</x>
+     <x>420</x>
      <y>380</y>
-     <width>72</width>
+     <width>100</width>
      <height>21</height>
     </rect>
    </property>
@@ -276,10 +276,10 @@
   <widget class="QPushButton" name="switchToRegisterButton">
    <property name="geometry">
     <rect>
-     <x>440</x>
-     <y>470</y>
-     <width>241</width>
-     <height>29</height>
+     <x>300</x>
+     <y>480</y>
+     <width>260</width>
+     <height>35</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -307,14 +307,14 @@
   <widget class="QPushButton" name="loginButton">
    <property name="geometry">
     <rect>
-     <x>690</x>
-     <y>470</y>
-     <width>121</width>
-     <height>29</height>
+     <x>580</x>
+     <y>475</y>
+     <width>150</width>
+     <height>45</height>
     </rect>
    </property>
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
@@ -323,10 +323,10 @@
     <string notr="true">   QPushButton {
        background-color: #1E88E5;
        color: white;
-       font-size: 18px;
+       font-size: 16px;
        font-weight: bold;
-       padding: 15px 50px;
-       border-radius: 10px;
+       padding: 8px 20px;
+       border-radius: 8px;
        border: none;
    }
    QPushButton:hover {

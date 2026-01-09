@@ -36,6 +36,7 @@ private slots:
     void onAdminPanelClicked();
     void onFriendsClicked();
     void onLeaderboardClicked();
+    void onLogoutClicked();
     void processGameEvents();
 
 private:

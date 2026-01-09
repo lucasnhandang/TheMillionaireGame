@@ -1,0 +1,481 @@
+\subsection{Communication Protocol Design}
+
+\subsubsection{Overview}
+
+The Millionaire Game application employs the Transmission Control Protocol (TCP) as its underlying transport layer protocol for all client-server communications. TCP, defined in RFC 793, provides a reliable, connection-oriented, full-duplex communication channel between networked hosts.
+
+\textbf{TCP Fundamentals:}
+TCP operates on the transport layer (Layer 4) of the OSI model and provides several critical guarantees for application-layer protocols:
+\begin{itemize}
+    \item \textbf{Reliable Delivery}: TCP uses acknowledgments (ACKs), sequence numbers, and retransmission mechanisms to ensure all data segments arrive at the destination without loss or corruption
+    \item \textbf{Ordered Delivery}: Segments are reassembled in the correct order at the receiver, regardless of network routing variations
+    \item \textbf{Connection-Oriented}: Establishes a stateful connection through a three-way handshake (SYN, SYN-ACK, ACK) before data transmission
+    \item \textbf{Flow Control}: Implements sliding window protocol to prevent sender from overwhelming receiver
+    \item \textbf{Congestion Control}: Dynamically adjusts transmission rate based on network conditions
+\end{itemize}
+
+\textbf{Advantages for Game Protocol:}
+The selection of TCP over UDP for this application is justified by several key requirements:
+\begin{enumerate}
+    \item \textbf{Data Integrity}: Game state synchronization (questions, answers, scores) requires 100\% accuracy. TCP's error-checking and retransmission ensure no data corruption.
+    \item \textbf{Sequential Operations}: Game flow depends on strict ordering—questions must be delivered sequentially, answers must be processed in order. TCP's in-order delivery guarantee eliminates the need for application-layer reordering logic.
+    \item \textbf{Simplified Development}: TCP's reliability eliminates complex application-layer error handling, reducing development complexity and potential bugs.
+    \item \textbf{Session Management}: TCP's connection state naturally maps to game sessions, simplifying authentication and state tracking.
+    \item \textbf{Acceptable Latency}: Turn-based gameplay (30-second question timers) tolerates TCP's slightly higher latency compared to UDP, making reliability more valuable than raw speed.
+\end{enumerate}
+
+The implementation utilizes POSIX socket API with \texttt{SOCK\_STREAM} type (indicating TCP) for both server and client components, ensuring cross-platform compatibility across Unix-like systems.
+
+\subsubsection{Server Configuration}
+
+The server behavior is controlled through a JSON-based configuration file (\texttt{config.json}), allowing runtime customization without recompilation. The configuration structure is defined in Table~\ref{tab:server_config}.
+
+\begin{table}[h]
+\centering
+\caption{Server Configuration Parameters}
+\label{tab:server_config}
+\small
+\begin{tabular}{|l|l|p{5.5cm}|}
+\hline
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+\hline
+\texttt{port} & Integer & TCP listening port (default: 8080) \\
+\hline
+\texttt{max\_clients} & Integer & Maximum concurrent client connections (default: 100) \\
+\hline
+\texttt{ping\_timeout\_seconds} & Integer & Idle connection timeout before disconnect (default: 60s) \\
+\hline
+\texttt{connection\_timeout\_seconds} & Integer & Maximum connection lifetime (default: 300s) \\
+\hline
+\texttt{worker\_threads} & Integer & Number of I/O worker threads (default: 4) \\
+\hline
+\texttt{log\_file} & String & Path to log file (default: \texttt{server.log}) \\
+\hline
+\texttt{log\_level} & String & Logging verbosity: DEBUG, INFO, WARNING, ERROR \\
+\hline
+\texttt{db\_host} & String & PostgreSQL database host (default: localhost) \\
+\hline
+\texttt{db\_port} & Integer & Database port (default: 5432) \\
+\hline
+\texttt{db\_name} & String & Database name (default: \texttt{millionaire\_game}) \\
+\hline
+\texttt{db\_user} & String & Database username \\
+\hline
+\texttt{db\_password} & String & Database password \\
+\hline
+\end{tabular}
+\end{table}
+
+The server employs a configurable thread pool architecture for handling concurrent client connections, with the \texttt{worker\_threads} parameter controlling parallelism. Socket options include \texttt{SO\_REUSEADDR} to allow rapid server restarts without waiting for TIME\_WAIT state expiration.
+
+\subsubsection{Message Format}
+
+All communication employs JSON (JavaScript Object Notation, RFC 8259) as the serialization format, with newline (\texttt{\textbackslash n}) as the message delimiter for stream framing. This design enables simple parsing while supporting nested data structures.
+
+\textbf{Request Format (Client → Server):}
+\begin{lstlisting}[language=json,basicstyle=\small\ttfamily]
+{
+  "requestType": "REQUEST_TYPE",
+  "data": {
+    /* Request-specific fields */
+  }
+}
+\end{lstlisting}
+
+\textbf{Response Format (Server → Client):}
+\begin{lstlisting}[language=json,basicstyle=\small\ttfamily]
+{
+  "responseCode": 200,
+  "data": {
+    /* Response-specific fields */
+  }
+}
+\end{lstlisting}
+
+\textbf{Error Format:}
+\begin{lstlisting}[language=json,basicstyle=\small\ttfamily]
+{
+  "responseCode": 4xx/5xx,
+  "message": "Human-readable error description"
+}
+\end{lstlisting}
+
+\textbf{Stream Handling:}
+The protocol implements a custom \texttt{StreamHandler} class for managing TCP byte streams:
+\begin{itemize}
+    \item \textbf{Buffering}: 4KB default buffer with dynamic resizing for large messages
+    \item \textbf{Framing}: Messages delimited by newline (\texttt{\textbackslash n}), allowing multiple messages per TCP segment
+    \item \textbf{Partial Read Handling}: Buffer accumulates incomplete messages until full delimiter received
+    \item \textbf{Timeout Management}: Configurable read/write timeouts using \texttt{SO\_RCVTIMEO} and \texttt{SO\_SNDTIMEO}
+\end{itemize}
+
+\subsubsection{Protocol Specifications}
+
+\paragraph{Authentication and Session Management}
+
+\textbf{LOGIN}: Authenticate user credentials and establish session.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"LOGIN","data":{"username":<string>,"password":<string>}}
+Response: {"responseCode":200,"data":{"authToken":<string>,"username":<string>,"role":<string>}}
+Errors:   400(INVALID_DATA), 401(LOGIN_FAILED), 403(FORBIDDEN)
+\end{lstlisting}
+
+\textbf{REGISTER}: Create new user account with password validation.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"REGISTER","data":{"username":<string>,"password":<string>}}
+Response: {"responseCode":201,"data":{"message":<string>}}
+Errors:   400(INVALID_DATA), 409(CONFLICT), 410(WEAK_PASSWORD)
+\end{lstlisting}
+
+Password requirements: ≥8 characters, ≥1 uppercase, ≥1 lowercase, ≥1 digit.
+
+\textbf{LOGOUT}: Terminate session and disconnect.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"LOGOUT","data":{"authToken":<string>}}
+Response: {"responseCode":200,"data":{"message":<string>}}
+\end{lstlisting}
+
+\paragraph{Game Flow}
+
+\textbf{START}: Initiate new game session with unique \texttt{gameId}.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"START","data":{"authToken":<string>,"overrideSavedGame":<bool>}}
+Response: GAME_START notification → QUESTION_INFO for first question
+Errors:   402(AUTH_ERROR), 405(USER_ALREADY_IN_GAME), 412(INVALID_GAME_STATE)
+\end{lstlisting}
+
+\textbf{ANSWER}: Submit answer to current question with scoring validation.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"ANSWER","data":{"authToken":<string>,"gameId":<int>,
+           "questionNumber":<int>,"answerIndex":<int>}}
+Response: {"responseCode":200,"data":{"correct":<bool>,"questionNumber":<int>,
+           "pointsEarned":<int>,"totalScore":<int>,"status":<string>}}
+Errors:   402(AUTH_ERROR), 406(USER_NOT_IN_GAME), 408(QUESTION_TIMEOUT),
+          412(INVALID_GAME_STATE), 422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+Scoring: Points = $\max(0, 30 - \text{timeElapsed} - 5 \times \text{lifelinesUsed})$
+
+\textbf{LIFELINE}: Request assistance using 50/50, PHONE, or AUDIENCE.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"LIFELINE","data":{"authToken":<string>,"gameId":<int>,
+           "questionNumber":<int>,"lifelineType":<string>}}
+Response: LIFELINE_INFO notification with assistance data
+Errors:   402(AUTH_ERROR), 406(USER_NOT_IN_GAME), 407(LIFELINE_ALREADY_CHOSEN),
+          412(INVALID_GAME_STATE), 422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+Lifeline processing delays: 50/50 (5s), AUDIENCE (5s), PHONE (10s). Each lifeline imposes 5-point penalty and is single-use per game.
+
+\textbf{GIVE\_UP}: Forfeit game and collect current winnings.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"GIVE_UP","data":{"authToken":<string>,"gameId":<int>,
+           "questionNumber":<int>}}
+Response: {"responseCode":200,"data":{"status":<string>,"finalPrize":<int>,
+           "finalScore":<int>,"questionNumber":<int>}}
+Errors:   402(AUTH_ERROR), 406(USER_NOT_IN_GAME), 412(INVALID_GAME_STATE)
+\end{lstlisting}
+
+\textbf{RESUME}: Continue auto-saved game after disconnection.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"RESUME","data":{"authToken":<string>}}
+Response: {"responseCode":200,"data":{"questionNumber":<int>,"currentPrize":<int>,
+           "totalScore":<int>,"lifelinesUsed":[<string>]}}
+          → QUESTION_INFO notification
+Errors:   402(AUTH_ERROR), 404(NOT_FOUND), 405(USER_ALREADY_IN_GAME)
+\end{lstlisting}
+
+\paragraph{Social Features}
+
+\textbf{LEADERBOARD}: Retrieve global or friend rankings.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"LEADERBOARD","data":{"authToken":<string>,"type":<string>,
+           "page":<int>,"limit":<int>}}
+Response: {"responseCode":200,"data":{"rankings":[{"rank":<int>,"username":<string>,
+           "finalQuestionNumber":<int>,"totalScore":<int>,"isWinner":<bool>},...],
+           "total":<int>,"page":<int>}}
+\end{lstlisting}
+
+Ranking: Primary by \texttt{finalQuestionNumber} (desc), secondary by \texttt{totalScore} (desc).
+
+\textbf{FRIEND\_STATUS}: Query online/offline/in-game status of friends.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"FRIEND_STATUS","data":{"authToken":<string>}}
+Response: {"responseCode":200,"data":{"friends":[{"username":<string>,
+           "status":<string>},{"username":<string>,"status":<string>}]}}
+\end{lstlisting}
+
+\textbf{ADD\_FRIEND / ACCEPT\_FRIEND / DECLINE\_FRIEND}: Manage friend relationships.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+ADD:      {"requestType":"ADD_FRIEND","data":{"authToken":<string>,"friendUsername":<string>}}
+ACCEPT:   {"requestType":"ACCEPT_FRIEND","data":{"authToken":<string>,"friendUsername":<string>}}
+DECLINE:  {"requestType":"DECLINE_FRIEND","data":{"authToken":<string>,"friendUsername":<string>}}
+Errors:   402(AUTH_ERROR), 404(NOT_FOUND), 409(CONFLICT), 422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+\textbf{CHAT}: Send message to online/offline user (stores for offline delivery).
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"CHAT","data":{"authToken":<string>,"recipient":<string>,
+           "message":<string>}}
+Response: {"responseCode":200,"data":{"message":<string>}}
+Errors:   400(INVALID_DATA), 402(AUTH_ERROR), 404(NOT_FOUND), 422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+\paragraph{User Information}
+
+\textbf{USER\_INFO}: Retrieve player profile and statistics.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"USER_INFO","data":{"authToken":<string>,"username":<string>}}
+Response: {"responseCode":200,"data":{"username":<string>,"gamesPlayed":<int>,
+           "highestScore":<int>,"bestQuestionNumber":<int>}}
+\end{lstlisting}
+
+\textbf{VIEW\_HISTORY}: Fetch last 20 game records (sorted by date descending).
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"VIEW_HISTORY","data":{"authToken":<string>}}
+Response: {"responseCode":200,"data":{"games":[{"gameId":<int>,"date":<int>,
+           "questionNumber":<int>,"score":<int>,"prize":<int>,"status":<string>},...],
+           "total":<int>}}
+\end{lstlisting}
+
+Status values: \texttt{won} (all 15 questions), \texttt{lost} (wrong/timeout), \texttt{quit} (GIVE\_UP).
+
+\textbf{CHANGE\_PASS}: Update account password with validation.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"CHANGE_PASS","data":{"authToken":<string>,"oldPassword":<string>,
+           "newPassword":<string>}}
+Response: {"responseCode":200,"data":{"message":<string>}}
+Errors:   400(INVALID_DATA), 401(LOGIN_FAILED), 402(AUTH_ERROR), 410(WEAK_PASSWORD)
+\end{lstlisting}
+
+\paragraph{Admin Operations}
+
+Admin requests use identical \texttt{authToken} authentication but require \texttt{role="admin"} validation on server. Authorization failure returns 403 (FORBIDDEN).
+
+\textbf{ADD\_QUES}: Insert new question into database.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"ADD_QUES","data":{"authToken":<string>,"question":<string>,
+           "options":[{"label":<string>,"text":<string>},...],
+           "correctAnswer":<int>,"level":<int>}}
+Response: {"responseCode":200,"data":{"questionId":<int>,"message":<string>}}
+Errors:   400(INVALID_DATA), 402(AUTH_ERROR), 403(FORBIDDEN), 409(CONFLICT),
+          422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+\textbf{CHANGE\_QUES / VIEW\_QUES / DEL\_QUES}: Modify, query, or delete questions.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+CHANGE:   {"requestType":"CHANGE_QUES","data":{"authToken":<string>,"questionId":<int>,...}}
+VIEW:     {"requestType":"VIEW_QUES","data":{"authToken":<string>,"page":<int>,"limit":<int>,"level":<int>}}
+DELETE:   {"requestType":"DEL_QUES","data":{"authToken":<string>,"questionId":<int>}}
+\end{lstlisting}
+
+\textbf{BAN\_USER}: Permanently disable user account (irreversible).
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+Request:  {"requestType":"BAN_USER","data":{"authToken":<string>,"username":<string>,
+           "reason":<string>}}
+Response: {"responseCode":200,"data":{"message":<string>}}
+Errors:   400(INVALID_DATA), 402(AUTH_ERROR), 403(FORBIDDEN), 404(NOT_FOUND),
+          422(UNPROCESSABLE_DATA)
+\end{lstlisting}
+
+\paragraph{Server Notifications}
+
+The server can asynchronously push notifications to clients without prior request:
+
+\textbf{CONNECTION}: Sent immediately upon TCP connection establishment.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":200,"data":{"message":<string>,"timestamp":<int>}}
+\end{lstlisting}
+
+\textbf{QUESTION\_INFO}: Delivers question with 30-second timer and metadata.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":200,"data":{"questionId":<int>,"questionNumber":<int>,"totalQuestions":<int>,
+ "question":<string>,
+ "options":[{"label":<string>,"text":<string>},...],
+ "timeLimit":<int>,"timeRemaining":<int>,"gameId":<int>,"totalScore":<int>}}
+\end{lstlisting}
+
+\textbf{LIFELINE\_INFO}: Returns lifeline assistance after processing delay.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+5050:     {"responseCode":200,"data":{"lifelineType":<string>,"eliminatedOptions":[<int>],
+           "remainingOptions":[<int>],"maxPointsAfterLifeline":<int>}}
+PHONE:    {"responseCode":200,"data":{"lifelineType":<string>,"suggestion":<int>,
+           "confidence":<string>,"maxPointsAfterLifeline":<int>}}
+AUDIENCE: {"responseCode":200,"data":{"lifelineType":<string>,
+           "votes":[{"label":<string>,"percentage":<int>},...],
+           "maxPointsAfterLifeline":<int>}}
+\end{lstlisting}
+
+\textbf{GAME\_START}: Confirms game initiation with \texttt{gameId}.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":200,"data":{"message":<string>,"gameId":<int>,"timestamp":<int>}}
+\end{lstlisting}
+
+\textbf{GAME\_END}: Finalizes game session with results.
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":200,"data":{"gameId":<int>,"status":<string>,"finalPrize":<int>,
+ "safeCheckpointPrize":<int>,"totalScore":<int>,"questionNumber":<int>,"isWinner":<bool>,
+ "message":<string>}}
+\end{lstlisting}
+
+Status: \texttt{won} (completed 15 questions), \texttt{lost} (wrong answer/timeout → safe checkpoint prize), \texttt{quit} (GIVE\_UP → current prize).
+
+\textbf{FRIEND\_LIST}: Updates friend list (sent on login or friend changes).
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":200,"data":{"friends":[{"username":<string>,"status":<string>}...]}}
+\end{lstlisting}
+
+\subsubsection{Error Handling}
+
+The protocol implements HTTP-style status codes for consistent error semantics (Table~\ref{tab:error_codes}).
+
+\begin{table}[h]
+\centering
+\caption{Error Code Summary}
+\label{tab:error_codes}
+\small
+\begin{tabular}{|c|l|p{7cm}|}
+\hline
+\textbf{Code} & \textbf{Name} & \textbf{Description} \\
+\hline
+\multicolumn{3}{|c|}{\textit{Success (2xx)}} \\
+\hline
+200 & OK & Request completed successfully \\
+\hline
+201 & CREATED & User account created \\
+\hline
+\multicolumn{3}{|c|}{\textit{Client Errors (4xx)}} \\
+\hline
+400 & INVALID\_DATA & Malformed JSON or missing required fields \\
+\hline
+401 & LOGIN\_FAILED & Incorrect username or password \\
+\hline
+402 & AUTH\_ERROR & Missing, invalid, or expired authentication token \\
+\hline
+403 & FORBIDDEN & Insufficient permissions or banned account \\
+\hline
+404 & NOT\_FOUND & User, question, friend, or saved game not found \\
+\hline
+405 & USER\_ALREADY\_IN\_GAME & Cannot START while in active game \\
+\hline
+406 & USER\_NOT\_IN\_GAME & Game action without active session \\
+\hline
+407 & LIFELINE\_ALREADY\_CHOSEN & Attempting to reuse exhausted lifeline \\
+\hline
+408 & QUESTION\_TIMEOUT & Answer submitted after 30s limit (game ends as lost) \\
+\hline
+409 & CONFLICT & Username taken, duplicate friend, or existing question ID \\
+\hline
+410 & WEAK\_PASSWORD & Password fails complexity requirements \\
+\hline
+412 & INVALID\_GAME\_STATE & Action not allowed in current game state \\
+\hline
+415 & UNKNOWN\_REQUEST\_TYPE & Unsupported \texttt{requestType} \\
+\hline
+422 & UNPROCESSABLE\_DATA & Invalid field values (e.g., \texttt{answerIndex} $\notin [0,3]$) \\
+\hline
+429 & TOO\_MANY\_REQUESTS & Rate limit exceeded (100 req/min/IP) \\
+\hline
+\multicolumn{3}{|c|}{\textit{Server Errors (5xx)}} \\
+\hline
+500 & SERVER\_ERROR & Unhandled internal exception \\
+\hline
+501 & DATABASE\_ERROR & PostgreSQL connection or query failure \\
+\hline
+502 & SERVICE\_UNAVAILABLE & Dependent service temporarily down \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Error Response Structure:}
+All errors return JSON with \texttt{responseCode} and human-readable \texttt{message}:
+\begin{lstlisting}[language=json,basicstyle=\footnotesize\ttfamily]
+{"responseCode":422,"message":"Invalid answerIndex: must be 0-3"}
+\end{lstlisting}
+
+\textbf{Client Error Handling Strategy:}
+\begin{itemize}
+    \item \textbf{4xx errors}: Client-side issue—validate input and retry only after correcting request
+    \item \textbf{5xx errors}: Server-side issue—implement exponential backoff retry (max 3 attempts)
+    \item \textbf{401/402}: Redirect to login screen and clear invalid credentials
+    \item \textbf{429}: Respect rate limits with exponential backoff (starting at 1s)
+    \item \textbf{408}: Treat as game loss—no retry, display safe checkpoint prize
+\end{itemize}
+
+\subsubsection{Game Mechanics}
+
+\paragraph{Scoring System}
+\begin{itemize}
+    \item \textbf{Base Points}: 30 points maximum per question
+    \item \textbf{Time Penalty}: -1 point per second elapsed (30s timer)
+    \item \textbf{Lifeline Penalty}: -5 points per lifeline used (cumulative)
+    \item \textbf{Formula}: $\text{points} = \max(0, 30 - t_{\text{elapsed}} - 5n_{\text{lifelines}})$
+    \item \textbf{Total Score}: Sum of points from all correct answers up to final question
+\end{itemize}
+
+\paragraph{Safe Checkpoints}
+\begin{itemize}
+    \item \textbf{Checkpoints}: Questions 5, 10, 15 (corresponding to prize milestones)
+    \item \textbf{Failure Behavior}: Wrong answer or timeout → receive prize from last passed checkpoint
+    \item \textbf{Pre-Checkpoint Failure}: Failing before Q5 → prize = 0, score = 0
+    \item \textbf{GIVE\_UP}: Voluntary quit → receive \textit{current} prize (not checkpoint)
+\end{itemize}
+
+\paragraph{Prize Structure (Vietnamese Dong)}
+\begin{small}
+\begin{tabular}{|c|r||c|r||c|r|}
+\hline
+Q & \textbf{Prize} & Q & \textbf{Prize} & Q & \textbf{Prize} \\
+\hline
+1 & 200,000 & 6 & 6,000,000 & 11 & 40,000,000 \\
+2 & 400,000 & 7 & 10,000,000 & 12 & 60,000,000 \\
+3 & 600,000 & 8 & 14,000,000 & 13 & 85,000,000 \\
+4 & 1,000,000 & 9 & 22,000,000 & 14 & 150,000,000 \\
+\textbf{5} & \textbf{2,000,000} & \textbf{10} & \textbf{30,000,000} & \textbf{15} & \textbf{1,000,000,000} \\
+\hline
+\end{tabular}
+\end{small}
+
+\paragraph{Session Management}
+\begin{itemize}
+    \item \textbf{Game ID}: Unique identifier per game session to prevent cross-game confusion
+    \item \textbf{Auto-Save}: Server persists game state on unexpected disconnection
+    \item \textbf{Reconnection}: Client can RESUME saved game or START new (with override flag)
+    \item \textbf{State Lifecycle}: Active game → (disconnect) → Auto-saved → RESUME/override
+    \item \textbf{State Clearing}: Game ends (won/lost/quit) → state cleared → can START new
+\end{itemize}
+
+\paragraph{Lifeline Mechanics}
+\begin{itemize}
+    \item \textbf{50/50}: Eliminates 2 incorrect options, returns indices of remaining 2 options
+    \item \textbf{PHONE}: Friend suggestion with confidence level (high/medium/low)
+    \item \textbf{AUDIENCE}: Poll distribution across 4 options (percentages sum to 100)
+    \item \textbf{Processing Delays}: 50/50 (5s), AUDIENCE (5s), PHONE (10s)—timer continues during delay
+    \item \textbf{Single-Use}: Each lifeline can only be used once per game
+\end{itemize}
+
+\subsubsection{Rate Limiting and Security}
+
+\textbf{Rate Limits (per IP address):}
+\begin{itemize}
+    \item General requests: 100 requests/minute
+    \item Authentication (LOGIN/REGISTER): 5 requests/minute
+    \item Game actions: 30 requests/minute per authenticated user
+    \item Admin requests: 50 requests/minute per admin account
+\end{itemize}
+
+\textbf{Violation Handling:}
+\begin{itemize}
+    \item First violation: Return 429 error with retry-after header
+    \item Repeated violations: Temporary IP ban (5-15 minutes)
+    \item Severe abuse: Permanent IP ban
+\end{itemize}
+
+\textbf{Security Measures:}
+\begin{itemize}
+    \item \textbf{Password Storage}: bcrypt hashing with per-user salt (implemented in database layer)
+    \item \textbf{Token Management}: Server maintains \texttt{authToken} → username mapping with expiration
+    \item \textbf{Input Validation}: JSON schema validation before business logic processing
+    \item \textbf{SQL Injection Prevention}: Parameterized queries via libpq prepared statements
+    \item \textbf{Connection Timeout}: Idle connections terminated after 300s to prevent resource exhaustion
+\end{itemize}

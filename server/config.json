@@ -9,6 +9,6 @@
   "db_port": 5432,
   "db_name": "millionaire_game",
   "db_user": "postgres",
-  "db_password": "password"
+  "db_password": "12345678"
 }
 

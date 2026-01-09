@@ -199,6 +199,25 @@ void HomeScreen::setupUI()
     adminPanelButton_->setVisible(false);  // Hidden by default
     rightLayout->addWidget(adminPanelButton_);
     
+    // Logout button
+    logoutButton_ = new QPushButton("Logout", this);
+    logoutButton_->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #F44336;"
+        "  color: white;"
+        "  font-size: 18px;"
+        "  padding: 15px 80px;"
+        "  border-radius: 10px;"
+        "  border: none;"
+        "  min-width: 280px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #D32F2F;"
+        "}"
+    );
+    connect(logoutButton_, &QPushButton::clicked, this, &HomeScreen::logoutClicked);
+    rightLayout->addWidget(logoutButton_);
+    
     errorLabel_ = new QLabel(this);
     errorLabel_->setStyleSheet("color: #F44336; font-size: 14px;");
     errorLabel_->setAlignment(Qt::AlignCenter);

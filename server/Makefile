@@ -6,9 +6,9 @@ UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)  # MacOS
     # PostgreSQL headers are in versioned directory (e.g., postgresql@14)
-    POSTGRES_INCLUDE = -I/opt/homebrew/include -I/opt/homebrew/include/postgresql@14
+    POSTGRES_INCLUDE = -I/usr/local/opt/postgresql@14/include -I/usr/local/opt/postgresql@14/include/postgresql@14
     # PostgreSQL libraries are also in versioned directory
-    POSTGRES_LIB = -L/opt/homebrew/lib/postgresql@14 -L/opt/homebrew/lib
+    POSTGRES_LIB = -L/usr/local/opt/postgresql@14/lib/postgresql@14 -L/usr/local/lib
 else  # Linux
     POSTGRES_INCLUDE = -I/usr/include/postgresql
     POSTGRES_LIB =

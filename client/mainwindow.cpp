@@ -91,6 +91,7 @@ void MainWindow::setupConnections()
     connect(homeScreen_, &HomeScreen::adminPanelClicked, this, &MainWindow::onAdminPanelClicked);
     connect(homeScreen_, &HomeScreen::friendsClicked, this, &MainWindow::onFriendsClicked);
     connect(homeScreen_, &HomeScreen::leaderboardClicked, this, &MainWindow::onLeaderboardClicked);
+    connect(homeScreen_, &HomeScreen::logoutClicked, this, &MainWindow::onLogoutClicked);
     
     // Game screen
     connect(gameScreen_, &GameScreen::answerSubmitted, this, [this](int answerIndex) {
@@ -505,4 +506,41 @@ void MainWindow::onLeaderboardClicked()
     stackedWidget_->setCurrentWidget(leaderboardScreen_);
     // Always refresh when entering leaderboard screen to get latest data
     leaderboardScreen_->refreshData();
+}
+
+void MainWindow::onLogoutClicked()
+{
+    // Call server logout if connected
+    if (protocol_ && !demoMode_) {
+        bool success = protocol_->logout();
+        if (!success) {
+            std::cerr << "[WARN] Logout request failed, proceeding with local logout" << std::endl;
+        }
+    }
+    
+    // Stop event processing timer
+    if (eventProcessTimer_ && eventProcessTimer_->isActive()) {
+        eventProcessTimer_->stop();
+    }
+    
+    // Reset game state
+    gameState_->onHome = false;
+    gameState_->inGame = false;
+    gameState_->loggedIn = false;
+    gameState_->showLogin = true;
+    gameState_->username.clear();
+    gameState_->errorMessage.clear();
+    
+    // Reset user role
+    userRole_ = "user";
+    
+    // Reset screens
+    gameScreen_->resetLifelines();
+    homeScreen_->setUsername("");
+    homeScreen_->setUserRole("user");
+    
+    // Return to login screen
+    stackedWidget_->setCurrentWidget(loginScreen_);
+    
+    std::cerr << "[INFO] User logged out successfully" << std::endl;
 }

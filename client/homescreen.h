@@ -28,6 +28,7 @@ signals:
     void instructionsClicked();
     void friendsClicked();
     void adminPanelClicked();
+    void logoutClicked();
 
 private slots:
     void onPlayGameClicked();
@@ -45,6 +46,7 @@ private:
     QPushButton* instructionsButton_;
     QPushButton* friendsButton_;
     QPushButton* adminPanelButton_;  // Admin panel button
+    QPushButton* logoutButton_;       // Logout button
     QLabel* errorLabel_;
     QLabel* usernameLabel_;
     QLabel* adminBadge_;  // Admin badge
