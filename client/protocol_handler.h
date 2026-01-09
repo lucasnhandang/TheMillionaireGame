@@ -60,6 +60,7 @@ public:
         std::string username;
         int finalQuestionNumber;
         int totalScore;
+        long long finalPrize;  // Total winning (prize from best game)
         int rank;
         bool isWinner;
     };

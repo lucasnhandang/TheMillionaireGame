@@ -473,8 +473,73 @@ ProtocolHandler::LeaderboardResponse ProtocolHandler::getLeaderboard(const std::
     response.page = MillionaireGame::JsonUtils::extractInt(msg.data, "page", 1);
     response.limit = MillionaireGame::JsonUtils::extractInt(msg.data, "limit", 20);
     
-    // TODO: Parse rankings array from JSON
-    // This requires more sophisticated JSON parsing for arrays
+    // Parse rankings array from JSON
+    if (response.responseCode == 200) {
+        response.rankings.clear();
+        size_t rankings_start = msg.data.find("\"rankings\"");
+        if (rankings_start != std::string::npos) {
+            size_t array_start = msg.data.find("[", rankings_start);
+            if (array_start != std::string::npos) {
+                size_t pos = array_start + 1;
+                while (pos < msg.data.length()) {
+                    // Skip whitespace
+                    while (pos < msg.data.length() && 
+                           (msg.data[pos] == ' ' || msg.data[pos] == '\t' || msg.data[pos] == '\n')) {
+                        pos++;
+                    }
+                    if (pos >= msg.data.length() || msg.data[pos] == ']') {
+                        break;
+                    }
+                    
+                    // Find object
+                    if (msg.data[pos] == '{') {
+                        size_t obj_end = msg.data.find("}", pos);
+                        if (obj_end != std::string::npos) {
+                            std::string rank_obj = msg.data.substr(pos, obj_end - pos + 1);
+                            
+                            LeaderboardEntry entry;
+                            entry.username = MillionaireGame::JsonUtils::extractString(rank_obj, "username");
+                            entry.finalQuestionNumber = MillionaireGame::JsonUtils::extractInt(rank_obj, "finalQuestionNumber", 0);
+                            entry.totalScore = MillionaireGame::JsonUtils::extractInt(rank_obj, "totalScore", 0);
+                            entry.rank = MillionaireGame::JsonUtils::extractInt(rank_obj, "rank", 0);
+                            entry.isWinner = MillionaireGame::JsonUtils::extractBool(rank_obj, "isWinner", false);
+                            
+                            // Calculate finalPrize from finalQuestionNumber using PRIZE_LADDER
+                            // If winner (Q15), use Q15 prize; otherwise use checkpoint
+                            if (entry.isWinner) {
+                                entry.finalPrize = 1000000;  // Q15 = $1,000,000 (PRIZE_LADDER[14])
+                            } else if (entry.finalQuestionNumber >= 11) {
+                                entry.finalPrize = 32000;    // Q10 checkpoint = $32,000 (PRIZE_LADDER[9])
+                            } else if (entry.finalQuestionNumber >= 6) {
+                                entry.finalPrize = 1000;     // Q5 checkpoint = $1,000 (PRIZE_LADDER[4])
+                            } else {
+                                entry.finalPrize = 0;        // Before Q5 checkpoint
+                            }
+                            
+                            // Try to extract finalPrize from server if available
+                            long long serverPrize = MillionaireGame::JsonUtils::extractLongLong(rank_obj, "finalPrize", -1);
+                            if (serverPrize >= 0) {
+                                entry.finalPrize = serverPrize;
+                            }
+                            
+                            if (!entry.username.empty()) {
+                                response.rankings.push_back(entry);
+                            }
+                            pos = obj_end + 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Skip comma
+                    while (pos < msg.data.length() && 
+                           (msg.data[pos] == ',' || msg.data[pos] == ' ' || msg.data[pos] == '\t' || msg.data[pos] == '\n')) {
+                        pos++;
+                    }
+                }
+            }
+        }
+    }
     
     return response;
 }

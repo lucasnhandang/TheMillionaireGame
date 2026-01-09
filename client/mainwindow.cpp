@@ -5,6 +5,7 @@
 #include "resultscreen.h"
 #include "adminpanelscreen.h"
 #include "friendsscreen.h"
+#include "leaderboardscreen.h"
 #include "protocol_handler.h"
 #include "game_event.h"
 #include "gamestate.h"
@@ -26,6 +27,8 @@ MainWindow::MainWindow(QWidget *parent)
     , gameScreen_(nullptr)
     , resultScreen_(nullptr)
     , adminPanelScreen_(nullptr)
+    , friendsScreen_(nullptr)
+    , leaderboardScreen_(nullptr)
     , protocol_(nullptr)
     , demoMode_(false)
     , userRole_("user")
@@ -58,6 +61,7 @@ void MainWindow::setupUI()
     resultScreen_ = new ResultScreen(this);
     adminPanelScreen_ = new AdminPanelScreen(this);
     friendsScreen_ = new FriendsScreen(this);
+    leaderboardScreen_ = new LeaderboardScreen(this);
     
     // Add screens to stacked widget
     stackedWidget_->addWidget(loginScreen_);
@@ -66,6 +70,7 @@ void MainWindow::setupUI()
     stackedWidget_->addWidget(resultScreen_);
     stackedWidget_->addWidget(adminPanelScreen_);
     stackedWidget_->addWidget(friendsScreen_);
+    stackedWidget_->addWidget(leaderboardScreen_);
     
     // Show login screen initially
     stackedWidget_->setCurrentWidget(loginScreen_);
@@ -85,6 +90,7 @@ void MainWindow::setupConnections()
     connect(homeScreen_, &HomeScreen::playGameClicked, this, &MainWindow::onGameStart);
     connect(homeScreen_, &HomeScreen::adminPanelClicked, this, &MainWindow::onAdminPanelClicked);
     connect(homeScreen_, &HomeScreen::friendsClicked, this, &MainWindow::onFriendsClicked);
+    connect(homeScreen_, &HomeScreen::leaderboardClicked, this, &MainWindow::onLeaderboardClicked);
     
     // Game screen
     connect(gameScreen_, &GameScreen::answerSubmitted, this, [this](int answerIndex) {
@@ -127,6 +133,7 @@ void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
     gameScreen_->setProtocolHandler(protocol);
     adminPanelScreen_->setProtocolHandler(protocol);
     friendsScreen_->setProtocolHandler(protocol);
+    leaderboardScreen_->setProtocolHandler(protocol);
     
     setupNotificationHandler();
 }
@@ -139,6 +146,7 @@ void MainWindow::setDemoMode(bool demoMode)
     gameScreen_->setDemoMode(demoMode);
     adminPanelScreen_->setDemoMode(demoMode);
     friendsScreen_->setDemoMode(demoMode);
+    leaderboardScreen_->setDemoMode(demoMode);
 }
 
 void MainWindow::setupNotificationHandler()
@@ -480,4 +488,10 @@ void MainWindow::onFriendsClicked()
 {
     stackedWidget_->setCurrentWidget(friendsScreen_);
     friendsScreen_->refreshData();
+}
+
+void MainWindow::onLeaderboardClicked()
+{
+    stackedWidget_->setCurrentWidget(leaderboardScreen_);
+    leaderboardScreen_->refreshData();
 }

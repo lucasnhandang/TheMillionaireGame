@@ -134,6 +134,7 @@ set(QT_WIDGETS_SRC
     addquestiondialog.cpp
     editquestiondialog.cpp
     friendsscreen.cpp
+    leaderboardscreen.cpp
 )
 
 set(QT_WIDGETS_HEADERS
@@ -146,6 +147,7 @@ set(QT_WIDGETS_HEADERS
     addquestiondialog.h
     editquestiondialog.h
     friendsscreen.h
+    leaderboardscreen.h
 )
 
 # UI files
