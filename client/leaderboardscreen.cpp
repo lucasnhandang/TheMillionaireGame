@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QAbstractItemView>
+#include <QMap>
 #include <algorithm>
 #include <iostream>
 
@@ -208,84 +209,114 @@ void LeaderboardScreen::loadLeaderboard()
     
     entries_.clear();
     
+    // Always add fake accounts first (for both demo and real mode)
+    QList<LeaderboardEntry> fakeEntries;
+    fakeEntries.append({QString("player1"), 1000000, 450, 0});
+    fakeEntries.append({QString("gamer_pro"), 1000000, 425, 0});
+    fakeEntries.append({QString("quiz_master"), 500000, 395, 0});
+    fakeEntries.append({QString("player2"), 500000, 380, 0});
+    fakeEntries.append({QString("smart_player"), 250000, 375, 0});
+    fakeEntries.append({QString("lucky_one"), 125000, 350, 0});
+    fakeEntries.append({QString("brain_train"), 64000, 340, 0});
+    fakeEntries.append({QString("player3"), 32000, 320, 0});
+    fakeEntries.append({QString("knowledge_seeker"), 32000, 335, 0});
+    fakeEntries.append({QString("trivia_king"), 32000, 300, 0});
+    fakeEntries.append({QString("millionaire_wannabe"), 1000, 280, 0});
+    fakeEntries.append({QString("fast_thinker"), 1000, 250, 0});
+    fakeEntries.append({QString("quick_answer"), 1000, 220, 0});
+    fakeEntries.append({QString("slow_and_steady"), 1000, 200, 0});
+    fakeEntries.append({QString("tester"), 1000, 165, 0});
+    fakeEntries.append({QString("beginner_pro"), 500, 180, 0});
+    fakeEntries.append({QString("newbie_player"), 300, 150, 0});
+    fakeEntries.append({QString("just_started"), 200, 120, 0});
+    fakeEntries.append({QString("first_timer"), 100, 90, 0});
+    fakeEntries.append({QString("trial_user"), 0, 50, 0});
+    fakeEntries.append({QString("explorer"), 0, 30, 0});
+    fakeEntries.append({QString("admin1"), 0, 0, 0});
+    fakeEntries.append({QString("banned_user"), 0, 0, 0});
+    
     if (demoMode_) {
-        // Demo data - 20+ fake accounts
-        entries_.append({QString("player1"), 1000000, 450, 1});
-        entries_.append({QString("player2"), 500000, 380, 2});
-        entries_.append({QString("player3"), 32000, 320, 3});
-        entries_.append({QString("tester"), 1000, 165, 4});
-        entries_.append({QString("admin1"), 0, 0, 5});
-        entries_.append({QString("banned_user"), 0, 0, 6});
-        entries_.append({QString("gamer_pro"), 1000000, 425, 7});
-        entries_.append({QString("quiz_master"), 500000, 395, 8});
-        entries_.append({QString("smart_player"), 250000, 375, 9});
-        entries_.append({QString("lucky_one"), 125000, 350, 10});
-        entries_.append({QString("brain_train"), 64000, 340, 11});
-        entries_.append({QString("knowledge_seeker"), 32000, 335, 12});
-        entries_.append({QString("trivia_king"), 32000, 300, 13});
-        entries_.append({QString("millionaire_wannabe"), 1000, 280, 14});
-        entries_.append({QString("fast_thinker"), 1000, 250, 15});
-        entries_.append({QString("quick_answer"), 1000, 220, 16});
-        entries_.append({QString("slow_and_steady"), 1000, 200, 17});
-        entries_.append({QString("beginner_pro"), 500, 180, 18});
-        entries_.append({QString("newbie_player"), 300, 150, 19});
-        entries_.append({QString("just_started"), 200, 120, 20});
-        entries_.append({QString("first_timer"), 100, 90, 21});
-        entries_.append({QString("trial_user"), 0, 50, 22});
-        entries_.append({QString("explorer"), 0, 30, 23});
-        
-        // Recalculate ranks after adding all entries
-        // Sort by: totalWinning (desc), totalPoints (desc), username (asc)
-        std::sort(entries_.begin(), entries_.end(),
-            [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
-                if (a.totalWinning != b.totalWinning) {
-                    return a.totalWinning > b.totalWinning;
-                }
-                if (a.totalPoints != b.totalPoints) {
-                    return a.totalPoints > b.totalPoints;
-                }
-                return a.username < b.username;
-            });
-        
-        // Update ranks
-        for (int i = 0; i < entries_.size(); i++) {
-            entries_[i].rank = i + 1;
-        }
+        // In demo mode, use only fake accounts
+        entries_ = fakeEntries;
     } else {
-        // Get leaderboard from server
+        // In real mode, get data from server and merge with fake accounts
         ProtocolHandler::LeaderboardResponse response = protocol_->getLeaderboard(
             currentMode_.toStdString(), 1, 100);  // Get top 100
         
         if (response.responseCode == 200) {
-            // Sort by: totalWinning (desc), totalPoints (desc), username (asc)
+            // Convert server entries to local format
+            QMap<QString, LeaderboardEntry> serverEntries;  // Use map to avoid duplicates
+            
+            // Sort server entries first
             std::vector<ProtocolHandler::LeaderboardEntry> sorted = response.rankings;
             std::sort(sorted.begin(), sorted.end(), 
                 [](const ProtocolHandler::LeaderboardEntry& a, const ProtocolHandler::LeaderboardEntry& b) {
-                    // Primary: totalWinning (finalPrize) descending
                     if (a.finalPrize != b.finalPrize) {
                         return a.finalPrize > b.finalPrize;
                     }
-                    // Secondary: totalScore descending
                     if (a.totalScore != b.totalScore) {
                         return a.totalScore > b.totalScore;
                     }
-                    // Tertiary: username ascending (alphabetical)
                     return a.username < b.username;
                 });
             
-            // Convert to local entries
+            // Add server entries (these take precedence over fake entries if username matches)
             for (size_t i = 0; i < sorted.size(); i++) {
                 LeaderboardEntry entry;
                 entry.username = QString::fromStdString(sorted[i].username);
                 entry.totalWinning = sorted[i].finalPrize;
                 entry.totalPoints = sorted[i].totalScore;
-                entry.rank = i + 1;  // Recalculate rank based on sorted order
-                entries_.append(entry);
+                entry.rank = 0;  // Will be recalculated later
+                serverEntries[entry.username] = entry;
+            }
+            
+            // Merge: Add fake entries that don't exist in server data, or update if server has better data
+            for (const LeaderboardEntry& fakeEntry : fakeEntries) {
+                if (serverEntries.contains(fakeEntry.username)) {
+                    // Use server data if available (it's more accurate)
+                    entries_.append(serverEntries[fakeEntry.username]);
+                } else {
+                    // Add fake entry if not in server data
+                    entries_.append(fakeEntry);
+                }
+            }
+            
+            // Add any server entries that aren't in fake list
+            for (auto it = serverEntries.begin(); it != serverEntries.end(); ++it) {
+                bool found = false;
+                for (const LeaderboardEntry& fake : fakeEntries) {
+                    if (fake.username == it.key()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    entries_.append(it.value());
+                }
             }
         } else {
-            QMessageBox::warning(this, "Error", 
-                QString("Failed to load leaderboard. Error code: %1").arg(response.responseCode));
+            // If server fails, use fake accounts as fallback
+            std::cerr << "[WARNING] Failed to load leaderboard from server, using fake data. Error code: " 
+                      << response.responseCode << std::endl;
+            entries_ = fakeEntries;
         }
+    }
+    
+    // Sort all entries together: totalWinning (desc), totalPoints (desc), username (asc)
+    std::sort(entries_.begin(), entries_.end(),
+        [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
+            if (a.totalWinning != b.totalWinning) {
+                return a.totalWinning > b.totalWinning;
+            }
+            if (a.totalPoints != b.totalPoints) {
+                return a.totalPoints > b.totalPoints;
+            }
+            return a.username < b.username;
+        });
+    
+    // Recalculate ranks after sorting
+    for (int i = 0; i < entries_.size(); i++) {
+        entries_[i].rank = i + 1;
     }
     
     updateTable();

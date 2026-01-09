@@ -320,6 +320,9 @@ void MainWindow::processGameEvents()
                 onGameEnd();
                 resultScreen_->showResult(finalPrize, totalScore, isWinner, finalQuestionNumber, isWalkAway);
                 onShowResult();
+                
+                // Refresh leaderboard after game ends (data will be updated on server)
+                // We refresh it when user goes back to home or opens leaderboard
                 break;
             }
             
@@ -496,5 +499,6 @@ void MainWindow::onFriendsClicked()
 void MainWindow::onLeaderboardClicked()
 {
     stackedWidget_->setCurrentWidget(leaderboardScreen_);
+    // Always refresh when entering leaderboard screen to get latest data
     leaderboardScreen_->refreshData();
 }
