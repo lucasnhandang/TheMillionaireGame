@@ -569,7 +569,7 @@
        font-size: 12px;
        font-weight: bold;
        padding: 8px 15px;
-       border-radius: 5px;
+       border-radius: 30px;
        border: none;
        min-width: 60px;
        min-height: 40px;
@@ -579,6 +579,7 @@
        background-color: #F57C00;
      }
      QPushButton:disabled {
+	   border-radius: 30px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -613,7 +614,7 @@
        font-size: 12px;
        font-weight: bold;
        padding: 8px 15px;
-       border-radius: 5px;
+       border-radius: 30px;
        border: none;
        min-width: 60px;
        min-height: 40px;
@@ -623,6 +624,7 @@
        background-color: #F57C00;
      }
      QPushButton:disabled {
+	   border-radius: 30px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -657,7 +659,7 @@
        font-size: 12px;
        font-weight: bold;
        padding: 8px 15px;
-       border-radius: 5px;
+       border-radius: 30px;
        border: none;
        min-width: 60px;
        min-height: 40px;
@@ -667,6 +669,7 @@
        background-color: #F57C00;
      }
      QPushButton:disabled {
+	   border-radius: 30px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -857,7 +860,7 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
      <x>310</x>
      <y>490</y>
      <width>431</width>
-     <height>51</height>
+     <height>50</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -870,13 +873,15 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
        border-radius: 10px;
        min-height: 20px;
        text-align: left;
-	background: transparent;
+		background: transparent;
 
      }
      QPushButton:hover {
+		min-height: 20px;
        background-color: #1976D2;
      }
      QPushButton:disabled {
+	    min-height: 20px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -891,7 +896,7 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
      <x>810</x>
      <y>490</y>
      <width>431</width>
-     <height>51</height>
+     <height>50</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -904,13 +909,15 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
        border-radius: 10px;
        min-height: 20px;
        text-align: left;
-	background: transparent;
+		background: transparent;
 
      }
      QPushButton:hover {
+		min-height: 20px;
        background-color: #1976D2;
      }
      QPushButton:disabled {
+	    min-height: 20px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -925,7 +932,7 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
      <x>310</x>
      <y>590</y>
      <width>431</width>
-     <height>51</height>
+     <height>50</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -938,13 +945,15 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
        border-radius: 10px;
        min-height: 20px;
        text-align: left;
-	background: transparent;
+		background: transparent;
 
      }
      QPushButton:hover {
+		min-height: 20px;
        background-color: #1976D2;
      }
      QPushButton:disabled {
+	    min-height: 20px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -959,7 +968,7 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
      <x>810</x>
      <y>590</y>
      <width>431</width>
-     <height>51</height>
+     <height>50</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -972,13 +981,15 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
        border-radius: 10px;
        min-height: 20px;
        text-align: left;
-	background: transparent;
+		background: transparent;
 
      }
      QPushButton:hover {
+		min-height: 20px;
        background-color: #1976D2;
      }
      QPushButton:disabled {
+	    min-height: 20px;
        background-color: #555555;
        color: #888888;
      }</string>
@@ -1071,11 +1082,8 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
   <zorder>prizeLabel2</zorder>
   <zorder>prizeLabel1</zorder>
   <zorder>prizeLabel3</zorder>
-  <zorder>horizontalSpacer</zorder>
   <zorder>walkAwayButton</zorder>
-  <zorder>horizontalSpacer_2</zorder>
   <zorder>timerLabel</zorder>
-  <zorder>horizontalSpacer_3</zorder>
   <zorder>scoreLabel</zorder>
   <zorder>lifeline5050Button</zorder>
   <zorder>lifelinePhoneButton</zorder>
