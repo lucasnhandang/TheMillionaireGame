@@ -21,18 +21,37 @@ namespace MillionaireGame {
 
 namespace GameHandlers {
 
+namespace {
+// Helper function to escape JSON strings
+std::string jsonEscape(const std::string& input) {
+    std::string output;
+    output.reserve(input.size());
+    for (char c : input) {
+        switch (c) {
+            case '"': output += "\\\""; break;
+            case '\\': output += "\\\\"; break;
+            case '\n': output += "\\n"; break;
+            case '\r': output += "\\r"; break;
+            case '\t': output += "\\t"; break;
+            default: output += c; break;
+        }
+    }
+    return output;
+}
+}
+
 // Helper function to build QUESTION_INFO notification data
 static string buildQuestionInfoData(const Question& q, int game_id, const ClientSession& session) {
     stringstream ss;
     ss << "{";
     ss << "\"questionId\":" << q.id << ",";
     ss << "\"questionNumber\":" << session.current_question_number << ",";
-    ss << "\"question\":\"" << q.question_text << "\",";
+    ss << "\"question\":\"" << jsonEscape(q.question_text) << "\",";
     ss << "\"options\":[";
-    ss << "{\"index\":0,\"label\":\"A\",\"text\":\"" << q.option_a << "\"},";
-    ss << "{\"index\":1,\"label\":\"B\",\"text\":\"" << q.option_b << "\"},";
-    ss << "{\"index\":2,\"label\":\"C\",\"text\":\"" << q.option_c << "\"},";
-    ss << "{\"index\":3,\"label\":\"D\",\"text\":\"" << q.option_d << "\"}";
+    ss << "{\"index\":0,\"label\":\"A\",\"text\":\"" << jsonEscape(q.option_a) << "\"},";
+    ss << "{\"index\":1,\"label\":\"B\",\"text\":\"" << jsonEscape(q.option_b) << "\"},";
+    ss << "{\"index\":2,\"label\":\"C\",\"text\":\"" << jsonEscape(q.option_c) << "\"},";
+    ss << "{\"index\":3,\"label\":\"D\",\"text\":\"" << jsonEscape(q.option_d) << "\"}";
     ss << "],";
     ss << "\"prize\":" << session.current_prize << ",";
     ss << "\"totalQuestions\":15,";
@@ -162,11 +181,14 @@ string handleStart(const string& request, ClientSession& session, int client_fd)
     // Send GAME_START notification
     string game_start_data = "{\"gameId\":" + to_string(game_id) + 
                             ",\"timestamp\":" + to_string(time(nullptr)) + "}";
-    NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
+    bool game_start_sent = NotificationUtils::sendNotification(client_fd, "GAME_START", game_start_data);
+    LOG_INFO("handleStart: GAME_START notification sent: " + string(game_start_sent ? "success" : "failed"));
     
     // Send QUESTION_INFO notification with first question
     string question_data = buildQuestionInfoData(first_question, game_id, session);
-    NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    LOG_INFO("handleStart: QUESTION_INFO data: " + question_data);
+    bool question_info_sent = NotificationUtils::sendNotification(client_fd, "QUESTION_INFO", question_data);
+    LOG_INFO("handleStart: QUESTION_INFO notification sent: " + string(question_info_sent ? "success" : "failed"));
     
     return StreamUtils::createSuccessResponse(200, data);
 }
