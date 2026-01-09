@@ -462,9 +462,10 @@ void GameScreen::updateAnswerButtons()
         
         QString style;
         if (selectedAnswer_ == i) {
+            // Yellow/Orange for pending/selected state
             style = 
                 "QPushButton {"
-                "  background-color: #4CAF50;"
+                "  background-color: #FFA500;"
                 "  color: white;"
                 "  font-size: 24px;"
                 "  font-weight: bold;"
@@ -472,12 +473,13 @@ void GameScreen::updateAnswerButtons()
                 "  border-radius: 10px;"
                 "  min-height: 20px;"
                 "  text-align: left;"
-                "  background: transparent;"
+                "  border: 3px solid #FFD700;"
                 "}"
                 "QPushButton:hover {"
-                "  background-color: #45A049;"
+                "  background-color: #FF8C00;"
                 "}";
         } else {
+            // Default blue style for unselected
             style = 
                 "QPushButton {"
                 "  background-color: #1E88E5;"
@@ -488,7 +490,7 @@ void GameScreen::updateAnswerButtons()
                 "  border-radius: 10px;"
                 "  min-height: 20px;"
                 "  text-align: left;"
-                "  background: transparent;"
+                "  border: none;"
                 "}"
                 "QPushButton:hover {"
                 "  background-color: #1976D2;"

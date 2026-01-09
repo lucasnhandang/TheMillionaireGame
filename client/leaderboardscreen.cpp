@@ -209,47 +209,38 @@ void LeaderboardScreen::loadLeaderboard()
     
     entries_.clear();
     
-    // Always add fake accounts first (for both demo and real mode)
-    QList<LeaderboardEntry> fakeEntries;
-    fakeEntries.append({QString("player1"), 1000000, 450, 0});
-    fakeEntries.append({QString("gamer_pro"), 1000000, 425, 0});
-    fakeEntries.append({QString("quiz_master"), 500000, 395, 0});
-    fakeEntries.append({QString("player2"), 500000, 380, 0});
-    fakeEntries.append({QString("smart_player"), 250000, 375, 0});
-    fakeEntries.append({QString("lucky_one"), 125000, 350, 0});
-    fakeEntries.append({QString("brain_train"), 64000, 340, 0});
-    fakeEntries.append({QString("player3"), 32000, 320, 0});
-    fakeEntries.append({QString("knowledge_seeker"), 32000, 335, 0});
-    fakeEntries.append({QString("trivia_king"), 32000, 300, 0});
-    fakeEntries.append({QString("millionaire_wannabe"), 1000, 280, 0});
-    fakeEntries.append({QString("fast_thinker"), 1000, 250, 0});
-    fakeEntries.append({QString("quick_answer"), 1000, 220, 0});
-    fakeEntries.append({QString("slow_and_steady"), 1000, 200, 0});
-    fakeEntries.append({QString("tester"), 1000, 165, 0});
-    fakeEntries.append({QString("beginner_pro"), 500, 180, 0});
-    fakeEntries.append({QString("newbie_player"), 300, 150, 0});
-    fakeEntries.append({QString("just_started"), 200, 120, 0});
-    fakeEntries.append({QString("first_timer"), 100, 90, 0});
-    fakeEntries.append({QString("trial_user"), 0, 50, 0});
-    fakeEntries.append({QString("explorer"), 0, 30, 0});
-    fakeEntries.append({QString("admin1"), 0, 0, 0});
-    fakeEntries.append({QString("banned_user"), 0, 0, 0});
-    
     if (demoMode_) {
-        // In demo mode, use only fake accounts
-        entries_ = fakeEntries;
+        // In demo mode, dùng fake data
+        entries_.append({QString("player1"), 1000000, 450, 0});
+        entries_.append({QString("gamer_pro"), 1000000, 425, 0});
+        entries_.append({QString("quiz_master"), 500000, 395, 0});
+        entries_.append({QString("player2"), 500000, 380, 0});
+        entries_.append({QString("smart_player"), 250000, 375, 0});
+        entries_.append({QString("lucky_one"), 125000, 350, 0});
+        entries_.append({QString("brain_train"), 64000, 340, 0});
+        entries_.append({QString("player3"), 32000, 320, 0});
+        entries_.append({QString("knowledge_seeker"), 32000, 335, 0});
+        entries_.append({QString("trivia_king"), 32000, 300, 0});
+        entries_.append({QString("millionaire_wannabe"), 1000, 280, 0});
+        entries_.append({QString("fast_thinker"), 1000, 250, 0});
+        entries_.append({QString("quick_answer"), 1000, 220, 0});
+        entries_.append({QString("slow_and_steady"), 1000, 200, 0});
+        entries_.append({QString("tester"), 1000, 165, 0});
+        entries_.append({QString("beginner_pro"), 500, 180, 0});
+        entries_.append({QString("newbie_player"), 300, 150, 0});
+        entries_.append({QString("just_started"), 200, 120, 0});
+        entries_.append({QString("first_timer"), 100, 90, 0});
+        entries_.append({QString("trial_user"), 0, 50, 0});
+        entries_.append({QString("explorer"), 0, 30, 0});
+        entries_.append({QString("admin1"), 0, 0, 0});
+        entries_.append({QString("banned_user"), 0, 0, 0});
     } else {
-        // In real mode, get data from server and merge with fake accounts
+        // Chỉ lấy từ server, không merge fake entries
         ProtocolHandler::LeaderboardResponse response = protocol_->getLeaderboard(
-            currentMode_.toStdString(), 1, 200);  // Get top 200 to ensure we don't miss entries
-        
+            currentMode_.toStdString(), 1, 200);
         if (response.responseCode == 200) {
-            // Convert server entries to local format
-            QMap<QString, LeaderboardEntry> serverEntries;  // Use map to avoid duplicates
-            
-            // Sort server entries first
             std::vector<ProtocolHandler::LeaderboardEntry> sorted = response.rankings;
-            std::sort(sorted.begin(), sorted.end(), 
+            std::sort(sorted.begin(), sorted.end(),
                 [](const ProtocolHandler::LeaderboardEntry& a, const ProtocolHandler::LeaderboardEntry& b) {
                     if (a.finalPrize != b.finalPrize) {
                         return a.finalPrize > b.finalPrize;
@@ -259,49 +250,18 @@ void LeaderboardScreen::loadLeaderboard()
                     }
                     return a.username < b.username;
                 });
-            
-            // Add server entries first (these ALWAYS take precedence over fake entries)
             for (size_t i = 0; i < sorted.size(); i++) {
                 LeaderboardEntry entry;
                 entry.username = QString::fromStdString(sorted[i].username);
                 entry.totalWinning = sorted[i].finalPrize;
                 entry.totalPoints = sorted[i].totalScore;
-                entry.rank = 0;  // Will be recalculated later
-                serverEntries[entry.username] = entry;
-                
-                // Debug: Log server entries
-                std::cerr << "[DEBUG] Server entry: " << entry.username.toStdString() 
-                          << " - Winnings: " << entry.totalWinning 
-                          << ", Points: " << entry.totalPoints << std::endl;
+                entry.rank = 0;
+                entries_.append(entry);
             }
-            
-            // Add ALL server entries first (these have absolute priority)
-            for (auto it = serverEntries.begin(); it != serverEntries.end(); ++it) {
-                entries_.append(it.value());
-            }
-            
-            // Then add fake entries only if they don't exist in server data
-            for (const LeaderboardEntry& fakeEntry : fakeEntries) {
-                if (!serverEntries.contains(fakeEntry.username)) {
-                    // Only add fake entry if server doesn't have it
-                    entries_.append(fakeEntry);
-                    std::cerr << "[DEBUG] Adding fake entry: " << fakeEntry.username.toStdString() 
-                              << " (not in server data)" << std::endl;
-                } else {
-                    // Server has this entry, skip fake entry
-                    std::cerr << "[DEBUG] Skipping fake entry for " << fakeEntry.username.toStdString() 
-                              << " (using server data instead)" << std::endl;
-                }
-            }
-            
-            std::cerr << "[DEBUG] Total entries after merge: " << entries_.size() 
-                      << " (Server: " << serverEntries.size() 
-                      << ", Fake added: " << (entries_.size() - serverEntries.size()) << ")" << std::endl;
         } else {
-            // If server fails, use fake accounts as fallback
-            std::cerr << "[WARNING] Failed to load leaderboard from server, using fake data. Error code: " 
+            // Nếu server lỗi, để trống
+            std::cerr << "[WARNING] Failed to load leaderboard from server. Error code: "
                       << response.responseCode << std::endl;
-            entries_ = fakeEntries;
         }
     }
     

@@ -176,7 +176,24 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} pthread)
 endif()
 
-# Include directories
+# CRITICAL: Fix Qt5/Qt6 header conflict on macOS
+# Qt6 is installed in /usr/local/include via Homebrew, which causes conflicts with Qt5
+# We need to ensure Qt5 headers are found BEFORE /usr/local/include
+if(APPLE)
+    # Get the actual Qt5 include path
+    get_target_property(QT5_CORE_INCLUDE_DIRS Qt5::Core INTERFACE_INCLUDE_DIRECTORIES)
+    
+    # Add Qt5 include paths as SYSTEM includes with higher priority
+    # Use -isystem to override default include search order
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -isystem ${QT5_CORE_INCLUDE_DIRS}
+        -isystem /opt/miniconda3/include/qt
+        -isystem /opt/miniconda3/include/qt/QtCore
+        -isystem /opt/miniconda3/include/qt/QtWidgets
+        -isystem /opt/miniconda3/include/qt/QtGui
+    )
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
