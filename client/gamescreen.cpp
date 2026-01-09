@@ -233,12 +233,30 @@ void GameScreen::updateQuestion(const QString& question, const QStringList& opti
     // Highlight prize ladder for current question
     highlightPrizeLadder(questionNumber);
     
-    // Reset answer buttons
+    // Reset answer buttons - clear all previous states and styling
     answersRevealed_ = 0;
     for (int i = 0; i < 4; i++) {
         if (answerButtons_[i] && i < options.size()) {
             answerButtons_[i]->setText(QString("%1. %2").arg(QChar('A' + i)).arg(options[i]));
-            answerButtons_[i]->setEnabled(false);
+            answerButtons_[i]->setEnabled(true);  // Enable first, so styling applies correctly
+            // Reset to default enabled style (blue)
+            answerButtons_[i]->setStyleSheet(
+                "QPushButton {"
+                "  background-color: #1E88E5;"
+                "  color: white;"
+                "  font-size: 24px;"
+                "  font-weight: bold;"
+                "  padding: 15px 30px;"
+                "  border-radius: 10px;"
+                "  min-height: 20px;"
+                "  text-align: left;"
+                "  border: none;"
+                "}"
+                "QPushButton:hover {"
+                "  background-color: #1976D2;"
+                "}"
+            );
+            answerButtons_[i]->setEnabled(false);  // Then disable for reveal animation
             answerButtons_[i]->hide();
         }
     }
@@ -347,15 +365,18 @@ void GameScreen::updateLifeline5050(const QList<int>& remainingIndices)
     for (int i = 0; i < 4; i++) {
         if (answerButtons_[i] && !remainingIndices.contains(i)) {
             answerButtons_[i]->setEnabled(false);
+            // Use same dimensions as normal buttons to prevent layout shift
             answerButtons_[i]->setStyleSheet(
                 "QPushButton {"
                 "  background-color: #333333;"
                 "  color: #888888;"
-                "  font-size: 16px;"
-                "  padding: 15px 20px;"
-                "  border-radius: 8px;"
+                "  font-size: 24px;"
+                "  font-weight: bold;"
+                "  padding: 15px 30px;"
+                "  border-radius: 10px;"
+                "  min-height: 20px;"
                 "  text-align: left;"
-                "  min-height: 60px;"
+                "  border: none;"
                 "}"
             );
         }
@@ -460,6 +481,21 @@ void GameScreen::updateAnswerButtons()
     for (int i = 0; i < 4; i++) {
         if (!answerButtons_[i]) continue;
         
+        // Check if this button was disabled by 50/50 lifeline
+        // We need to check if it has the 50/50 disabled styling (#333333 background)
+        QString currentStyle = answerButtons_[i]->styleSheet();
+        bool is5050Disabled = currentStyle.contains("#333333") && !answerButtons_[i]->isEnabled();
+        
+        // If button is disabled by 50/50 lifeline, preserve that styling
+        if (is5050Disabled) {
+            continue;  // Don't override 50/50 disabled state styling
+        }
+        
+        // If button is disabled but not by 50/50 (e.g., during reveal), don't update style
+        if (!answerButtons_[i]->isEnabled() && !is5050Disabled) {
+            continue;
+        }
+        
         QString style;
         if (selectedAnswer_ == i) {
             // Yellow/Orange for pending/selected state
@@ -494,10 +530,6 @@ void GameScreen::updateAnswerButtons()
                 "}"
                 "QPushButton:hover {"
                 "  background-color: #1976D2;"
-                "}"
-                "QPushButton:disabled {"
-                "  background-color: #555555;"
-                "  color: #888888;"
                 "}";
         }
         answerButtons_[i]->setStyleSheet(style);
@@ -547,6 +579,8 @@ void GameScreen::onRevealTimeout()
         if (answerButtons_[answersRevealed_]) {
             answerButtons_[answersRevealed_]->show();
             answerButtons_[answersRevealed_]->setEnabled(true);
+            // Ensure proper styling after enabling
+            updateAnswerButtons();
         }
         answersRevealed_++;
         
