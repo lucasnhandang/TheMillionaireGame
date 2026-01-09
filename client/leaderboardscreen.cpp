@@ -107,6 +107,7 @@ void LeaderboardScreen::setupUI()
     topLayout->addWidget(refreshButton_);
     
     backButton_ = new QPushButton("Back to Home", this);
+    backButton_->setEnabled(true);  // Ensure button is enabled
     backButton_->setStyleSheet(
         "QPushButton {"
         "  background-color: #757575;"
@@ -119,6 +120,9 @@ void LeaderboardScreen::setupUI()
         "}"
         "QPushButton:hover {"
         "  background-color: #616161;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: #424242;"
         "}"
     );
     connect(backButton_, &QPushButton::clicked, this, &LeaderboardScreen::onBackToHomeClicked);
@@ -205,10 +209,48 @@ void LeaderboardScreen::loadLeaderboard()
     entries_.clear();
     
     if (demoMode_) {
-        // Demo data
+        // Demo data - 20+ fake accounts
         entries_.append({QString("player1"), 1000000, 450, 1});
         entries_.append({QString("player2"), 500000, 380, 2});
         entries_.append({QString("player3"), 32000, 320, 3});
+        entries_.append({QString("tester"), 1000, 165, 4});
+        entries_.append({QString("admin1"), 0, 0, 5});
+        entries_.append({QString("banned_user"), 0, 0, 6});
+        entries_.append({QString("gamer_pro"), 1000000, 425, 7});
+        entries_.append({QString("quiz_master"), 500000, 395, 8});
+        entries_.append({QString("smart_player"), 250000, 375, 9});
+        entries_.append({QString("lucky_one"), 125000, 350, 10});
+        entries_.append({QString("brain_train"), 64000, 340, 11});
+        entries_.append({QString("knowledge_seeker"), 32000, 335, 12});
+        entries_.append({QString("trivia_king"), 32000, 300, 13});
+        entries_.append({QString("millionaire_wannabe"), 1000, 280, 14});
+        entries_.append({QString("fast_thinker"), 1000, 250, 15});
+        entries_.append({QString("quick_answer"), 1000, 220, 16});
+        entries_.append({QString("slow_and_steady"), 1000, 200, 17});
+        entries_.append({QString("beginner_pro"), 500, 180, 18});
+        entries_.append({QString("newbie_player"), 300, 150, 19});
+        entries_.append({QString("just_started"), 200, 120, 20});
+        entries_.append({QString("first_timer"), 100, 90, 21});
+        entries_.append({QString("trial_user"), 0, 50, 22});
+        entries_.append({QString("explorer"), 0, 30, 23});
+        
+        // Recalculate ranks after adding all entries
+        // Sort by: totalWinning (desc), totalPoints (desc), username (asc)
+        std::sort(entries_.begin(), entries_.end(),
+            [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
+                if (a.totalWinning != b.totalWinning) {
+                    return a.totalWinning > b.totalWinning;
+                }
+                if (a.totalPoints != b.totalPoints) {
+                    return a.totalPoints > b.totalPoints;
+                }
+                return a.username < b.username;
+            });
+        
+        // Update ranks
+        for (int i = 0; i < entries_.size(); i++) {
+            entries_[i].rank = i + 1;
+        }
     } else {
         // Get leaderboard from server
         ProtocolHandler::LeaderboardResponse response = protocol_->getLeaderboard(
@@ -304,5 +346,7 @@ void LeaderboardScreen::onRefreshClicked()
 
 void LeaderboardScreen::onBackToHomeClicked()
 {
+    // Debug: Ensure signal is emitted
+    std::cerr << "[DEBUG] LeaderboardScreen::onBackToHomeClicked() called, emitting backToHome signal" << std::endl;
     emit backToHome();
 }

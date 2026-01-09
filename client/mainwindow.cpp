@@ -123,6 +123,9 @@ void MainWindow::setupConnections()
     // Admin panel screen
     connect(adminPanelScreen_, &AdminPanelScreen::backToHome, this, &MainWindow::onBackToHome);
     connect(friendsScreen_, &FriendsScreen::backToHome, this, &MainWindow::onBackToHome);
+    
+    // Leaderboard screen
+    connect(leaderboardScreen_, &LeaderboardScreen::backToHome, this, &MainWindow::onBackToHome);
 }
 
 void MainWindow::setProtocolHandler(ProtocolHandler* protocol)
