@@ -299,13 +299,17 @@ string handleDelQues(const string& request, ClientSession& session, int client_f
         return StreamUtils::createErrorResponse(400, "Missing questionId");
     }
 
-    // TODO: Replace with database call
-    // bool exists = Database::getInstance().questionExists(question_id);
-    // if (!exists) {
-    //     return StreamUtils::createErrorResponse(404, "Question not found");
-    // }
-    // 
-    // Database::getInstance().deleteQuestion(question_id);
+    // Check if question exists
+    bool exists = Database::getInstance().questionExists(question_id);
+    if (!exists) {
+        return StreamUtils::createErrorResponse(404, "Question not found");
+    }
+    
+    // Delete the question from database
+    bool deleted = Database::getInstance().deleteQuestion(question_id);
+    if (!deleted) {
+        return StreamUtils::createErrorResponse(500, "Failed to delete question");
+    }
 
     string data = "{\"message\":\"Question deleted successfully\",\"questionId\":" + to_string(question_id) + "}";
     return StreamUtils::createSuccessResponse(200, data);

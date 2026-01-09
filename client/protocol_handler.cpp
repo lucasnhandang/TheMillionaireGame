@@ -919,6 +919,51 @@ ProtocolHandler::AddQuestionResponse ProtocolHandler::addQuestion(const AddQuest
     }
     options_json += "]";
     
+    // Generate default lifeline values if empty
+    std::string lifeline_5050 = req.lifeline_5050_info;
+    std::string lifeline_ask = req.lifeline_ask_info;
+    std::string lifeline_call = req.lifeline_call_info;
+    
+    if (lifeline_5050.empty()) {
+        // Default: Keep correct answer and first wrong answer
+        // Generate two wrong indices
+        int wrong1 = (req.correctAnswer + 1) % 4;
+        int wrong2 = (req.correctAnswer + 2) % 4;
+        // Keep correct answer and one wrong answer
+        lifeline_5050 = "[" + std::to_string(req.correctAnswer) + "," + std::to_string(wrong1) + "]";
+    }
+    
+    if (lifeline_ask.empty()) {
+        // Default: Give high percentage to correct answer, distribute rest among wrong answers
+        int correct_pct = 70;
+        int remaining_pct = 100 - correct_pct;  // 30% for 3 wrong answers
+        int wrong_pct = remaining_pct / 3;      // ~10% each, will adjust last one to sum to 100
+        int wrong_count = 0;
+        lifeline_ask = "{";
+        for (int i = 0; i < 4; i++) {
+            char label = 'A' + i;
+            if (i > 0) lifeline_ask += ",";
+            if (i == req.correctAnswer) {
+                lifeline_ask += "\"" + std::string(1, label) + "\":" + std::to_string(correct_pct);
+            } else {
+                // Last wrong answer gets any remaining percentage to ensure total = 100
+                if (wrong_count == 2) {
+                    int last_wrong_pct = remaining_pct - (wrong_pct * 2);
+                    lifeline_ask += "\"" + std::string(1, label) + "\":" + std::to_string(last_wrong_pct);
+                } else {
+                    lifeline_ask += "\"" + std::string(1, label) + "\":" + std::to_string(wrong_pct);
+                }
+                wrong_count++;
+            }
+        }
+        lifeline_ask += "}";
+    }
+    
+    if (lifeline_call.empty()) {
+        char correct_label = 'A' + req.correctAnswer;
+        lifeline_call = "I'm about " + std::to_string(80 + (req.level * 5)) + "% sure it's " + correct_label;
+    }
+    
     // Build complete data JSON with options array and lifeline info
     std::string data = "{";
     data += "\"authToken\":\"" + authToken + "\",";
@@ -926,9 +971,9 @@ ProtocolHandler::AddQuestionResponse ProtocolHandler::addQuestion(const AddQuest
     data += "\"options\":" + options_json + ",";
     data += "\"correctAnswer\":" + std::to_string(req.correctAnswer) + ",";
     data += "\"level\":" + std::to_string(req.level) + ",";
-    data += "\"lifeline_5050_info\":" + req.lifeline_5050_info + ",";
-    data += "\"lifeline_ask_info\":" + req.lifeline_ask_info + ",";
-    data += "\"lifeline_call_info\":\"" + req.lifeline_call_info + "\"";
+    data += "\"lifeline_5050_info\":" + lifeline_5050 + ",";
+    data += "\"lifeline_ask_info\":" + lifeline_ask + ",";
+    data += "\"lifeline_call_info\":\"" + lifeline_call + "\"";
     data += "}";
     
     if (!client_->sendRequest("ADD_QUES", data)) {

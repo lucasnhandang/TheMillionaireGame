@@ -503,7 +503,7 @@
      }</string>
    </property>
    <property name="text">
-    <string>WALK AWAY</string>
+    <string>GIVE UP</string>
    </property>
   </widget>
   <widget class="QLabel" name="timerLabel">

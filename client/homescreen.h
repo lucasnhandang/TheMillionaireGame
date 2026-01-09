@@ -24,8 +24,6 @@ public:
 signals:
     void playGameClicked();
     void leaderboardClicked();
-    void settingsClicked();
-    void instructionsClicked();
     void friendsClicked();
     void adminPanelClicked();
     void logoutClicked();
@@ -42,8 +40,6 @@ private:
     QPushButton* playGameButton_;
     QPushButton* resumeGameButton_;
     QPushButton* leaderboardButton_;
-    QPushButton* settingsButton_;
-    QPushButton* instructionsButton_;
     QPushButton* friendsButton_;
     QPushButton* adminPanelButton_;  // Admin panel button
     QPushButton* logoutButton_;       // Logout button

@@ -767,22 +767,94 @@ void AdminPanelScreen::onPromoteUser(const QString& username)
         return;
     
     if (!protocol_) {
-        QMessageBox::warning(this, "Error", "Not connected to server");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Not connected to server");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         return;
     }
     
     int code = protocol_->promoteUser(username.toStdString());
     if (code == 200) {
-        QMessageBox::information(this, "Success", QString("%1 promoted to admin successfully").arg(username));
+        QMessageBox successBox(this);
+        successBox.setWindowTitle("Success");
+        successBox.setText(QString("%1 promoted to admin successfully").arg(username));
+        successBox.setIcon(QMessageBox::Information);
+        successBox.setStandardButtons(QMessageBox::Ok);
+        successBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #45A049; }"
+            "QMessageBox QPushButton:pressed { background-color: #388E3C; }"
+        );
+        successBox.exec();
         loadUsers(currentUsersPage_);  // Reload current page
     } else if (code == 403) {
-        QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Access forbidden - you are not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 404) {
-        QMessageBox::warning(this, "Error", "User not found");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("User not found");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 409) {
-        QMessageBox::warning(this, "Error", "User is already an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("User is already an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else {
-        QMessageBox::warning(this, "Error", QString("Failed to promote user (code %1)").arg(code));
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText(QString("Failed to promote user (code %1)").arg(code));
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     }
 }
 
@@ -846,18 +918,90 @@ void AdminPanelScreen::onRevokeAdmin(const QString& username)
     
     int code = protocol_->revokeAdmin(username.toStdString());
     if (code == 200) {
-        QMessageBox::information(this, "Success", QString("Admin rights revoked from %1").arg(username));
+        QMessageBox successBox(this);
+        successBox.setWindowTitle("Success");
+        successBox.setText(QString("Admin rights revoked from %1").arg(username));
+        successBox.setIcon(QMessageBox::Information);
+        successBox.setStandardButtons(QMessageBox::Ok);
+        successBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #45A049; }"
+            "QMessageBox QPushButton:pressed { background-color: #388E3C; }"
+        );
+        successBox.exec();
         loadUsers(currentUsersPage_);  // Reload current page
     } else if (code == 403) {
-        QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Access forbidden - you are not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 404) {
-        QMessageBox::warning(this, "Error", "User not found");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("User not found");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 409) {
-        QMessageBox::warning(this, "Error", "User is not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("User is not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 422) {
-        QMessageBox::warning(this, "Error", "Cannot revoke your own admin rights");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Cannot revoke your own admin rights");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else {
-        QMessageBox::warning(this, "Error", QString("Failed to revoke admin (code %1)").arg(code));
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText(QString("Failed to revoke admin (code %1)").arg(code));
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     }
 }
 
@@ -958,16 +1102,76 @@ void AdminPanelScreen::onBanUser(const QString& username)
     
     int code = protocol_->banUser(username.toStdString(), reason.toStdString());
     if (code == 200) {
-        QMessageBox::information(this, "Success", QString("User %1 banned successfully").arg(username));
+        QMessageBox successBox(this);
+        successBox.setWindowTitle("Success");
+        successBox.setText(QString("User %1 banned successfully").arg(username));
+        successBox.setIcon(QMessageBox::Information);
+        successBox.setStandardButtons(QMessageBox::Ok);
+        successBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #45A049; }"
+            "QMessageBox QPushButton:pressed { background-color: #388E3C; }"
+        );
+        successBox.exec();
         loadUsers(currentUsersPage_);  // Reload current page
     } else if (code == 403) {
-        QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Access forbidden - you are not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 404) {
-        QMessageBox::warning(this, "Error", "User not found");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("User not found");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 422) {
-        QMessageBox::warning(this, "Error", "Cannot ban yourself");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Cannot ban yourself");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else {
-        QMessageBox::warning(this, "Error", QString("Failed to ban user (code %1)").arg(code));
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText(QString("Failed to ban user (code %1)").arg(code));
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     }
 }
 
@@ -988,7 +1192,19 @@ void AdminPanelScreen::onQuestionsNextPage()
 void AdminPanelScreen::onAddQuestion()
 {
     if (!protocol_) {
-        QMessageBox::warning(this, "Error", "Not connected to server");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Not connected to server");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         return;
     }
     
@@ -1013,15 +1229,107 @@ void AdminPanelScreen::onAddQuestion()
         ProtocolHandler::AddQuestionResponse response = protocol_->addQuestion(req);
         
         if (response.responseCode == 200) {
-            QMessageBox::information(this, "Success", 
-                                    QString("Question added successfully (ID: %1)").arg(response.questionId));
+            QMessageBox successBox(this);
+            successBox.setWindowTitle("Success");
+            successBox.setText("Question added successfully");
+            successBox.setInformativeText(QString("Question ID: %1").arg(response.questionId));
+            successBox.setIcon(QMessageBox::Information);
+            successBox.setStandardButtons(QMessageBox::Ok);
+            successBox.setStyleSheet(
+                "QMessageBox {"
+                "  background-color: #1a1a1a;"
+                "  color: white;"
+                "  border: none;"
+                "}"
+                "QMessageBox QLabel {"
+                "  color: white;"
+                "  font-size: 14px;"
+                "}"
+                "QMessageBox QPushButton {"
+                "  background-color: #4CAF50;"
+                "  color: white;"
+                "  border: none;"
+                "  padding: 10px 20px;"
+                "  border-radius: 5px;"
+                "  min-width: 100px;"
+                "  font-size: 14px;"
+                "  font-weight: bold;"
+                "}"
+                "QMessageBox QPushButton:hover {"
+                "  background-color: #45A049;"
+                "}"
+                "QMessageBox QPushButton:pressed {"
+                "  background-color: #388E3C;"
+                "}"
+            );
+            QAbstractButton* okBtn = successBox.button(QMessageBox::Ok);
+            if (okBtn) {
+                okBtn->setStyleSheet(
+                    "QPushButton {"
+                    "  background-color: #4CAF50;"
+                    "  color: white;"
+                    "  border: none;"
+                    "  padding: 10px 20px;"
+                    "  border-radius: 5px;"
+                    "  min-width: 100px;"
+                    "  font-size: 14px;"
+                    "  font-weight: bold;"
+                    "}"
+                    "QPushButton:hover {"
+                    "  background-color: #45A049;"
+                    "}"
+                    "QPushButton:pressed {"
+                    "  background-color: #388E3C;"
+                    "}"
+                );
+            }
+            successBox.exec();
             loadQuestions(currentQuestionsPage_);  // Reload current page
         } else if (response.responseCode == 403) {
-            QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Access forbidden");
+            errorBox.setInformativeText("You are not an admin");
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         } else if (response.responseCode == 422) {
-            QMessageBox::warning(this, "Error", response.message.c_str());
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Invalid data");
+            errorBox.setInformativeText(QString::fromStdString(response.message));
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         } else {
-            QMessageBox::warning(this, "Error", QString("Failed to add question (code %1)").arg(response.responseCode));
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Failed to add question");
+            errorBox.setInformativeText(QString("Error code: %1").arg(response.responseCode));
+            errorBox.setIcon(QMessageBox::Critical);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         }
     }
 }
@@ -1029,7 +1337,19 @@ void AdminPanelScreen::onAddQuestion()
 void AdminPanelScreen::onEditQuestion(int questionId)
 {
     if (!protocol_) {
-        QMessageBox::warning(this, "Error", "Not connected to server");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Not connected to server");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         return;
     }
     
@@ -1037,15 +1357,50 @@ void AdminPanelScreen::onEditQuestion(int questionId)
     ProtocolHandler::QuestionDetail detail = protocol_->getQuestionDetail(questionId);
     
     if (detail.responseCode == 404) {
-        QMessageBox::warning(this, "Error", "Question not found (it may have been deleted)");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Question not found (it may have been deleted)");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         loadQuestions(currentQuestionsPage_);
         return;
     } else if (detail.responseCode == 403) {
-        QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Access forbidden - you are not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         return;
     } else if (detail.responseCode != 200) {
-        QMessageBox::warning(this, "Error",
-                             QString("Failed to load question details (code %1)").arg(detail.responseCode));
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText(QString("Failed to load question details (code %1)").arg(detail.responseCode));
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
         return;
     }
     
@@ -1079,49 +1434,78 @@ void AdminPanelScreen::onEditQuestion(int questionId)
         
         int code = protocol_->changeQuestion(questionId, newQuestion, optionsVec, correctAnswer);
         if (code == 200) {
-            // Themed success message box with white text and highlighted OK button
-            QMessageBox infoBox(this);
-            infoBox.setIcon(QMessageBox::Information);
-            infoBox.setWindowTitle("Success");
-            infoBox.setText("Question updated successfully");
-            infoBox.setStandardButtons(QMessageBox::Ok);
-            infoBox.setDefaultButton(QMessageBox::Ok);
-            infoBox.setStyleSheet(
-                "QMessageBox {"
-                "  background-color: #0D1B2A;"
-                "}"
-                "QLabel {"
-                "  color: white;"
-                "  font-size: 14px;"
-                "}"
+            QMessageBox successBox(this);
+            successBox.setWindowTitle("Success");
+            successBox.setText("Question updated successfully");
+            successBox.setIcon(QMessageBox::Information);
+            successBox.setStandardButtons(QMessageBox::Ok);
+            successBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #45A049; }"
+                "QMessageBox QPushButton:pressed { background-color: #388E3C; }"
             );
-            QAbstractButton* okBtn = infoBox.button(QMessageBox::Ok);
-            if (okBtn) {
-                okBtn->setStyleSheet(
-                    "QPushButton {"
-                    "  background-color: #1E88E5;"
-                    "  color: white;"
-                    "  padding: 6px 20px;"
-                    "  border-radius: 5px;"
-                    "  border: none;"
-                    "}"
-                    "QPushButton:hover {"
-                    "  background-color: #1976D2;"
-                    "}"
-                );
-            }
-            infoBox.exec();
+            successBox.exec();
             loadQuestions(currentQuestionsPage_);
         } else if (code == 404) {
-            QMessageBox::warning(this, "Error", "Question not found");
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Question not found");
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
             loadQuestions(currentQuestionsPage_);
         } else if (code == 422) {
-            QMessageBox::warning(this, "Error", "Invalid question data (check correct answer or options)");
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Invalid question data");
+            errorBox.setInformativeText("Check correct answer or options");
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         } else if (code == 403) {
-            QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText("Access forbidden - you are not an admin");
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         } else {
-            QMessageBox::warning(this, "Error",
-                                 QString("Failed to update question (code %1)").arg(code));
+            QMessageBox errorBox(this);
+            errorBox.setWindowTitle("Error");
+            errorBox.setText(QString("Failed to update question (code %1)").arg(code));
+            errorBox.setIcon(QMessageBox::Warning);
+            errorBox.setStandardButtons(QMessageBox::Ok);
+            errorBox.setStyleSheet(
+                "QMessageBox { background-color: #1a1a1a; color: white; }"
+                "QMessageBox QLabel { color: white; font-size: 14px; }"
+                "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+                "QMessageBox QPushButton:hover { background-color: #e53935; }"
+                "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+            );
+            errorBox.exec();
         }
     }
 }
@@ -1187,14 +1571,62 @@ void AdminPanelScreen::onDeleteQuestion(int questionId)
     
     int code = protocol_->deleteQuestion(questionId);
     if (code == 200) {
-        QMessageBox::information(this, "Success", QString("Question %1 deleted successfully").arg(questionId));
+        QMessageBox successBox(this);
+        successBox.setWindowTitle("Success");
+        successBox.setText(QString("Question %1 deleted successfully").arg(questionId));
+        successBox.setIcon(QMessageBox::Information);
+        successBox.setStandardButtons(QMessageBox::Ok);
+        successBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #45A049; }"
+            "QMessageBox QPushButton:pressed { background-color: #388E3C; }"
+        );
+        successBox.exec();
         loadQuestions(currentQuestionsPage_);  // Reload current page
     } else if (code == 403) {
-        QMessageBox::warning(this, "Error", "Access forbidden - you are not an admin");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Access forbidden - you are not an admin");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else if (code == 404) {
-        QMessageBox::warning(this, "Error", "Question not found");
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText("Question not found");
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     } else {
-        QMessageBox::warning(this, "Error", QString("Failed to delete question (code %1)").arg(code));
+        QMessageBox errorBox(this);
+        errorBox.setWindowTitle("Error");
+        errorBox.setText(QString("Failed to delete question (code %1)").arg(code));
+        errorBox.setIcon(QMessageBox::Warning);
+        errorBox.setStandardButtons(QMessageBox::Ok);
+        errorBox.setStyleSheet(
+            "QMessageBox { background-color: #1a1a1a; color: white; }"
+            "QMessageBox QLabel { color: white; font-size: 14px; }"
+            "QMessageBox QPushButton { background-color: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
+            "QMessageBox QPushButton:hover { background-color: #e53935; }"
+            "QMessageBox QPushButton:pressed { background-color: #b71c1c; }"
+        );
+        errorBox.exec();
     }
 }
 
