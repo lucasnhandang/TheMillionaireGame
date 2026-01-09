@@ -235,13 +235,10 @@ void HomeScreen::setupUI()
 
 void HomeScreen::loadLogo()
 {
-    // Try multiple paths including Qt resource system
     QStringList candidates = {
-        ":/assets/millionaire_logo.png",        // Qt resource (if .qrc is used)
-        "assets/millionaire_logo.png",          // Relative to working dir
-        "client/assets/millionaire_logo.png",   // Client subdir
-        "../client/assets/millionaire_logo.png", // Parent/client/assets
-        "millionaire_logo.png"                   // Just filename
+        "client/assets/millionaire_logo.png",
+        "assets/millionaire_logo.png",
+        "millionaire_logo.png"
     };
     
     std::vector<QString> paths;
@@ -253,9 +250,7 @@ void HomeScreen::loadLogo()
     if (!logoPixmap_.isNull()) {
         logoPixmap_ = logoPixmap_.scaled(500, 500, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         logoLabel_->setPixmap(logoPixmap_);
-        std::cerr << "[INFO] Logo loaded successfully" << std::endl;
     } else {
-        std::cerr << "[WARNING] Failed to load logo image, using text fallback" << std::endl;
         logoLabel_->setText("MILLIONAIRE");
         logoLabel_->setStyleSheet("font-size: 64px; font-weight: bold; color: white;");
     }
