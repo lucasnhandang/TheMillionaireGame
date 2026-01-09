@@ -355,7 +355,7 @@ void GameScreen::updateLifeline5050(const QList<int>& remainingIndices)
                 "  padding: 15px 20px;"
                 "  border-radius: 8px;"
                 "  text-align: left;"
-                "  min-height: 60px;"
+                "  min-height: 20px;"
                 "}"
             );
         }
