@@ -2,6 +2,7 @@
 #include "ui_gamescreen.h"  // Generated from gamescreen.ui
 #include "protocol_handler.h"
 #include "game_event.h"
+#include "qt_texture_loader.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -15,6 +16,7 @@
 #include <QList>
 #include <QChar>
 #include <QMessageBox>
+#include <QIcon>
 #include <cmath>
 
 GameScreen::GameScreen(QWidget *parent)
@@ -128,6 +130,9 @@ void GameScreen::setupUI()
     lifeline5050Button_ = ui->lifeline5050Button;
     lifelinePhoneButton_ = ui->lifelinePhoneButton;
     lifelineAudienceButton_ = findChild<QPushButton*>("lifelinAskButton");  // Map UI name to code
+    
+    // Load lifeline icons programmatically to ensure they're found
+    loadLifelineIcons();
     
     // Result labels
     lifelineResultLabel_ = ui->lifelineResultLabel;
@@ -600,6 +605,70 @@ void GameScreen::onLifelineAudienceClicked()
     } else if (protocol_) {
         showLifelineLoading("Surveying audience...");
         protocol_->useLifeline("AUDIENCE");
+    }
+}
+
+void GameScreen::loadLifelineIcons()
+{
+    // Load lifeline icons with multiple path attempts
+    if (lifeline5050Button_) {
+        QStringList candidates = {
+            ":/assets/lifeline_5050.png",      // Qt resource
+            "assets/lifeline_5050.png",
+            "client/assets/lifeline_5050.png"
+        };
+        std::vector<QString> paths;
+        for (const QString& path : candidates) {
+            paths.push_back(path);
+        }
+        QPixmap icon = LoadPixmapFromAny(paths);
+        if (!icon.isNull()) {
+            lifeline5050Button_->setIcon(QIcon(icon));
+            lifeline5050Button_->setIconSize(QSize(100, 100));
+            std::cerr << "[INFO] Loaded 50/50 lifeline icon" << std::endl;
+        } else {
+            std::cerr << "[WARNING] Failed to load 50/50 lifeline icon" << std::endl;
+        }
+    }
+    
+    if (lifelinePhoneButton_) {
+        QStringList candidates = {
+            ":/assets/lifeline_phone.png",
+            "assets/lifeline_phone.png",
+            "client/assets/lifeline_phone.png"
+        };
+        std::vector<QString> paths;
+        for (const QString& path : candidates) {
+            paths.push_back(path);
+        }
+        QPixmap icon = LoadPixmapFromAny(paths);
+        if (!icon.isNull()) {
+            lifelinePhoneButton_->setIcon(QIcon(icon));
+            lifelinePhoneButton_->setIconSize(QSize(100, 100));
+            std::cerr << "[INFO] Loaded Phone lifeline icon" << std::endl;
+        } else {
+            std::cerr << "[WARNING] Failed to load Phone lifeline icon" << std::endl;
+        }
+    }
+    
+    if (lifelineAudienceButton_) {
+        QStringList candidates = {
+            ":/assets/lifeline_audience.png",
+            "assets/lifeline_audience.png",
+            "client/assets/lifeline_audience.png"
+        };
+        std::vector<QString> paths;
+        for (const QString& path : candidates) {
+            paths.push_back(path);
+        }
+        QPixmap icon = LoadPixmapFromAny(paths);
+        if (!icon.isNull()) {
+            lifelineAudienceButton_->setIcon(QIcon(icon));
+            lifelineAudienceButton_->setIconSize(QSize(100, 100));
+            std::cerr << "[INFO] Loaded Audience lifeline icon" << std::endl;
+        } else {
+            std::cerr << "[WARNING] Failed to load Audience lifeline icon" << std::endl;
+        }
     }
 }
 

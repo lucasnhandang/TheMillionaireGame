@@ -156,6 +156,11 @@ set(QT_UI_FILES
     gamescreen.ui
 )
 
+# Resource files
+set(QT_RESOURCE_FILES
+    resources.qrc
+)
+
 # Executable
 add_executable(${PROJECT_NAME}
     ${CLIENT_SRC}
@@ -163,6 +168,7 @@ add_executable(${PROJECT_NAME}
     ${QT_WIDGETS_SRC}
     ${QT_WIDGETS_HEADERS}
     ${QT_UI_FILES}
+    ${QT_RESOURCE_FILES}
 )
 
 target_link_libraries(${PROJECT_NAME}

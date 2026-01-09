@@ -67,6 +67,7 @@ private:
     void setupConnections();  // Connect signals and slots
     void setupInitialVisibility();  // Set initial visibility for widgets
     void setupPrizeLadder();
+    void loadLifelineIcons();  // Load lifeline button icons
     void updateAnswerButtons();
     void updateLifelineButtons();
     void startTimer();
