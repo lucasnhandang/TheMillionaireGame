@@ -1043,10 +1043,14 @@ border: 1px solid rgba(255, 255, 255, 0.1);</string>
      font-weight: bold;
      padding: 10px;
      background-color: rgba(255, 215, 0, 0.1);
-     border-radius: 5px;</string>
+     border-radius: 5px;
+	background: transparent;</string>
    </property>
    <property name="text">
     <string/>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
    </property>
    <property name="wordWrap">
     <bool>true</bool>
