@@ -694,26 +694,28 @@ vector<LeaderboardEntry> Database::getLeaderboard(const string& type, int page, 
         
         query = "SELECT DISTINCT u.id, u.username, "
                 "COALESCE(MAX(gs.current_question_number), 0) as final_question_number, "
-                "COALESCE(l.total_score, 0), 0 as highest_prize "
+                "COALESCE(MAX(l.total_score), 0) as total_score, "
+                "COALESCE(MAX(gs.final_prize), 0) as final_prize "
                 "FROM users u "
                 "LEFT JOIN leaderboard l ON u.id = l.user_id "
-                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost') "
+                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost', 'quit') AND gs.final_prize IS NOT NULL "
                 "WHERE u.id IN ("
                 "  SELECT CASE WHEN user1_id = " + to_string(user_id) + " THEN user2_id ELSE user1_id END "
                 "  FROM friendships WHERE user1_id = " + to_string(user_id) + " OR user2_id = " + to_string(user_id) +
                 ") OR u.id = " + to_string(user_id) +
-                " GROUP BY u.id, u.username, l.total_score "
-                "ORDER BY final_question_number DESC, COALESCE(l.total_score, 0) DESC "
+                " GROUP BY u.id, u.username "
+                "ORDER BY COALESCE(MAX(gs.final_prize), 0) DESC, COALESCE(MAX(l.total_score), 0) DESC, u.username ASC "
                 "LIMIT " + to_string(limit) + " OFFSET " + to_string((page - 1) * limit);
     } else {
         query = "SELECT u.id, u.username, "
                 "COALESCE(MAX(gs.current_question_number), 0) as final_question_number, "
-                "COALESCE(l.total_score, 0), 0 as highest_prize "
+                "COALESCE(MAX(l.total_score), 0) as total_score, "
+                "COALESCE(MAX(gs.final_prize), 0) as final_prize "
                 "FROM users u "
                 "LEFT JOIN leaderboard l ON u.id = l.user_id "
-                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost') "
-                "GROUP BY u.id, u.username, l.total_score "
-                "ORDER BY final_question_number DESC, COALESCE(l.total_score, 0) DESC "
+                "LEFT JOIN game_sessions gs ON u.id = gs.user_id AND gs.status IN ('won', 'lost', 'quit') AND gs.final_prize IS NOT NULL "
+                "GROUP BY u.id, u.username "
+                "ORDER BY COALESCE(MAX(gs.final_prize), 0) DESC, COALESCE(MAX(l.total_score), 0) DESC, u.username ASC "
                 "LIMIT " + to_string(limit) + " OFFSET " + to_string((page - 1) * limit);
     }
     
@@ -734,6 +736,19 @@ vector<LeaderboardEntry> Database::getLeaderboard(const string& type, int page, 
         entry.total_score = atoll(PQgetvalue(res, i, 3));
         entry.is_winner = (entry.final_question_number == 15);
         entry.rank = rank++;
+        
+        // Get final_prize from query result (column index 4)
+        if (PQnfields(res) > 4) {
+            const char* prize_str = PQgetvalue(res, i, 4);
+            if (prize_str && strlen(prize_str) > 0) {
+                entry.final_prize = atoll(prize_str);
+            } else {
+                entry.final_prize = 0;
+            }
+        } else {
+            entry.final_prize = 0;
+        }
+        
         entries.push_back(entry);
     }
     

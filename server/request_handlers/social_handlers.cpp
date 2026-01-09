@@ -57,7 +57,8 @@ string handleLeaderboard(const string& request, ClientSession& session) {
            << ",\"finalQuestionNumber\":" << entries[i].final_question_number
            << ",\"totalScore\":" << entries[i].total_score
            << ",\"rank\":" << entries[i].rank
-           << ",\"isWinner\":" << (entries[i].is_winner ? "true" : "false") << "}";
+           << ",\"isWinner\":" << (entries[i].is_winner ? "true" : "false")
+           << ",\"finalPrize\":" << entries[i].final_prize << "}";
     }
     ss << "],\"total\":" << entries.size()
        << ",\"page\":" << page

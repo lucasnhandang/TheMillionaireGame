@@ -77,11 +77,12 @@ struct LeaderboardEntry {
     std::string username;
     int final_question_number;  // 1-15
     long long total_score;  // BIGINT
+    long long final_prize;  // Final prize from best game (BIGINT)
     bool is_winner;  // true if final_question_number == 15
     int rank;
     
     LeaderboardEntry() : user_id(0), final_question_number(0), 
-                         total_score(0), is_winner(false), rank(0) {}
+                         total_score(0), final_prize(0), is_winner(false), rank(0) {}
 };
 
 struct FriendRequest {

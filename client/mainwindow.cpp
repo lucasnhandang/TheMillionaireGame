@@ -481,6 +481,10 @@ void MainWindow::onBackToHome()
     gameState_->inGame = false;
     // Reset lifelines when returning to home (prepare for next game)
     gameScreen_->resetLifelines();
+    // Refresh leaderboard when returning to home to show updated data after playing
+    if (leaderboardScreen_) {
+        leaderboardScreen_->refreshData();
+    }
 }
 
 void MainWindow::onAdminPanelClicked()

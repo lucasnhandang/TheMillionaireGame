@@ -241,7 +241,7 @@ void LeaderboardScreen::loadLeaderboard()
     } else {
         // In real mode, get data from server and merge with fake accounts
         ProtocolHandler::LeaderboardResponse response = protocol_->getLeaderboard(
-            currentMode_.toStdString(), 1, 100);  // Get top 100
+            currentMode_.toStdString(), 1, 200);  // Get top 200 to ensure we don't miss entries
         
         if (response.responseCode == 200) {
             // Convert server entries to local format
@@ -260,7 +260,7 @@ void LeaderboardScreen::loadLeaderboard()
                     return a.username < b.username;
                 });
             
-            // Add server entries (these take precedence over fake entries if username matches)
+            // Add server entries first (these ALWAYS take precedence over fake entries)
             for (size_t i = 0; i < sorted.size(); i++) {
                 LeaderboardEntry entry;
                 entry.username = QString::fromStdString(sorted[i].username);
@@ -268,32 +268,35 @@ void LeaderboardScreen::loadLeaderboard()
                 entry.totalPoints = sorted[i].totalScore;
                 entry.rank = 0;  // Will be recalculated later
                 serverEntries[entry.username] = entry;
+                
+                // Debug: Log server entries
+                std::cerr << "[DEBUG] Server entry: " << entry.username.toStdString() 
+                          << " - Winnings: " << entry.totalWinning 
+                          << ", Points: " << entry.totalPoints << std::endl;
             }
             
-            // Merge: Add fake entries that don't exist in server data, or update if server has better data
-            for (const LeaderboardEntry& fakeEntry : fakeEntries) {
-                if (serverEntries.contains(fakeEntry.username)) {
-                    // Use server data if available (it's more accurate)
-                    entries_.append(serverEntries[fakeEntry.username]);
-                } else {
-                    // Add fake entry if not in server data
-                    entries_.append(fakeEntry);
-                }
-            }
-            
-            // Add any server entries that aren't in fake list
+            // Add ALL server entries first (these have absolute priority)
             for (auto it = serverEntries.begin(); it != serverEntries.end(); ++it) {
-                bool found = false;
-                for (const LeaderboardEntry& fake : fakeEntries) {
-                    if (fake.username == it.key()) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    entries_.append(it.value());
+                entries_.append(it.value());
+            }
+            
+            // Then add fake entries only if they don't exist in server data
+            for (const LeaderboardEntry& fakeEntry : fakeEntries) {
+                if (!serverEntries.contains(fakeEntry.username)) {
+                    // Only add fake entry if server doesn't have it
+                    entries_.append(fakeEntry);
+                    std::cerr << "[DEBUG] Adding fake entry: " << fakeEntry.username.toStdString() 
+                              << " (not in server data)" << std::endl;
+                } else {
+                    // Server has this entry, skip fake entry
+                    std::cerr << "[DEBUG] Skipping fake entry for " << fakeEntry.username.toStdString() 
+                              << " (using server data instead)" << std::endl;
                 }
             }
+            
+            std::cerr << "[DEBUG] Total entries after merge: " << entries_.size() 
+                      << " (Server: " << serverEntries.size() 
+                      << ", Fake added: " << (entries_.size() - serverEntries.size()) << ")" << std::endl;
         } else {
             // If server fails, use fake accounts as fallback
             std::cerr << "[WARNING] Failed to load leaderboard from server, using fake data. Error code: " 
