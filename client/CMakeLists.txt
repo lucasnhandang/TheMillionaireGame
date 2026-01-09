@@ -180,18 +180,28 @@ endif()
 # Qt6 is installed in /usr/local/include via Homebrew, which causes conflicts with Qt5
 # We need to ensure Qt5 headers are found BEFORE /usr/local/include
 if(APPLE)
-    # Get the actual Qt5 include path
+    # Get the actual Qt5 include paths from the found Qt5 installation
     get_target_property(QT5_CORE_INCLUDE_DIRS Qt5::Core INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(QT5_WIDGETS_INCLUDE_DIRS Qt5::Widgets INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(QT5_GUI_INCLUDE_DIRS Qt5::Gui INTERFACE_INCLUDE_DIRECTORIES)
     
     # Add Qt5 include paths as SYSTEM includes with higher priority
     # Use -isystem to override default include search order
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        -isystem ${QT5_CORE_INCLUDE_DIRS}
-        -isystem /opt/miniconda3/include/qt
-        -isystem /opt/miniconda3/include/qt/QtCore
-        -isystem /opt/miniconda3/include/qt/QtWidgets
-        -isystem /opt/miniconda3/include/qt/QtGui
-    )
+    if(QT5_CORE_INCLUDE_DIRS)
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -isystem ${QT5_CORE_INCLUDE_DIRS}
+        )
+    endif()
+    if(QT5_WIDGETS_INCLUDE_DIRS)
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -isystem ${QT5_WIDGETS_INCLUDE_DIRS}
+        )
+    endif()
+    if(QT5_GUI_INCLUDE_DIRS)
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -isystem ${QT5_GUI_INCLUDE_DIRS}
+        )
+    endif()
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE

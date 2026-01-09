@@ -125,42 +125,6 @@ void HomeScreen::setupUI()
     connect(leaderboardButton_, &QPushButton::clicked, this, &HomeScreen::leaderboardClicked);
     rightLayout->addWidget(leaderboardButton_);
     
-    settingsButton_ = new QPushButton("Settings", this);
-    settingsButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #9E9E9E;"
-        "  color: white;"
-        "  font-size: 18px;"
-        "  padding: 15px 80px;"
-        "  border-radius: 10px;"
-        "  border: none;"
-        "  min-width: 280px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #757575;"
-        "}"
-    );
-    connect(settingsButton_, &QPushButton::clicked, this, &HomeScreen::settingsClicked);
-    rightLayout->addWidget(settingsButton_);
-    
-    instructionsButton_ = new QPushButton("Instructions", this);
-    instructionsButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #9E9E9E;"
-        "  color: white;"
-        "  font-size: 18px;"
-        "  padding: 15px 80px;"
-        "  border-radius: 10px;"
-        "  border: none;"
-        "  min-width: 280px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #757575;"
-        "}"
-    );
-    connect(instructionsButton_, &QPushButton::clicked, this, &HomeScreen::instructionsClicked);
-    rightLayout->addWidget(instructionsButton_);
-    
     friendsButton_ = new QPushButton("Friends", this);
     friendsButton_->setStyleSheet(
         "QPushButton {"

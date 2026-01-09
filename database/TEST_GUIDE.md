@@ -18,6 +18,7 @@
    createdb -U postgres millionaire_game
    psql -U postgres -d millionaire_game < database/schema.sql
    psql -U postgres -d millionaire_game < database/mock_data.sql
+   psql -U postgres -d millionaire_game < database/fix_prize_values.sql
    ```
 
 3. **Build Server**:
@@ -659,7 +660,7 @@ psql -U postgres -d millionaire_game -c "SELECT id, status, current_question_num
 **Setup:**
 ```bash
 # Create admin user in database
-psql -U postgres -d millionaire_game -c "UPDATE users SET role = 'admin' WHERE username = 'testuser1';"
+psql -U postgres -d millionaire_game -c "UPDATE users SET role = 'admin' WHERE username = 'admin';"
 ```
 
 ### Test 11.2: Add Question (Admin)

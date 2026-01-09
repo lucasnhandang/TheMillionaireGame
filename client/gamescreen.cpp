@@ -634,13 +634,62 @@ void GameScreen::onSaveGameClicked()
     msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Cancel);
     msgBox.setDefaultButton(QMessageBox::Save);
     msgBox.setStyleSheet(
-        "QMessageBox { background-color: #1a1a1a; color: white; }"
-        "QMessageBox QLabel { color: white; font-size: 14px; }"
-        "QMessageBox QPushButton { background-color: #4a6fa5; color: white; border: none; padding: 10px 20px; border-radius: 5px; min-width: 100px; font-size: 14px; font-weight: bold; }"
-        "QMessageBox QPushButton:hover { background-color: #5a7fb5; }"
-        "QMessageBox QPushButton:pressed { background-color: #3a5f95; }"
-        "QMessageBox QPushButton:default { background-color: #4a6fa5; }"
+        "QMessageBox {"
+        "  background-color: #1a1a1a;"
+        "  color: white;"
+        "  border: none;"
+        "}"
+        "QMessageBox QLabel {"
+        "  color: white;"
+        "  font-size: 14px;"
+        "}"
     );
+    
+    // Style Save button (green)
+    QAbstractButton* saveBtn = msgBox.button(QMessageBox::Save);
+    if (saveBtn) {
+        saveBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #4CAF50;"
+            "  color: white;"
+            "  border: none;"
+            "  padding: 10px 20px;"
+            "  border-radius: 5px;"
+            "  min-width: 100px;"
+            "  font-size: 14px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #45A049;"
+            "}"
+            "QPushButton:pressed {"
+            "  background-color: #388E3C;"
+            "}"
+        );
+    }
+    
+    // Style Cancel button (gray)
+    QAbstractButton* cancelBtn = msgBox.button(QMessageBox::Cancel);
+    if (cancelBtn) {
+        cancelBtn->setStyleSheet(
+            "QPushButton {"
+            "  background-color: #555555;"
+            "  color: white;"
+            "  border: none;"
+            "  padding: 10px 20px;"
+            "  border-radius: 5px;"
+            "  min-width: 100px;"
+            "  font-size: 14px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #666666;"
+            "}"
+            "QPushButton:pressed {"
+            "  background-color: #444444;"
+            "}"
+        );
+    }
     
     int ret = msgBox.exec();
     
