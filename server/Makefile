@@ -5,10 +5,12 @@ CXX = g++
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)  # MacOS
+    # Detect Homebrew prefix (Apple Silicon uses /opt/homebrew, Intel uses /usr/local)
+    HOMEBREW_PREFIX := $(shell if [ -d /opt/homebrew/opt/postgresql@14 ]; then echo /opt/homebrew; else echo /usr/local; fi)
     # PostgreSQL headers are in versioned directory (e.g., postgresql@14)
-    POSTGRES_INCLUDE = -I/usr/local/opt/postgresql@14/include -I/usr/local/opt/postgresql@14/include/postgresql@14
+    POSTGRES_INCLUDE = -I$(HOMEBREW_PREFIX)/opt/postgresql@14/include -I$(HOMEBREW_PREFIX)/opt/postgresql@14/include/postgresql@14
     # PostgreSQL libraries are also in versioned directory
-    POSTGRES_LIB = -L/usr/local/opt/postgresql@14/lib/postgresql@14 -L/usr/local/lib
+    POSTGRES_LIB = -L$(HOMEBREW_PREFIX)/opt/postgresql@14/lib/postgresql@14 -L$(HOMEBREW_PREFIX)/lib
 else  # Linux
     POSTGRES_INCLUDE = -I/usr/include/postgresql
     POSTGRES_LIB =
