@@ -997,7 +997,10 @@ ProtocolHandler::AddQuestionResponse ProtocolHandler::addQuestion(const AddQuest
 }
 
 int ProtocolHandler::changeQuestion(int questionId, const std::string& question, 
-                                   const std::vector<std::string>& options, int correctAnswer) {
+                                   const std::vector<std::string>& options, int correctAnswer,
+                                   const std::string& lifeline5050,
+                                   const std::string& lifelineAsk,
+                                   const std::string& lifelineCall) {
     std::map<std::string, std::string> strings;
     strings["authToken"] = authToken;
     strings["question"] = question;
@@ -1014,13 +1017,25 @@ int ProtocolHandler::changeQuestion(int questionId, const std::string& question,
     }
     options_json += "]";
     
-    // Build complete data JSON with options array
+    // Build complete data JSON with options array and lifeline info
     std::string data = "{";
     data += "\"authToken\":\"" + authToken + "\",";
     data += "\"questionId\":" + std::to_string(questionId) + ",";
     data += "\"question\":\"" + question + "\",";
     data += "\"options\":" + options_json + ",";
     data += "\"correctAnswer\":" + std::to_string(correctAnswer);
+    
+    // Add lifeline info if provided
+    if (!lifeline5050.empty()) {
+        data += ",\"lifeline_5050_info\":" + lifeline5050;
+    }
+    if (!lifelineAsk.empty()) {
+        data += ",\"lifeline_ask_info\":" + lifelineAsk;
+    }
+    if (!lifelineCall.empty()) {
+        data += ",\"lifeline_call_info\":\"" + lifelineCall + "\"";
+    }
+    
     data += "}";
     
     if (!client_->sendRequest("CHANGE_QUES", data)) {
@@ -1203,8 +1218,9 @@ ProtocolHandler::QuestionDetail ProtocolHandler::getQuestionDetail(int questionI
     detail.correctAnswer = MillionaireGame::JsonUtils::extractInt(msg.data, "correctAnswer", 0);
     detail.level = MillionaireGame::JsonUtils::extractInt(msg.data, "level", 0);
     
-    detail.lifeline_5050_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_5050_info");
-    detail.lifeline_ask_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_ask_info");
+    // Extract lifeline info - 5050 and ask are JSON (arrays/objects), call is a string
+    detail.lifeline_5050_info = MillionaireGame::JsonUtils::extractJsonValue(msg.data, "lifeline_5050_info");
+    detail.lifeline_ask_info = MillionaireGame::JsonUtils::extractJsonValue(msg.data, "lifeline_ask_info");
     detail.lifeline_call_info = MillionaireGame::JsonUtils::extractString(msg.data, "lifeline_call_info");
     
     return detail;

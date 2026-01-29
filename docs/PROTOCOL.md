@@ -17,8 +17,6 @@ This document defines the communication protocol between Client, Server, and Adm
 ```
 
 ### Response Format (Server to Client)
-
-**Success Response:**
 ```json
 {
   "responseCode": 200,
@@ -28,52 +26,11 @@ This document defines the communication protocol between Client, Server, and Adm
 }
 ```
 
-**Error Response:**
+Or for errors:
 ```json
 {
   "responseCode": 401,
   "message": "Error message"
-}
-```
-
-### Notification Format (Server Push to Client)
-
-Server can send unsolicited notifications to clients. Notifications use `type` field instead of `responseCode`:
-
-```json
-{
-  "type": "NOTIFICATION_TYPE",
-  "data": {
-    // Notification data
-  }
-}
-```
-
-**Common Notification Types:**
-- `CONNECTION` - Initial connection established
-- `GAME_START` - Game session started
-- `QUESTION_INFO` - Question details
-- `LIFELINE_INFO` - Lifeline results
-- `GAME_END` - Game ended
-- `FRIEND_REQUEST_RECEIVED` - Friend request notification
-- `CHAT_MESSAGE` - Chat message received
-- `USER_BANNED` - User banned notification (sent to banned user)
-
-**See [NOTIFICATION_TYPES.md](NOTIFICATION_TYPES.md) for complete notification documentation.**
-
-### Message Differentiation
-
-Client can distinguish between responses and notifications:
-
-```javascript
-const msg = JSON.parse(rawMessage);
-
-if ('responseCode' in msg) {
-  // This is a response to a client request
-  handleResponse(msg);
-} else if ('type' in msg) {
-  // This is a server notification
-  handleNotification(msg);
 }
 ```
 
@@ -1058,7 +1015,7 @@ Send the next question and possible answers to the player.
 **Notification:**
 ```json
 {
-  "type": "QUESTION_INFO",
+  "responseCode": 200,
   "data": {
     "questionId": 1,
     "questionNumber": 1,
@@ -1097,7 +1054,7 @@ Send result or data after a lifeline is used.
 **For 5050 (50/50):**
 ```json
 {
-  "type": "LIFELINE_INFO",
+  "responseCode": 200,
   "data": {
     "lifelineType": "5050",
     "questionNumber": 1,
@@ -1113,7 +1070,7 @@ Send result or data after a lifeline is used.
 **For PHONE:**
 ```json
 {
-  "type": "LIFELINE_INFO",
+  "responseCode": 200,
   "data": {
     "lifelineType": "PHONE",
     "questionNumber": 1,
@@ -1129,7 +1086,7 @@ Send result or data after a lifeline is used.
 **For AUDIENCE:**
 ```json
 {
-  "type": "LIFELINE_INFO",
+  "responseCode": 200,
   "data": {
     "lifelineType": "AUDIENCE",
     "questionNumber": 1,
@@ -1162,8 +1119,9 @@ Notify client that the game session has started.
 **Notification:**
 ```json
 {
-  "type": "GAME_START",
+  "responseCode": 200,
   "data": {
+    "message": "Game started",
     "gameId": 12345,
     "timestamp": 1705320000
   }
@@ -1178,7 +1136,7 @@ Notify that the game has ended (win, lose, or quit).
 **Notification:**
 ```json
 {
-  "type": "GAME_END",
+  "responseCode": 200,
   "data": {
     "gameId": 12345,
     "status": "lost",
@@ -1188,7 +1146,7 @@ Notify that the game has ended (win, lose, or quit).
     "safeCheckpointScore": 150,
     "finalPrize": 10000000,
     "totalScore": 150,
-    "isWinner": false
+    "message": "Wrong answer! You receive safe checkpoint prize."
   }
 }
 ```
@@ -1216,7 +1174,7 @@ Send player's current friend list.
 **Notification:**
 ```json
 {
-  "type": "FRIEND_LIST",
+  "responseCode": 200,
   "data": {
     "friends": [
       {"username": "friend1", "status": "online"},
@@ -1480,6 +1438,141 @@ Permanently block a user account.
 - 403: Access forbidden - not an admin account (FORBIDDEN)
 - 404: User not found (NOT_FOUND)
 - 422: Cannot ban yourself (UNPROCESSABLE_DATA)
+
+---
+
+### VIEW_USERS
+View list of all users with pagination (admin only).
+
+**Request:**
+```json
+{
+  "requestType": "VIEW_USERS",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+
+**Optional Fields:**
+- `page`: Page number (default: 1)
+- `limit`: Number of users per page (default: 10, max: 100)
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "users": [
+      {
+        "username": "player1",
+        "role": "user",
+        "isBanned": false,
+        "totalGames": 15,
+        "highestPrize": 5000000
+      },
+      {
+        "username": "admin1",
+        "role": "admin",
+        "isBanned": false,
+        "totalGames": 0,
+        "highestPrize": 0
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+**Error Responses:**
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 422: Invalid page or limit (UNPROCESSABLE_DATA)
+
+---
+
+### PROMOTE_USER
+Promote a regular user to admin role.
+
+**Request:**
+```json
+{
+  "requestType": "PROMOTE_USER",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "username": "player1"
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+- `username`: Username of user to promote
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "message": "User promoted to admin successfully",
+    "username": "player1"
+  }
+}
+```
+
+**Error Responses:**
+- 400: Missing username (INVALID_DATA)
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 404: User not found (NOT_FOUND)
+- 409: User is already an admin (CONFLICT)
+- 422: Cannot promote yourself (UNPROCESSABLE_DATA)
+
+---
+
+### REVOKE_ADMIN
+Revoke admin rights from an admin user (demote to regular user).
+
+**Request:**
+```json
+{
+  "requestType": "REVOKE_ADMIN",
+  "data": {
+    "authToken": "a1b2c3d4e5f6...",
+    "username": "admin2"
+  }
+}
+```
+
+**Required Fields:**
+- `authToken`: Authentication token (must be from admin account with role "admin")
+- `username`: Username of admin user to demote
+
+**Success Response (200):**
+```json
+{
+  "responseCode": 200,
+  "data": {
+    "message": "Admin rights revoked successfully",
+    "username": "admin2"
+  }
+}
+```
+
+**Error Responses:**
+- 400: Missing username (INVALID_DATA)
+- 402: Missing or invalid authToken (AUTH_ERROR)
+- 403: Access forbidden - not an admin account (FORBIDDEN)
+- 404: User not found (NOT_FOUND)
+- 409: User is not an admin (CONFLICT)
+- 422: Cannot revoke your own admin rights (UNPROCESSABLE_DATA)
 
 ---
 

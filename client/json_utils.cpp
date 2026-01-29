@@ -108,6 +108,70 @@ bool extractBool(const string& json, const string& key, bool default_value) {
     return default_value;
 }
 
+string extractJsonValue(const string& json, const string& key) {
+    string search_key = "\"" + key + "\"";
+    size_t pos = json.find(search_key);
+    if (pos == string::npos) return "";
+    
+    pos = json.find(':', pos);
+    if (pos == string::npos) return "";
+    pos++;
+    
+    // Skip whitespace
+    while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t')) {
+        pos++;
+    }
+    if (pos >= json.length()) return "";
+    
+    size_t start = pos;
+    
+    // Determine the type and extract accordingly
+    if (json[pos] == '"') {
+        // String value - extract until closing quote
+        pos++;
+        size_t end = json.find('"', pos);
+        if (end == string::npos) return "";
+        return json.substr(start, end - start + 1);
+    } else if (json[pos] == '[') {
+        // Array value - extract until matching closing bracket
+        int bracket_count = 0;
+        size_t end = pos;
+        while (end < json.length()) {
+            if (json[end] == '[') bracket_count++;
+            if (json[end] == ']') {
+                bracket_count--;
+                if (bracket_count == 0) {
+                    return json.substr(start, end - start + 1);
+                }
+            }
+            end++;
+        }
+        return "";
+    } else if (json[pos] == '{') {
+        // Object value - extract until matching closing brace
+        int brace_count = 0;
+        size_t end = pos;
+        while (end < json.length()) {
+            if (json[end] == '{') brace_count++;
+            if (json[end] == '}') {
+                brace_count--;
+                if (brace_count == 0) {
+                    return json.substr(start, end - start + 1);
+                }
+            }
+            end++;
+        }
+        return "";
+    } else {
+        // Number or boolean - extract until comma, }, or ]
+        size_t end = pos;
+        while (end < json.length() && json[end] != ',' && json[end] != '}' && json[end] != ']' && json[end] != ' ') {
+            end++;
+        }
+        return json.substr(start, end - start);
+    }
+}
+
 string buildJson(const map<string, string>& stringFields,
                 const map<string, int>& intFields,
                 const map<string, bool>& boolFields) {

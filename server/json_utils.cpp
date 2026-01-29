@@ -23,8 +23,21 @@ string extractString(const string& json, const string& key) {
     if (pos >= json.length() || json[pos] != '"') return "";
     pos++;
     
-    size_t end = json.find('"', pos);
-    if (end == string::npos) return "";
+    // Find closing quote, handling escaped quotes
+    size_t end = pos;
+    bool escaped = false;
+    while (end < json.length()) {
+        if (escaped) {
+            escaped = false;
+        } else if (json[end] == '\\') {
+            escaped = true;
+        } else if (json[end] == '"') {
+            // Found unescaped closing quote
+            break;
+        }
+        end++;
+    }
+    if (end >= json.length()) return "";
     
     return json.substr(pos, end - pos);
 }

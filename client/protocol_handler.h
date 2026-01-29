@@ -166,7 +166,10 @@ public:
     AddQuestionResponse addQuestion(const AddQuestionRequest& req);
     
     int changeQuestion(int questionId, const std::string& question, 
-                      const std::vector<std::string>& options, int correctAnswer);
+                      const std::vector<std::string>& options, int correctAnswer,
+                      const std::string& lifeline5050 = "",
+                      const std::string& lifelineAsk = "",
+                      const std::string& lifelineCall = "");
     
     struct QuestionInfo {
         int questionId;

@@ -36,6 +36,12 @@ namespace JsonUtils {
     bool extractBool(const std::string& json, const std::string& key, bool default_value = false);
     
     /**
+     * Extract JSON value (array or object) from JSON
+     * Returns the raw JSON value as string (e.g., "[1,3]" or "{\"A\":10,\"B\":65}")
+     */
+    std::string extractJsonValue(const std::string& json, const std::string& key);
+    
+    /**
      * Build JSON object from key-value pairs
      */
     std::string buildJson(const std::map<std::string, std::string>& stringFields,

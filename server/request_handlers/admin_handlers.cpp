@@ -83,12 +83,23 @@ static string extractJsonValue(const string& json, const string& key) {
         // Array value - extract until matching closing bracket
         int bracket_count = 0;
         size_t end = pos;
+        bool in_string = false;
+        bool escaped = false;
         while (end < json.length()) {
-            if (json[end] == '[') bracket_count++;
-            if (json[end] == ']') {
-                bracket_count--;
-                if (bracket_count == 0) {
-                    return json.substr(start, end - start + 1);
+            char c = json[end];
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                in_string = !in_string;
+            } else if (!in_string) {
+                if (c == '[') bracket_count++;
+                if (c == ']') {
+                    bracket_count--;
+                    if (bracket_count == 0) {
+                        return json.substr(start, end - start + 1);
+                    }
                 }
             }
             end++;
@@ -98,12 +109,23 @@ static string extractJsonValue(const string& json, const string& key) {
         // Object value - extract until matching closing brace
         int brace_count = 0;
         size_t end = pos;
+        bool in_string = false;
+        bool escaped = false;
         while (end < json.length()) {
-            if (json[end] == '{') brace_count++;
-            if (json[end] == '}') {
-                brace_count--;
-                if (brace_count == 0) {
-                    return json.substr(start, end - start + 1);
+            char c = json[end];
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                in_string = !in_string;
+            } else if (!in_string) {
+                if (c == '{') brace_count++;
+                if (c == '}') {
+                    brace_count--;
+                    if (brace_count == 0) {
+                        return json.substr(start, end - start + 1);
+                    }
                 }
             }
             end++;
@@ -234,6 +256,22 @@ string handleChangeQues(const string& request, ClientSession& session, int clien
             return StreamUtils::createErrorResponse(422, "Invalid correctAnswer: must be 0-3");
         }
         q.correct_answer = correct_answer;
+    }
+
+    // Update lifeline info if provided
+    string lifeline_5050_info = extractJsonValue(request, "lifeline_5050_info");
+    if (!lifeline_5050_info.empty()) {
+        q.lifeline_5050_info = lifeline_5050_info;
+    }
+
+    string lifeline_ask_info = extractJsonValue(request, "lifeline_ask_info");
+    if (!lifeline_ask_info.empty()) {
+        q.lifeline_ask_info = lifeline_ask_info;
+    }
+
+    string lifeline_call_info = JsonUtils::extractString(request, "lifeline_call_info");
+    if (!lifeline_call_info.empty()) {
+        q.lifeline_call_info = lifeline_call_info;
     }
 
     // Update question in database

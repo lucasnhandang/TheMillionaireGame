@@ -1180,6 +1180,12 @@ int Database::addQuestion(const Question& question) {
 bool Database::updateQuestion(int question_id, const Question& question) {
     if (!isConnected()) return false;
     
+    // Build lifeline info values (JSONB for 5050 and ask, TEXT for call)
+    // Only update if the field is not empty (meaning it was provided in the update request)
+    string lifeline_5050_val = question.lifeline_5050_info.empty() ? "" : escapeString(question.lifeline_5050_info) + "::jsonb";
+    string lifeline_ask_val = question.lifeline_ask_info.empty() ? "" : escapeString(question.lifeline_ask_info) + "::jsonb";
+    string lifeline_call_val = question.lifeline_call_info.empty() ? "" : escapeString(question.lifeline_call_info);
+    
     string query = "UPDATE questions SET question_text = " + escapeString(question.question_text) +
                    ", option_a = " + escapeString(question.option_a) +
                    ", option_b = " + escapeString(question.option_b) +
@@ -1187,9 +1193,24 @@ bool Database::updateQuestion(int question_id, const Question& question) {
                    ", option_d = " + escapeString(question.option_d) +
                    ", correct_answer = " + to_string(question.correct_answer) +
                    ", level = " + to_string(question.level) +
-                   ", updated_at = CURRENT_TIMESTAMP" +
-                   (question.updated_by > 0 ? ", updated_by = " + to_string(question.updated_by) : "") +
-                   " WHERE id = " + to_string(question_id);
+                   ", updated_at = CURRENT_TIMESTAMP";
+    
+    // Add lifeline fields if they are set (not empty)
+    if (!lifeline_5050_val.empty()) {
+        query += ", lifeline_5050_info = " + lifeline_5050_val;
+    }
+    if (!lifeline_ask_val.empty()) {
+        query += ", lifeline_ask_info = " + lifeline_ask_val;
+    }
+    if (!lifeline_call_val.empty()) {
+        query += ", lifeline_call_info = " + lifeline_call_val;
+    }
+    
+    if (question.updated_by > 0) {
+        query += ", updated_by = " + to_string(question.updated_by);
+    }
+    
+    query += " WHERE id = " + to_string(question_id);
     
     PGresult* res = PQexec(conn_, query.c_str());
     

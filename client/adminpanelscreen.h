@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QMessageBox>
 
 class ProtocolHandler;
 
@@ -53,6 +54,7 @@ private:
     void updateQuestionsTable();
     void updateUsersPagination();
     void updateQuestionsPagination();
+    void styleMessageBox(QMessageBox& msgBox, const QString& buttonColor = "#4CAF50");
     
     QTabWidget* tabWidget_;
     
