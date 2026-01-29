@@ -89,48 +89,24 @@ sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS millionaire_game;"
 sudo -u postgres createdb millionaire_game
 ```
 
-### 1.3 Import Database Schema
+### 1.3 Import Database
 
 ```bash
 cd database
 psql -U postgres -d millionaire_game < schema.sql
-```
-
-**On Linux (using sudo):**
-```bash
-cd database
-sudo -u postgres psql millionaire_game < schema.sql
-```
-
-### 1.4 Add Sample Questions (Mock Data)
-
-```bash
-cd database
 psql -U postgres -d millionaire_game < mock_data.sql
-```
-
-**On Linux (using sudo):**
-```bash
-cd database
-sudo -u postgres psql millionaire_game < mock_data.sql
-```
-
-### 1.5 Fix Prize Values
-
-After importing mock data, run the prize values fix script to ensure correct prize ladder values:
-
-```bash
-cd database
 psql -U postgres -d millionaire_game < fix_prize_values.sql
 ```
 
 **On Linux (using sudo):**
 ```bash
 cd database
+sudo -u postgres psql millionaire_game < schema.sql
+sudo -u postgres psql millionaire_game < mock_data.sql
 sudo -u postgres psql millionaire_game < fix_prize_values.sql
 ```
 
-### 1.6 Verify Database Setup
+### 1.4 Verify Database Setup
 
 ```bash
 # Check tables exist
@@ -155,7 +131,7 @@ sudo -u postgres psql millionaire_game -c "SELECT COUNT(*) FROM questions;"
 sudo -u postgres psql millionaire_game -c "SELECT level, COUNT(*) FROM questions GROUP BY level ORDER BY level;"
 ```
 
-### 1.7 Create Admin User (Optional)
+### 1.5 Create Admin User (Optional)
 
 To test admin features, you can promote an existing user to admin role:
 
@@ -212,10 +188,6 @@ cat > config.json << EOF
 EOF
 ```
 
-**Note:** 
-- If using `game_user`, set `"db_user": "game_user"` and `"db_password": "game_password"`
-- If PostgreSQL requires a password, set `db_password` accordingly
-
 ### 2.3 Build Server
 
 ```bash
@@ -232,7 +204,7 @@ chmod +x bin/server
 
 ### 2.4 Start Server
 
-**Option 1: Run in foreground (for testing)**
+**Run in foreground (for testing)**
 ```bash
 cd server
 ./bin/server
